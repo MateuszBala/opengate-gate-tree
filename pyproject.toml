@@ -1,6 +1,6 @@
 [project]
 name = "opengate-gate-tree"
-version = "0.2.0"
+version = "0.2.1"
 description = "Processing GATE output file trees - extraction, validation, postprocessing"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -35,6 +35,7 @@ docs = [
 
 [project.urls]
 Homepage = "https://github.com/MateuszBala/opengate-gate-tree"
+Documentation = "https://opengate-gate-tree.readthedocs.io"
 Repository = "https://github.com/MateuszBala/opengate-gate-tree"
 
 [project.scripts]
