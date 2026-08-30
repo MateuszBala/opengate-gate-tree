@@ -117,6 +117,64 @@ def test_main_returns_error_when_input_extension_is_not_root(tmp_path: Path) -> 
     assert exit_code == 1
 
 
+def test_main_accepts_a_branch_selection(tmp_path: Path) -> None:
+    """Requested branches should be accepted; the file decides whether they exist."""
+    # ARRANGE
+    input_file = tmp_path / "input.root"
+    input_file.write_text("", encoding="utf-8")
+
+    # ACT
+    exit_code = cli.main(
+        [
+            "--input-gate-root-file",
+            str(input_file),
+            "--output-dir",
+            str(tmp_path / "output"),
+            "--output-file-title",
+            "run_01",
+            "--gate-tree",
+            "Hits",
+            "--output-file-format",
+            "csv",
+            "--branches-to-extract",
+            "eventID",
+            "edep",
+        ]
+    )
+
+    # ASSERT
+    assert exit_code == 0
+
+
+def test_main_returns_error_for_an_empty_branch_name(tmp_path: Path) -> None:
+    """A branch name that carries no value should stop the run."""
+    # ARRANGE
+    input_file = tmp_path / "input.root"
+    input_file.write_text("", encoding="utf-8")
+
+    # ACT
+    exit_code = cli.main(
+        [
+            "--input-gate-root-file",
+            str(input_file),
+            "--output-dir",
+            str(tmp_path / "output"),
+            "--output-file-title",
+            "run_01",
+            "--gate-tree",
+            "Hits",
+            "--output-file-format",
+            "csv",
+            "--branches-to-extract",
+            "eventID",
+            "   ",
+        ]
+    )
+
+    # ASSERT
+    assert exit_code == 1
+
+
 def test_main_returns_error_when_run_raises_package_error(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

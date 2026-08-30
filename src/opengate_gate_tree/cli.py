@@ -22,7 +22,7 @@ from .errors import GateTreeError
 from .io.fileformat import OutputFileFormat, parse_output_file_format
 from .logger import log
 from .logging_setup import configure_logging
-from .tree.branch import validate_branch_name
+from .tree.branch import validate_branch_selection
 from .tree.gatetree import GateTree, parse_gate_tree
 
 # Program name displayed in help output.
@@ -191,11 +191,7 @@ def _validate_config(config: RunConfig) -> None:
         raise ValueError("Output file format is required.")
     if config.output_file_format not in OutputFileFormat:
         raise ValueError(f"Invalid output file format: {config.output_file_format}")
-    correct_branches, invalid_branches = validate_branch_name(
-        config.branches_to_extract,
-        config.gate_tree,
-    )
-    if not correct_branches:
-        raise ValueError(
-            f"Invalid branch names for gate tree {config.gate_tree.value}: {invalid_branches}"
-        )
+    # Whether the requested branches exist is decided by the input file, so it
+    # is checked while the tree is read; only the shape of the request can be
+    # checked here.
+    validate_branch_selection(config.branches_to_extract)

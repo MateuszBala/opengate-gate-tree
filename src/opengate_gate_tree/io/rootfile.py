@@ -30,6 +30,7 @@ from opengate_gate_tree.io.validation import (
     validate_root_file_path,
 )
 from opengate_gate_tree.logger import log
+from opengate_gate_tree.tree.branch import normalize_branch_selection
 from opengate_gate_tree.tree.gatetree import GateTree
 from opengate_gate_tree.tree.treedata import TreeData
 
@@ -165,12 +166,14 @@ class RootFile:
             If any requested branch is not present in the tree.
         UnsupportedBranchTypeError
             If any requested branch uses an unsupported type.
+        ValueError
+            If any requested branch name is empty.
         """
         tree_key = self.resolve_tree_name(tree)
         tree_object = self._file[tree_key]
         available = tuple(str(name) for name in tree_object.keys())
 
-        selected = list(branches) if branches else list(available)
+        selected = normalize_branch_selection(branches or [], available)
         validate_branches_present(available, selected)
         validate_branch_interpretations(
             {name: tree_object[name].interpretation for name in selected}
