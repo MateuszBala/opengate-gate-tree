@@ -3,7 +3,7 @@ name = "opengate-gate-tree"
 version = "0.1.1"
 description = "Processing GATE output file trees - extraction, validation, postprocessing"
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 license = "MIT"
 license-files = ["LICENSE"]
 authors = [{ name = "Mateusz Jakub Bała" }]
@@ -16,9 +16,9 @@ dependencies = [
 keywords = ["gate", "opengate", "monte-carlo", "simulation"]
 classifiers = [
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
     "Development Status :: 3 - Alpha",
@@ -59,18 +59,18 @@ dev = [
 
 [tool.ruff]
 line-length = 100
-target-version = "py311"
+target-version = "py312"
 extend-exclude = ["*.md", "**/*.md"]
 
 [tool.ruff.lint]
 select = ["E", "W", "F", "I", "B", "C4", "UP"]
 
 [tool.mypy]
-# No `python_version` pin: mypy targets the interpreter it runs on. Pinning it
-# to 3.11 made mypy parse third-party stubs under 3.11 rules too, and the numpy
-# stubs shipped for 3.12+ use PEP 695 syntax, which fails there. Compatibility
-# with the minimum runtime is still enforced by `requires-python`,
-# `tool.ruff.target-version = py311`, and the 3.11 job of the CI matrix.
+# Pinned to the minimum supported runtime, so the same result is produced
+# whichever interpreter runs the check. The pin also applies to third-party
+# stubs, which is why it has to track `requires-python`: the numpy stubs use
+# PEP 695 syntax and are rejected under an older target.
+python_version = "3.12"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true

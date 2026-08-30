@@ -2,7 +2,6 @@
 
 [![CI](https://github.com/MateuszBala/opengate-gate-tree/actions/workflows/ci.yaml/badge.svg)](https://github.com/MateuszBala/opengate-gate-tree/actions/workflows/ci.yaml)
 [![Version](https://img.shields.io/badge/version-0.1.1-informational)](https://github.com/MateuszBala/opengate-gate-tree/releases)
-[![Standard Python](https://img.shields.io/badge/Python-3.11-blue?logo=python&logoColor=white)]()
 [![Standard Python](https://img.shields.io/badge/Python-3.12-blue?logo=python&logoColor=white)]()
 [![Standard Python](https://img.shields.io/badge/Python-3.13-blue?logo=python&logoColor=white)]()
 [![Standard Python](https://img.shields.io/badge/Python-3.14-blue?logo=python&logoColor=white)]()

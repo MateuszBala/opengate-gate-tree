@@ -2,7 +2,7 @@
 
 ## Requirements
 
-- Python 3.11 or newer
+- Python 3.12 or newer
 - a GATE output ROOT file produced by GATE 9.4.2 or newer, C++ line
 
 GATE 10, the Python implementation, is not supported.
