@@ -66,9 +66,11 @@ extend-exclude = ["*.md", "**/*.md"]
 select = ["E", "W", "F", "I", "B", "C4", "UP"]
 
 [tool.mypy]
-# The minimum runtime is still 3.11 — enforced by `requires-python`,
-# `tool.ruff.target-version = py311`, and the CI test matrix (3.11-3.14).
-python_version = "3.11"
+# No `python_version` pin: mypy targets the interpreter it runs on. Pinning it
+# to 3.11 made mypy parse third-party stubs under 3.11 rules too, and the numpy
+# stubs shipped for 3.12+ use PEP 695 syntax, which fails there. Compatibility
+# with the minimum runtime is still enforced by `requires-python`,
+# `tool.ruff.target-version = py311`, and the 3.11 job of the CI matrix.
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true
