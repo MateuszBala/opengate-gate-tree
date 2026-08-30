@@ -29,6 +29,7 @@ TreeData
     Immutable set of branch columns extracted from a single GATE tree.
 """
 
+from collections import Counter
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from types import MappingProxyType
@@ -211,7 +212,8 @@ class TreeData:
         Raises
         ------
         ValueError
-            If the columns are a ``MultiIndex`` or contain repeated labels.
+            If the columns are a ``MultiIndex``, or if two columns end up with
+            the same branch name.
         """
         if isinstance(frame.columns, pd.MultiIndex):
             raise ValueError(
@@ -219,13 +221,18 @@ class TreeData:
                 "flatten the columns before converting."
             )
 
-        repeated = [str(name) for name in frame.columns[frame.columns.duplicated()]]
+        # Branch names are strings, so uniqueness has to be judged after the
+        # labels are converted. Labels such as 1 and "1" are distinct to pandas
+        # but would name the same branch, silently dropping a column.
+        names = [str(label) for label in frame.columns]
+        repeated = sorted(name for name, count in Counter(names).items() if count > 1)
         if repeated:
             raise ValueError(
-                f"Data frame columns must be unique, but these are repeated: {repeated}."
+                f"Data frame columns must stay unique once converted to branch names, "
+                f"but these are repeated: {repeated}."
             )
 
-        columns = {str(name): frame[name].to_numpy() for name in frame.columns}
+        columns = {name: frame.iloc[:, position].to_numpy() for position, name in enumerate(names)}
         return cls(tree, columns)
 
     def __repr__(self) -> str:

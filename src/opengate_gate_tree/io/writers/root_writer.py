@@ -82,7 +82,7 @@ def _branch_specification(data: TreeData) -> tuple[dict[str, Any], dict[str, Any
     for name, column in data.columns.items():
         if is_text_column(column):
             branch_types[name] = str
-            branch_data[name] = as_text_list(column)
+            branch_data[name] = as_text_list(name, column)
         elif column.ndim == ARRAY_BRANCH_NDIM:
             branch_types[name] = (column.dtype, column.shape[1:])
             branch_data[name] = column

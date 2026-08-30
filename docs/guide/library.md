@@ -85,8 +85,8 @@ overwritten. See [Exporting files](export.md) for what each format preserves.
 
 ## Handling Failures
 
-Everything the package raises derives from `GateTreeError`, so one `except`
-clause is enough:
+Failures while reading or writing files derive from `GateTreeError`, so one
+`except` clause covers them:
 
 ```python
 from opengate_gate_tree import GateTreeError, TreeNotFoundError

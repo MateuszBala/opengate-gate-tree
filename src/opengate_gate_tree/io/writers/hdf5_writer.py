@@ -64,7 +64,7 @@ class Hdf5TreeWriter:
                     if is_text_column(column):
                         group.create_dataset(
                             name,
-                            data=as_text_list(column),
+                            data=as_text_list(name, column),
                             dtype=h5py.string_dtype(encoding="utf-8"),
                         )
                     else:
@@ -73,6 +73,6 @@ class Hdf5TreeWriter:
                 group.attrs["entries"] = data.entry_count
                 group.attrs["branches"] = list(data.branch_names)
                 group.attrs["package_version"] = __version__
-        except OSError as err:
+        except (OSError, TypeError, ValueError) as err:
             raise ExportError(f"HDF5 file could not be written: {path}") from err
         return path

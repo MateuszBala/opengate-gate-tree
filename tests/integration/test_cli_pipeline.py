@@ -1,5 +1,7 @@
 """End-to-end tests running the command line against a real GATE file."""
 
+import subprocess
+import sys
 from pathlib import Path
 
 import h5py
@@ -230,6 +232,93 @@ def test_pipeline_overwrites_an_existing_output_file(
     # ASSERT
     assert exit_code == 0
     assert output_file.stat().st_size != first_size
+
+
+def test_pipeline_reports_progress_on_the_console(
+    gate_hits_file: Path,
+    tmp_path: Path,
+) -> None:
+    """A real run must tell the user what happened.
+
+    The package attaches a NullHandler on import so library use stays silent.
+    This test runs the console script in a separate process, because caplog
+    captures records through the root logger and would pass even if the
+    package logger had no output handler at all.
+    """
+    # ARRANGE
+    output_dir = tmp_path / "output"
+    command = [
+        sys.executable,
+        "-m",
+        "opengate_gate_tree",
+        "--input-gate-root-file",
+        str(gate_hits_file),
+        "--output-dir",
+        str(output_dir),
+        "--output-file-title",
+        "patient_01",
+        "--gate-tree",
+        "Hits",
+        "--output-file-format",
+        "csv",
+    ]
+
+    # ACT
+    result = subprocess.run(command, capture_output=True, text=True, check=False)
+
+    # ASSERT
+    assert result.returncode == 0
+    assert "Extracted 2000 entries" in result.stderr
+    assert "Done. Output saved to file" in result.stderr
+
+
+def test_pipeline_reports_failures_on_the_console(
+    gate_hits_file: Path,
+    tmp_path: Path,
+) -> None:
+    """A failing run must say why, not just return a non-zero exit code."""
+    # ARRANGE
+    command = [
+        sys.executable,
+        "-m",
+        "opengate_gate_tree",
+        "--input-gate-root-file",
+        str(gate_hits_file),
+        "--output-dir",
+        str(tmp_path / "output"),
+        "--output-file-title",
+        "patient_01",
+        "--gate-tree",
+        "Singles",
+        "--output-file-format",
+        "csv",
+    ]
+
+    # ACT
+    result = subprocess.run(command, capture_output=True, text=True, check=False)
+
+    # ASSERT
+    assert result.returncode == 1
+    assert "Singles" in result.stderr
+    assert "OpticalData" in result.stderr
+
+
+@pytest.mark.parametrize("title", ["../escaped", "/tmp/absolute", "nested/name"])
+def test_pipeline_rejects_a_title_with_directory_components(
+    title: str,
+    gate_hits_file: Path,
+    tmp_path: Path,
+) -> None:
+    """A title naming another directory would write outside the output directory."""
+    # ARRANGE
+    output_dir = tmp_path / "output"
+
+    # ACT
+    exit_code = run_cli(gate_hits_file, output_dir, OutputFileFormat.CSV, title=title)
+
+    # ASSERT
+    assert exit_code == 1
+    assert not output_dir.exists()
 
 
 def test_pipeline_reports_an_unknown_branch(

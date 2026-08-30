@@ -18,8 +18,10 @@ Reading a tree and writing it in another format:
 Use :class:`RootFile` directly when several trees are read from one file, so
 that the file is opened once.
 
-Every failure is reported through a subclass of :class:`GateTreeError`, so a
-single ``except`` clause catches anything the package raises.
+Failures while reading or writing files are reported through a subclass of
+:class:`GateTreeError`, so a single ``except`` clause covers them. Malformed
+arguments, such as an empty branch name or inconsistent columns, raise
+``ValueError`` instead, and are not caught by that clause.
 
 The package does not configure logging on import. Applications decide that for
 themselves; :func:`opengate_gate_tree.logging_setup.configure_logging` is

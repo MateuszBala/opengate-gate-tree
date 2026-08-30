@@ -46,6 +46,6 @@ class CsvTreeWriter:
         prepare_output_directory(path)
         try:
             data.to_dataframe().to_csv(path, index=False)
-        except OSError as err:
+        except (OSError, TypeError, ValueError) as err:
             raise ExportError(f"CSV file could not be written: {path}") from err
         return path

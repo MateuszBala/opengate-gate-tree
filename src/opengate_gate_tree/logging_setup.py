@@ -27,6 +27,10 @@ def configure_logging(level: int = logging.INFO) -> None:
     This function is idempotent: calling it repeatedly does not add duplicate
     handlers, it only updates the logging level.
 
+    Importing the package attaches a ``NullHandler`` so that library use stays
+    silent. That placeholder does not count as a handler here, otherwise
+    configuring the logger after the import would leave it without any output.
+
     Parameters
     ----------
     level : int
@@ -34,10 +38,15 @@ def configure_logging(level: int = logging.INFO) -> None:
     """
     logger = logging.getLogger(LOGGER_NAME)
     logger.setLevel(level)
-    if not logger.handlers:
+    if not _has_output_handler(logger):
         handler = logging.StreamHandler()
         handler.setFormatter(logging.Formatter(LOG_FORMAT))
         logger.addHandler(handler)
+
+
+def _has_output_handler(logger: logging.Logger) -> bool:
+    """Report whether the logger already writes its records somewhere."""
+    return any(not isinstance(handler, logging.NullHandler) for handler in logger.handlers)
 
 
 def get_logger(name: str) -> logging.Logger:

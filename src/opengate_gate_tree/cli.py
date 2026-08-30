@@ -14,7 +14,7 @@ main(argv: list[str] | None = None) -> int
 
 import argparse
 import sys
-from pathlib import Path
+from pathlib import Path, PurePath
 from typing import Final, NoReturn
 
 from .config import RunConfig
@@ -204,6 +204,16 @@ def _validate_config(config: RunConfig) -> None:
         raise ValueError("Output file title is required.")
     if config.output_file_title.strip() == "":
         raise ValueError("Output file title cannot be empty.")
+    # The title names a file inside the output directory. A separator or a
+    # drive would make the path leave that directory, and since an existing
+    # output file is overwritten without asking, it could replace a file the
+    # caller never meant to touch.
+    title_path = PurePath(config.output_file_title)
+    if len(title_path.parts) != 1 or title_path.is_absolute():
+        raise ValueError(
+            f"Output file title must be a file name without directory components, "
+            f"got: {config.output_file_title!r}"
+        )
     if config.gate_tree is None:
         raise ValueError("Gate tree structure is required.")
     if config.output_file_format is None:

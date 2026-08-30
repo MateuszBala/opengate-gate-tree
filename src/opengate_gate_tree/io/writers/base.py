@@ -14,7 +14,7 @@ TreeWriter
     Interface implemented by every output writer.
 is_text_column(column) -> bool
     Report whether a column holds text.
-as_text_list(column) -> list[str]
+as_text_list(name, column) -> list[str]
     Return a text column as a list of strings.
 prepare_output_directory(path) -> None
     Create the directory the output file will be written to.
@@ -29,8 +29,10 @@ from opengate_gate_tree.errors import ExportError
 from opengate_gate_tree.io.fileformat import OutputFileFormat
 from opengate_gate_tree.tree.treedata import TreeData
 
-# NumPy data type kind used for text columns loaded from a ROOT file.
-TEXT_DTYPE_KIND = "O"
+# NumPy data type kinds that hold text. Columns read from a ROOT file arrive as
+# arrays of Python objects ("O"), while data built in Python is more often a
+# fixed-width unicode ("U") or byte string ("S") array.
+TEXT_DTYPE_KINDS = frozenset({"O", "U", "S"})
 
 
 class TreeWriter(Protocol):
@@ -45,12 +47,43 @@ class TreeWriter(Protocol):
 
 def is_text_column(column: npt.NDArray[Any]) -> bool:
     """Report whether a column holds text rather than numbers."""
-    return column.dtype.kind == TEXT_DTYPE_KIND
+    return column.dtype.kind in TEXT_DTYPE_KINDS
 
 
-def as_text_list(column: npt.NDArray[Any]) -> list[str]:
-    """Return a text column as a list of strings."""
-    return [str(value) for value in column]
+def as_text_list(name: str, column: npt.NDArray[Any]) -> list[str]:
+    """Return a text column as a list of strings.
+
+    Parameters
+    ----------
+    name : str
+        Branch name, used in the error message.
+    column : numpy.ndarray
+        Column to convert.
+
+    Returns
+    -------
+    list[str]
+        Column values as strings.
+
+    Raises
+    ------
+    ExportError
+        If the column holds values that are not text. An array of Python
+        objects can hold anything, and converting such values with ``str``
+        would write something other than the data the caller provided.
+    """
+    values: list[str] = []
+    for value in column:
+        if isinstance(value, bytes):
+            values.append(value.decode("utf-8"))
+        elif isinstance(value, str):
+            values.append(value)
+        else:
+            raise ExportError(
+                f"Branch '{name}' holds a value that is not text: "
+                f"{value!r} of type {type(value).__name__}."
+            )
+    return values
 
 
 def prepare_output_directory(path: Path) -> None:

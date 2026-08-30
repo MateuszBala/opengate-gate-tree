@@ -161,6 +161,79 @@ def test_write_tree_accepts_an_empty_tree_with_a_text_branch(
     assert path.is_file()
 
 
+@pytest.mark.parametrize("file_format", list(OutputFileFormat))
+def test_write_tree_accepts_a_unicode_text_column(
+    file_format: OutputFileFormat,
+    tmp_path: Path,
+) -> None:
+    """Text built in Python is a unicode array, not an array of objects."""
+    # ARRANGE
+    data = TreeData(
+        GateTree.HITS,
+        {
+            "eventID": np.arange(2, dtype=np.int32),
+            "processName": np.array(["Compton", "PhotoElectric"]),
+        },
+    )
+    path = tmp_path / f"hits.{EXTENSIONS[file_format]}"
+
+    # ACT
+    write_tree(data, path, file_format)
+
+    # ASSERT
+    assert path.is_file()
+
+
+def test_root_round_trip_preserves_a_byte_string_column(tmp_path: Path) -> None:
+    """Byte strings should be decoded rather than written as their repr."""
+    # ARRANGE
+    data = TreeData(
+        GateTree.HITS,
+        {"processName": np.array([b"Compton", b"PhotoElectric"])},
+    )
+    path = tmp_path / "hits.root"
+
+    # ACT
+    write_tree(data, path, OutputFileFormat.ROOT)
+    restored = read_tree(path, GateTree.HITS)
+
+    # ASSERT
+    assert list(restored["processName"]) == ["Compton", "PhotoElectric"]
+
+
+def test_root_round_trip_preserves_a_unicode_text_column(tmp_path: Path) -> None:
+    """A unicode column should come back with its values intact."""
+    # ARRANGE
+    names = np.array(["Compton", "PhotoElectric"])
+    data = TreeData(GateTree.HITS, {"processName": names})
+    path = tmp_path / "hits.root"
+
+    # ACT
+    write_tree(data, path, OutputFileFormat.ROOT)
+    restored = read_tree(path, GateTree.HITS)
+
+    # ASSERT
+    assert list(restored["processName"]) == list(names)
+
+
+@pytest.mark.parametrize("file_format", [OutputFileFormat.HDF5, OutputFileFormat.ROOT])
+def test_write_tree_reports_an_object_column_that_is_not_text(
+    file_format: OutputFileFormat,
+    tmp_path: Path,
+) -> None:
+    """Values that are not text must not be quietly turned into their repr."""
+    # ARRANGE
+    data = TreeData(
+        GateTree.HITS,
+        {"mixed": np.array(["Compton", {"not": "text"}], dtype=object)},
+    )
+    path = tmp_path / f"hits.{EXTENSIONS[file_format]}"
+
+    # ACT & ASSERT
+    with pytest.raises(ExportError, match="not text"):
+        write_tree(data, path, file_format)
+
+
 def test_csv_writes_one_column_per_array_component(tmp_path: Path) -> None:
     """A fixed-width array branch has no scalar cell, so it is expanded."""
     # ARRANGE

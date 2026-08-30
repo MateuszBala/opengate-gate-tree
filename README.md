@@ -145,8 +145,9 @@ with RootFile(Path("simulation.root")) as root_file:
     hits = root_file.read(GateTree.HITS, ["eventID", "edep"])
 ```
 
-Every failure is reported through a subclass of `GateTreeError`, so one
-`except` clause catches anything the package raises:
+Failures while reading or writing files are reported through a subclass of
+`GateTreeError`, so one `except` clause covers them. Malformed arguments, such as
+an empty branch name, raise `ValueError` instead:
 
 ```python
 from opengate_gate_tree import GateTreeError, TreeNotFoundError

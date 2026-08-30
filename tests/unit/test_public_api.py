@@ -130,6 +130,33 @@ def test_importing_the_package_writes_nothing() -> None:
     assert result.stderr == ""
 
 
+def test_configuring_logging_after_the_import_still_produces_output() -> None:
+    """The NullHandler must not stop an application from getting log output.
+
+    configure_logging() only installs a handler when the logger has none, so
+    the placeholder attached on import could leave the logger writing nowhere.
+    """
+    # ARRANGE
+    program = (
+        "import logging, opengate_gate_tree;"
+        "from opengate_gate_tree.logging_setup import LOGGER_NAME, configure_logging;"
+        "configure_logging();"
+        "handlers = logging.getLogger(LOGGER_NAME).handlers;"
+        "print(any(type(h) is logging.StreamHandler for h in handlers))"
+    )
+
+    # ACT
+    result = subprocess.run(
+        [sys.executable, "-c", program],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+
+    # ASSERT
+    assert result.stdout.strip() == "True"
+
+
 def test_only_the_command_line_module_exits_the_process() -> None:
     """Library code reports failures by raising, not by ending the process."""
     # ARRANGE

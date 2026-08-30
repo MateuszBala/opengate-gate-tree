@@ -410,6 +410,16 @@ def test_from_dataframe_rejects_multiindex_columns() -> None:
         TreeData.from_dataframe(GateTree.HITS, frame)
 
 
+def test_from_dataframe_rejects_labels_that_collide_once_converted() -> None:
+    """Labels distinct to pandas can still name the same branch."""
+    # ARRANGE
+    frame = pd.DataFrame({1: [1, 2], "1": [3, 4]})
+
+    # ACT & ASSERT
+    with pytest.raises(ValueError, match="repeated"):
+        TreeData.from_dataframe(GateTree.HITS, frame)
+
+
 def test_from_dataframe_rejects_repeated_column_labels() -> None:
     """Repeated labels would silently produce a two-dimensional branch."""
     # ARRANGE
