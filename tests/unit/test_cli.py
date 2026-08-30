@@ -1,8 +1,13 @@
 """Unit tests for the command-line interface."""
 
+import logging
 from pathlib import Path
 
+import pytest
+
 from opengate_gate_tree import cli
+from opengate_gate_tree.config import RunConfig
+from opengate_gate_tree.errors import RootFileError
 from opengate_gate_tree.io.fileformat import OutputFileFormat
 from opengate_gate_tree.tree.gatetree import GateTree
 
@@ -110,3 +115,41 @@ def test_main_returns_error_when_input_extension_is_not_root(tmp_path: Path) -> 
     )
 
     assert exit_code == 1
+
+
+def test_main_returns_error_when_run_raises_package_error(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """CLI should report package errors as an error exit code instead of crashing."""
+    # ARRANGE
+    input_file = tmp_path / "input.root"
+    input_file.write_text("", encoding="utf-8")
+    expected_message = "input file is not a valid ROOT file"
+
+    def raise_root_file_error(config: RunConfig) -> Path:
+        raise RootFileError(expected_message)
+
+    monkeypatch.setattr(cli, "_run", raise_root_file_error)
+
+    # ACT
+    with caplog.at_level(logging.ERROR):
+        exit_code = cli.main(
+            [
+                "--input-gate-root-file",
+                str(input_file),
+                "--output-dir",
+                str(tmp_path / "output"),
+                "--output-file-title",
+                "run_01",
+                "--gate-tree",
+                "Hits",
+                "--output-file-format",
+                "csv",
+            ]
+        )
+
+    # ASSERT
+    assert exit_code == 1
+    assert expected_message in caplog.text

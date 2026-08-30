@@ -18,6 +18,7 @@ from pathlib import Path
 from typing import Final, NoReturn
 
 from .config import RunConfig
+from .errors import GateTreeError
 from .io.fileformat import OutputFileFormat, parse_output_file_format
 from .logger import log
 from .logging_setup import configure_logging
@@ -118,7 +119,7 @@ def main(argv: list[str] | None = None) -> int:
         )
         logger.info("Run configuration: %s", run_config)
         output_path = _run(run_config)
-    except ValueError as e:
+    except (ValueError, GateTreeError) as e:
         logger.error("An error occurred: %s", e)
         return 1  # Error
 
