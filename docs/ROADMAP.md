@@ -10,7 +10,7 @@ Each stage can have only one of the following statuses:
 - completed: the stage has been completed
 
 
-## Version 0.1.0 (status: planned)
+## Version 0.1.0 (status: completed)
 
 Initialize the project structure and add the foundational code required to build the package.
 
