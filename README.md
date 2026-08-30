@@ -13,6 +13,20 @@
 
 `opengate-gate-tree` is a utility for processing [GATE 9](https://github.com/OpenGATE/Gate) output ROOT file with trees (Hits, Singles,Coincidences) 
 
+## Supported GATE Versions
+
+The package targets the C++ line of GATE, version 9.4.2 and newer.
+GATE 10, the Python implementation, is not supported.
+
+Output files are not meant to be read back by GATE. They are conversions of the
+simulation output into whichever format suits the analysis that follows:
+
+| Format | Typical consumer |
+| --- | --- |
+| `root` | further analysis in C++ with the ROOT framework |
+| `hdf5` | analysis in Python or MATLAB, large datasets, columnar access |
+| `csv` | quick inspection, spreadsheets, plain `pandas.read_csv` |
+
 
 ## Quick Start
 
@@ -44,10 +58,21 @@ The CLI accepts the following options:
 
 Validation behavior:
 
-- the input file must exist and end with `.root`
-- the output path must resolve to a directory
+- the input file must exist, end with `.root` and be readable as a ROOT file
+- the output directory is created if it does not exist
+- an existing output file is overwritten without a prompt
 - all required options above must be provided
-- branch names are validated against the selected tree
+- the selected tree must be present in the input file; if it is not, the error
+  lists the trees the file actually holds
+- branch names are validated against the branches present in the input file
+- branches whose length varies per entry are reported as unsupported
+
+The output file holds the extracted tree only. Histograms stored next to the
+trees in a GATE file are not copied over.
+
+Fixed-width array branches, such as `volumeID`, keep their shape in the `root`
+and `hdf5` output. CSV has no cell for an array, so they are written there as
+one column per component, named `volumeID_0` to `volumeID_9`.
 
 Examples:
 
