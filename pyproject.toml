@@ -1,22 +1,36 @@
 [project]
 name = "opengate-gate-tree"
-version = "0.1.0"
+version = "0.1.1"
 description = "Processing GATE output file trees - extraction, validation, postprocessing"
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 license = "MIT"
 license-files = ["LICENSE"]
 authors = [{ name = "Mateusz Jakub Bała" }]
-dependencies = []
+dependencies = [
+    "numpy>=1.26",
+    "pandas>=2.2",
+    "uproot>=5",
+    "h5py>=3.11",
+]
 keywords = ["gate", "opengate", "monte-carlo", "simulation"]
 classifiers = [
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
     "Development Status :: 3 - Alpha",
+]
+
+[project.optional-dependencies]
+# Declared as an extra rather than a dependency group: ReadTheDocs installs
+# with pip and extra_requirements, and does not read PEP 735 groups.
+docs = [
+    "sphinx>=8",
+    "myst-parser>=4",
+    "furo>=2024.8",
 ]
 
 [project.urls]
@@ -40,20 +54,23 @@ dev = [
   "ruff>=0.6",
   "mypy>=1.11",
   "pre-commit>=4.6.1",
+  "pandas-stubs>=2.2",
 ]
 
 [tool.ruff]
 line-length = 100
-target-version = "py311"
+target-version = "py312"
 extend-exclude = ["*.md", "**/*.md"]
 
 [tool.ruff.lint]
 select = ["E", "W", "F", "I", "B", "C4", "UP"]
 
 [tool.mypy]
-# The minimum runtime is still 3.11 — enforced by `requires-python`,
-# `tool.ruff.target-version = py311`, and the CI test matrix (3.11-3.14).
-python_version = "3.11"
+# Pinned to the minimum supported runtime, so the same result is produced
+# whichever interpreter runs the check. The pin also applies to third-party
+# stubs, which is why it has to track `requires-python`: the numpy stubs use
+# PEP 695 syntax and are rejected under an older target.
+python_version = "3.12"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true
@@ -62,7 +79,8 @@ check_untyped_defs = true
 strict_optional = true
 
 [[tool.mypy.overrides]]
-module = []
+# Third-party scientific libraries that do not ship type information.
+module = ["uproot.*", "awkward.*", "h5py.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]
@@ -70,6 +88,17 @@ testpaths = ["tests"]
 addopts = "--cov=opengate_gate_tree --cov-report=term-missing"
 
 [tool.coverage.report]
-# The coverage threshold (>= 80%) will be enabled once the modules are implemented.
-# During the package scaffold stage we do not enforce a threshold so validation can pass.
 show_missing = true
+precision = 2
+# The suite currently covers every statement. The threshold sits below that on
+# purpose: it is a regression gate, not a target, and the margin absorbs a
+# genuinely untestable defensive branch without inviting tests written for the
+# metric rather than for behaviour.
+fail_under = 95
+# exclude_also adds to the built-in exclusions instead of replacing them, which
+# keeps the defaults that already skip bodies such as the "..." of a Protocol
+# method.
+exclude_also = [
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+]

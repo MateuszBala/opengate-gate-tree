@@ -6,7 +6,7 @@ These instructions apply to all changes in this repository.
 
 - Package name: `opengate-gate-tree`
 - Source root: `src/opengate_gate_tree`
-- Supported Python versions: 3.11-3.14
+- Supported Python versions: 3.12-3.14
 - Environment and dependency manager: `uv`
 
 ## Development Workflow

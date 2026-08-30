@@ -19,7 +19,7 @@ Initialize the project structure and add the foundational code required to build
 - the project structure has been added and is complete
 - a minimal codebase required to build the package has been added
 
-## Version 0.2.0 (status: planned)
+## Version 0.2.0 (status: completed)
 
 Basic support for trees from a GATE output file:
 
@@ -38,6 +38,7 @@ Basic support for trees from a GATE output file:
 - a tree representation based on NumPy arrays has been added
 - a tree representation based on pandas.DataFrame has been added
 - all three data export formats work correctly
+- the package can be used both as an application and as a library
 - all tests pass
 - user documentation (ReadTheDocs) clearly and comprehensively covers the added representations and features
 
