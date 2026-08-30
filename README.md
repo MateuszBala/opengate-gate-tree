@@ -95,6 +95,82 @@ opengate-gate-tree \
 	--branches-to-extract eventID trackID edep posX
 ```
 
+## Library Usage
+
+Besides the command-line interface, the package can be used directly from
+Python code. Everything the command line does is reachable from
+`opengate_gate_tree`.
+
+### Loading And Exporting Files
+
+```python
+from pathlib import Path
+
+from opengate_gate_tree import (
+    GateTree,
+    OutputFileFormat,
+    read_tree,
+    write_tree,
+)
+
+# Load selected branches of the "Hits" tree from a GATE ROOT file.
+data = read_tree(
+    Path("simulation.root"),
+    GateTree.HITS,
+    ["eventID", "edep", "posX", "posY", "posZ"],
+)
+
+print(data.entry_count, data.branch_names)
+
+# Work with the data as NumPy arrays or as a pandas.DataFrame.
+energies = data["edep"]
+frame = data.to_dataframe()
+
+# Export to the format that fits the downstream analysis.
+write_tree(data, Path("out/hits.hdf5"), OutputFileFormat.HDF5)
+```
+
+Omit the branch list to read every branch of the tree:
+
+```python
+data = read_tree(Path("simulation.root"), GateTree.HITS)
+```
+
+When several trees come from the same file, open it once with `RootFile`:
+
+```python
+from opengate_gate_tree import RootFile
+
+with RootFile(Path("simulation.root")) as root_file:
+    print(root_file.tree_names)
+    hits = root_file.read(GateTree.HITS, ["eventID", "edep"])
+```
+
+Every failure is reported through a subclass of `GateTreeError`, so one
+`except` clause catches anything the package raises:
+
+```python
+from opengate_gate_tree import GateTreeError, TreeNotFoundError
+
+try:
+    data = read_tree(Path("simulation.root"), GateTree.SINGLES)
+except TreeNotFoundError as error:
+    print(f"tree missing: {error}")
+except GateTreeError as error:
+    print(f"could not process the file: {error}")
+```
+
+The package does not configure logging on import. Applications that want the
+defaults used by the command line can ask for them:
+
+```python
+from opengate_gate_tree.logging_setup import configure_logging
+
+configure_logging()
+```
+
+The package ships a `py.typed` marker, so type checkers see its annotations.
+
 ## Available Package Capabilities (Cumulative)
 
 This section is append-only.
