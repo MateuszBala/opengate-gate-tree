@@ -7,7 +7,12 @@ requires-python = ">=3.11"
 license = "MIT"
 license-files = ["LICENSE"]
 authors = [{ name = "Mateusz Jakub Bała" }]
-dependencies = []
+dependencies = [
+    "numpy>=1.26",
+    "pandas>=2.2",
+    "uproot>=5",
+    "h5py>=3.11",
+]
 keywords = ["gate", "opengate", "monte-carlo", "simulation"]
 classifiers = [
     "Programming Language :: Python :: 3",
@@ -40,6 +45,7 @@ dev = [
   "ruff>=0.6",
   "mypy>=1.11",
   "pre-commit>=4.6.1",
+  "pandas-stubs>=2.2",
 ]
 
 [tool.ruff]
@@ -62,7 +68,8 @@ check_untyped_defs = true
 strict_optional = true
 
 [[tool.mypy.overrides]]
-module = []
+# Third-party scientific libraries that do not ship type information.
+module = ["uproot.*", "awkward.*", "h5py.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]
