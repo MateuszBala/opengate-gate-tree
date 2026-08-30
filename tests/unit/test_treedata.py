@@ -5,6 +5,7 @@ from typing import Any
 
 import numpy as np
 import numpy.typing as npt
+import pandas as pd
 import pytest
 
 from opengate_gate_tree.errors import BranchNotFoundError
@@ -287,3 +288,182 @@ def test_repr_stays_compact_for_large_trees() -> None:
 
     # ASSERT
     assert rendered == "TreeData(tree='Hits', entries=10000, branches=3)"
+
+
+def test_to_dataframe_keeps_scalar_branches_and_their_order() -> None:
+    """Scalar branches should map to columns of the same name and order."""
+    # ARRANGE
+    columns = {
+        "eventID": np.arange(3, dtype=np.int32),
+        "edep": np.linspace(0.1, 1.0, 3).astype(np.float32),
+    }
+    data = TreeData(GateTree.HITS, columns)
+
+    # ACT
+    frame = data.to_dataframe()
+
+    # ASSERT
+    assert list(frame.columns) == ["eventID", "edep"]
+    assert len(frame) == 3
+    assert np.array_equal(frame["eventID"].to_numpy(), columns["eventID"])
+
+
+def test_to_dataframe_expands_array_branch_in_place() -> None:
+    """An array branch should become one column per component, where it stood."""
+    # ARRANGE
+    data = TreeData(GateTree.HITS, make_columns(entries=4))
+
+    # ACT
+    frame = data.to_dataframe()
+
+    # ASSERT
+    expected_columns = [
+        "eventID",
+        "edep",
+        *[f"volumeID_{index}" for index in range(VOLUME_ID_WIDTH)],
+    ]
+    assert list(frame.columns) == expected_columns
+    assert np.array_equal(frame["volumeID_3"].to_numpy(), np.full(4, 3, dtype=np.int32))
+
+
+def test_to_dataframe_returns_a_plain_dataframe() -> None:
+    """The frame must be a plain pandas object so pandas accessors keep working."""
+    # ARRANGE
+    data = TreeData(GateTree.HITS, make_columns())
+
+    # ACT
+    frame = data.to_dataframe()
+
+    # ASSERT
+    assert type(frame) is pd.DataFrame
+
+
+def test_to_dataframe_rejects_collision_between_expansion_and_scalar_branch() -> None:
+    """An expanded name already used by another branch should be reported."""
+    # ARRANGE
+    columns = {
+        "volumeID_0": np.arange(3, dtype=np.int32),
+        "volumeID": np.tile(np.arange(2, dtype=np.int32), (3, 1)),
+    }
+    data = TreeData(GateTree.HITS, columns)
+
+    # ACT & ASSERT
+    with pytest.raises(ValueError, match="another branch already uses that name"):
+        data.to_dataframe()
+
+
+def test_to_dataframe_handles_a_tree_without_entries() -> None:
+    """A tree with branches but no entries should give an empty frame."""
+    # ARRANGE
+    columns = {"eventID": np.array([], dtype=np.int32)}
+    data = TreeData(GateTree.SINGLES, columns)
+
+    # ACT
+    frame = data.to_dataframe()
+
+    # ASSERT
+    assert list(frame.columns) == ["eventID"]
+    assert len(frame) == 0
+
+
+def test_from_dataframe_builds_branches_from_columns() -> None:
+    """Every column should become a branch of the same name."""
+    # ARRANGE
+    frame = pd.DataFrame(
+        {
+            "eventID": np.arange(3, dtype=np.int32),
+            "edep": np.linspace(0.1, 1.0, 3).astype(np.float32),
+        }
+    )
+
+    # ACT
+    data = TreeData.from_dataframe(GateTree.HITS, frame)
+
+    # ASSERT
+    assert data.tree == GateTree.HITS
+    assert data.branch_names == ("eventID", "edep")
+    assert data.entry_count == 3
+
+
+def test_from_dataframe_drops_the_index() -> None:
+    """Index values should not leak into the branch data."""
+    # ARRANGE
+    frame = pd.DataFrame({"eventID": np.arange(3, dtype=np.int32)}, index=[10, 11, 12])
+
+    # ACT
+    data = TreeData.from_dataframe(GateTree.HITS, frame)
+
+    # ASSERT
+    assert np.array_equal(data["eventID"], np.arange(3, dtype=np.int32))
+
+
+def test_from_dataframe_rejects_multiindex_columns() -> None:
+    """Nested column labels have no branch equivalent."""
+    # ARRANGE
+    frame = pd.DataFrame(
+        np.arange(6).reshape(3, 2),
+        columns=pd.MultiIndex.from_tuples([("hits", "eventID"), ("hits", "edep")]),
+    )
+
+    # ACT & ASSERT
+    with pytest.raises(ValueError, match="MultiIndex columns are not supported"):
+        TreeData.from_dataframe(GateTree.HITS, frame)
+
+
+def test_from_dataframe_rejects_repeated_column_labels() -> None:
+    """Repeated labels would silently produce a two-dimensional branch."""
+    # ARRANGE
+    frame = pd.DataFrame(np.arange(6).reshape(3, 2), columns=["eventID", "eventID"])
+
+    # ACT & ASSERT
+    with pytest.raises(ValueError, match="repeated"):
+        TreeData.from_dataframe(GateTree.HITS, frame)
+
+
+def test_dataframe_round_trip_preserves_scalar_values_and_types() -> None:
+    """Numeric branches should survive a conversion to a frame and back."""
+    # ARRANGE
+    columns = {
+        "eventID": np.arange(5, dtype=np.int32),
+        "edep": np.linspace(0.1, 1.0, 5).astype(np.float32),
+    }
+    data = TreeData(GateTree.HITS, columns)
+
+    # ACT
+    restored = TreeData.from_dataframe(GateTree.HITS, data.to_dataframe())
+
+    # ASSERT
+    assert restored.branch_names == data.branch_names
+    for name in data.branch_names:
+        assert np.array_equal(restored[name], data[name])
+        assert restored.dtypes[name] == data.dtypes[name]
+
+
+def test_dataframe_round_trip_preserves_text_values() -> None:
+    """Text branches should survive the round trip and stay text afterwards."""
+    # ARRANGE
+    process_names = np.array(["Compton", "PhotoElectric", "NULL"], dtype=object)
+    data = TreeData(GateTree.HITS, {"processName": process_names})
+
+    # ACT
+    restored = TreeData.from_dataframe(GateTree.HITS, data.to_dataframe())
+
+    # ASSERT
+    assert np.array_equal(restored["processName"], process_names)
+    assert restored.dtypes["processName"].kind == "O"
+
+
+def test_dataframe_round_trip_keeps_array_branch_expanded() -> None:
+    """Expansion is one way: components stay separate branches after the round trip."""
+    # ARRANGE
+    data = TreeData(GateTree.HITS, make_columns(entries=4))
+
+    # ACT
+    restored = TreeData.from_dataframe(GateTree.HITS, data.to_dataframe())
+
+    # ASSERT
+    assert "volumeID" not in restored.branch_names
+    assert restored.array_branches == {}
+    assert restored.branch_names[2:] == tuple(
+        f"volumeID_{index}" for index in range(VOLUME_ID_WIDTH)
+    )

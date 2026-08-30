@@ -17,6 +17,12 @@ Arrays are referenced, not copied, so building a :class:`TreeData` from an
 already loaded tree does not duplicate its memory. The mapping of columns is
 read-only, but the arrays themselves stay writable.
 
+A :class:`pandas.DataFrame` view is available through
+:meth:`TreeData.to_dataframe`. Because a data frame holds scalar cells, a
+fixed-width array branch is expanded there into one column per component,
+named ``<branch>_<index>``. The expansion is one way: reading such a frame
+back with :meth:`TreeData.from_dataframe` keeps the expanded columns separate.
+
 Public objects
 --------------
 TreeData
@@ -30,6 +36,7 @@ from typing import Any, Final
 
 import numpy as np
 import numpy.typing as npt
+import pandas as pd
 
 from opengate_gate_tree.errors import BranchNotFoundError
 from opengate_gate_tree.tree.gatetree import GateTree
@@ -148,6 +155,79 @@ class TreeData:
             raise BranchNotFoundError(_missing_branches_message(missing, self.branch_names))
         return TreeData(self.tree, {name: self.columns[name] for name in names})
 
+    def to_dataframe(self) -> pd.DataFrame:
+        """Return the data as a pandas data frame.
+
+        Scalar branches become one column each. Fixed-width array branches are
+        expanded into one column per component, named ``<branch>_<index>`` with
+        indices counted from zero, placed where the original branch was.
+
+        Returns
+        -------
+        pandas.DataFrame
+            Data frame holding every branch as a scalar column.
+
+        Raises
+        ------
+        ValueError
+            If expanding an array branch would collide with another column.
+        """
+        frame_columns: dict[str, npt.NDArray[Any]] = {}
+
+        for name, column in self.columns.items():
+            if column.ndim == ARRAY_BRANCH_NDIM:
+                for index in range(column.shape[1]):
+                    _add_frame_column(
+                        frame_columns,
+                        _expanded_branch_name(name, index),
+                        column[:, index],
+                        name,
+                    )
+            else:
+                _add_frame_column(frame_columns, name, column, name)
+
+        return pd.DataFrame(frame_columns)
+
+    @classmethod
+    def from_dataframe(cls, tree: GateTree, frame: pd.DataFrame) -> "TreeData":
+        """Build an instance from a pandas data frame.
+
+        Every column becomes a scalar branch and the index is dropped. Columns
+        produced by expanding an array branch stay separate; they are not
+        folded back into a two-dimensional branch.
+
+        Parameters
+        ----------
+        tree : GateTree
+            Tree the data belongs to.
+        frame : pandas.DataFrame
+            Data frame to convert.
+
+        Returns
+        -------
+        TreeData
+            Instance holding one branch per data frame column.
+
+        Raises
+        ------
+        ValueError
+            If the columns are a ``MultiIndex`` or contain repeated labels.
+        """
+        if isinstance(frame.columns, pd.MultiIndex):
+            raise ValueError(
+                "Data frames with MultiIndex columns are not supported; "
+                "flatten the columns before converting."
+            )
+
+        repeated = [str(name) for name in frame.columns[frame.columns.duplicated()]]
+        if repeated:
+            raise ValueError(
+                f"Data frame columns must be unique, but these are repeated: {repeated}."
+            )
+
+        columns = {str(name): frame[name].to_numpy() for name in frame.columns}
+        return cls(tree, columns)
+
     def __repr__(self) -> str:
         """Return a compact representation that does not render the arrays."""
         return (
@@ -192,3 +272,29 @@ def _validate_columns(columns: Mapping[str, npt.NDArray[Any]]) -> None:
 def _missing_branches_message(missing: Sequence[str], available: Sequence[str]) -> str:
     """Build an error message listing missing and available branch names."""
     return f"Branches not found: {list(missing)}. Available branches: {list(available)}."
+
+
+def _expanded_branch_name(name: str, index: int) -> str:
+    """Return the data frame column name for one component of an array branch."""
+    return f"{name}_{index}"
+
+
+def _add_frame_column(
+    frame_columns: dict[str, npt.NDArray[Any]],
+    column_name: str,
+    column: npt.NDArray[Any],
+    branch_name: str,
+) -> None:
+    """Add one data frame column, rejecting names claimed by another branch.
+
+    Raises
+    ------
+    ValueError
+        If the column name is already taken.
+    """
+    if column_name in frame_columns:
+        raise ValueError(
+            f"Branch '{branch_name}' cannot be represented as column "
+            f"'{column_name}' because another branch already uses that name."
+        )
+    frame_columns[column_name] = column
