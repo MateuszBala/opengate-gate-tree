@@ -25,8 +25,8 @@ The package does not configure logging on import. Applications decide that for
 themselves; :func:`opengate_gate_tree.logging_setup.configure_logging` is
 available for the ones that want the defaults used by the command line.
 
-Public attributes
------------------
+Public attributes:
+
 __version__ : str
     Package version consistent with ``pyproject.toml``.
 """

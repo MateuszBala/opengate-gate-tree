@@ -7,8 +7,8 @@ Only trees are considered. GATE files also store histograms, such as
 ``latest_event_ID`` and ``total_nb_primaries``; they are ignored when the file
 contents are inspected and are never carried over to an output file.
 
-Public objects
---------------
+Public objects:
+
 RootFile
     Reader for a single GATE ROOT file.
 """

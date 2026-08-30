@@ -11,8 +11,8 @@ Data is appended only when the tree holds entries: ``extend`` raises on an
 empty batch that contains a text branch, while ``mktree`` on its own already
 produces a valid tree with every branch declared.
 
-Public objects
---------------
+Public objects:
+
 RootTreeWriter
     Writer producing a ROOT file holding a TTree.
 """

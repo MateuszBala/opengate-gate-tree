@@ -12,7 +12,7 @@ SHELL := /bin/bash
 WORKTREE_ROOT ?= ./worktrees
 WORKTREE_LOCKS_DIR ?= .tmp/worktree-locks
 
-.PHONY: init install install-user test lint format typecheck check worktree switch-to-worktree
+.PHONY: init install install-user test lint format typecheck check docs docs-check worktree switch-to-worktree
 
 # Install dependencies and create the virtual environment (uv).
 init:
@@ -52,6 +52,15 @@ check:
 	uv run ruff format --check
 	uv run mypy src/
 	uv run pytest
+
+# Build the user documentation as HTML.
+docs:
+	uv run --extra docs sphinx-build -b html docs docs/_build/html
+	@echo "Documentation built: docs/_build/html/index.html"
+
+# Build the documentation with warnings treated as errors, as ReadTheDocs does.
+docs-check:
+	uv run --extra docs sphinx-build -b html -W --keep-going docs docs/_build/html
 
 # Create a worktree for the given branch if it does not already exist.
 worktree:

@@ -7,8 +7,8 @@ the branch types are supported.
 The functions take plain names rather than a :class:`~opengate_gate_tree.io.rootfile.RootFile`
 so that the module stays independent of the reader and can be tested on its own.
 
-Public functions
-----------------
+Public functions:
+
 validate_root_file_path(path: Path) -> None
     Check that the path can point to a readable ROOT file.
 find_tree_name(available: Sequence[str], tree: GateTree) -> str | None

@@ -3,8 +3,8 @@
 The module configures the package logger (level, format, stream) so diagnostics
 and user messages use the ``logging`` module instead of ``print``.
 
-Public functions
-----------------
+Public functions:
+
 configure_logging(level: int = logging.INFO) -> None
     Configure the package logger (idempotent).
 get_logger(name: str) -> logging.Logger

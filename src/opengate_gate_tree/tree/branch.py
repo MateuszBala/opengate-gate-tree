@@ -6,8 +6,8 @@ a fixed list built into the package, so the checks here cover the shape of the
 request only. Whether a branch exists is checked against the opened file by
 :mod:`opengate_gate_tree.io.validation`.
 
-Public functions
-----------------
+Public functions:
+
 validate_branch_selection(requested: Sequence[str]) -> None
     Check that a branch selection is well formed.
 normalize_branch_selection(requested: Sequence[str], available: Sequence[str]) -> list[str]

@@ -8,8 +8,8 @@ The hierarchy deliberately does not derive from ``ValueError``. A file that
 cannot be opened is not an invalid value, and merging both cases would make it
 impossible to tell argument validation apart from input/output failures.
 
-Public objects
---------------
+Public objects:
+
 GateTreeError
     Base class for every error raised by the package.
 RootFileError

@@ -7,8 +7,8 @@ ROOT file, extracts one tree and closes the file again.
 Use :class:`~opengate_gate_tree.io.rootfile.RootFile` directly when several
 trees are read from the same file, so that the file is opened only once.
 
-Public functions
-----------------
+Public functions:
+
 read_tree(path: Path, tree: GateTree, branches: Sequence[str] | None) -> TreeData
     Read one tree from a GATE ROOT file.
 """

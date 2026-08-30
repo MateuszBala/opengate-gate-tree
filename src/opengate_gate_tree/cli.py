@@ -4,8 +4,8 @@ The module defines the entry point used by ``python -m
 opengate_gate_tree`` and the ``opengate-gate-tree``
 console script.
 
-Public functions
-----------------
+Public functions:
+
 build_parser() -> argparse.ArgumentParser
     Builds the command-line argument parser.
 main(argv: list[str] | None = None) -> int

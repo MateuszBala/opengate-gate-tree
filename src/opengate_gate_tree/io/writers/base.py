@@ -8,8 +8,8 @@ representations start from a list of strings, so the conversion lives here:
 uproot rejects NumPy unicode arrays in a tree, and h5py rejects them when a
 string data type is requested.
 
-Public objects
---------------
+Public objects:
+
 TreeWriter
     Interface implemented by every output writer.
 is_text_column(column) -> bool

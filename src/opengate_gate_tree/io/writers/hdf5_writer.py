@@ -10,8 +10,8 @@ back with ``h5py`` through ``asstr()``.
 The group tracks insertion order, because HDF5 lists links alphabetically by
 default and the branch order carries meaning for the analysis reading the file.
 
-Public objects
---------------
+Public objects:
+
 Hdf5TreeWriter
     Writer producing an HDF5 file.
 """

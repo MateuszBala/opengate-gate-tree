@@ -4,8 +4,8 @@ The subpackage holds one writer per output format and the lookup used to pick
 one. Output files carry the extracted tree only: the histograms stored next to
 the trees in a GATE file are not copied over.
 
-Public functions
-----------------
+Public functions:
+
 get_writer(file_format: OutputFileFormat) -> TreeWriter
     Return the writer producing the requested format.
 write_tree(data: TreeData, path: Path, file_format: OutputFileFormat) -> Path

@@ -24,6 +24,15 @@ classifiers = [
     "Development Status :: 3 - Alpha",
 ]
 
+[project.optional-dependencies]
+# Declared as an extra rather than a dependency group: ReadTheDocs installs
+# with pip and extra_requirements, and does not read PEP 735 groups.
+docs = [
+    "sphinx>=8",
+    "myst-parser>=4",
+    "furo>=2024.8",
+]
+
 [project.urls]
 Homepage = "https://github.com/MateuszBala/opengate-gate-tree"
 Repository = "https://github.com/MateuszBala/opengate-gate-tree"

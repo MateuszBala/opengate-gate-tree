@@ -231,6 +231,15 @@ pre-commit run --all-files
 
 The configured hook runs `make check` before each commit and blocks the commit if validation fails.
 
+### Documentation
+
+The user documentation is built with Sphinx:
+
+```bash
+make docs        # build docs/_build/html
+make docs-check  # build with warnings treated as errors, as ReadTheDocs does
+```
+
 Project conventions and contribution standards:
 
 - [Coding conventions](docs/CODING_CONVENTIONS.md)

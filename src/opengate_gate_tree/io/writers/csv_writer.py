@@ -4,8 +4,8 @@ A CSV file holds scalar cells, so fixed-width array branches are written as one
 column per component, named ``<branch>_<index>``. The file therefore does not
 carry the branch back as an array when read again; ROOT and HDF5 do.
 
-Public objects
---------------
+Public objects:
+
 CsvTreeWriter
     Writer producing a CSV file.
 """

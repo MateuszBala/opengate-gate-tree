@@ -23,8 +23,8 @@ fixed-width array branch is expanded there into one column per component,
 named ``<branch>_<index>``. The expansion is one way: reading such a frame
 back with :meth:`TreeData.from_dataframe` keeps the expanded columns separate.
 
-Public objects
---------------
+Public objects:
+
 TreeData
     Immutable set of branch columns extracted from a single GATE tree.
 """
