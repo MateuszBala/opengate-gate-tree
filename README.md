@@ -1,8 +1,7 @@
 # opengate-gate-tree
 
 [![CI](https://github.com/MateuszBala/opengate-gate-tree/actions/workflows/ci.yaml/badge.svg)](https://github.com/MateuszBala/opengate-gate-tree/actions/workflows/ci.yaml)
-[![Version](https://img.shields.io/badge/version-0.1.0-informational)](https://github.com/MateuszBala/opengate-gate-tree/releases)
-[![Standard Python](https://img.shields.io/badge/Python-3.11-blue?logo=python&logoColor=white)]()
+[![Version](https://img.shields.io/badge/version-0.1.1-informational)](https://github.com/MateuszBala/opengate-gate-tree/releases)
 [![Standard Python](https://img.shields.io/badge/Python-3.12-blue?logo=python&logoColor=white)]()
 [![Standard Python](https://img.shields.io/badge/Python-3.13-blue?logo=python&logoColor=white)]()
 [![Standard Python](https://img.shields.io/badge/Python-3.14-blue?logo=python&logoColor=white)]()
@@ -12,6 +11,20 @@
 [![uv](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/uv/main/assets/badge/v0.json)](https://github.com/astral-sh/uv)
 
 `opengate-gate-tree` is a utility for processing [GATE 9](https://github.com/OpenGATE/Gate) output ROOT file with trees (Hits, Singles,Coincidences) 
+
+## Supported GATE Versions
+
+The package targets the C++ line of GATE, version 9.4.2 and newer.
+GATE 10, the Python implementation, is not supported.
+
+Output files are not meant to be read back by GATE. They are conversions of the
+simulation output into whichever format suits the analysis that follows:
+
+| Format | Typical consumer |
+| --- | --- |
+| `root` | further analysis in C++ with the ROOT framework |
+| `hdf5` | analysis in Python or MATLAB, large datasets, columnar access |
+| `csv` | quick inspection, spreadsheets, plain `pandas.read_csv` |
 
 
 ## Quick Start
@@ -44,10 +57,21 @@ The CLI accepts the following options:
 
 Validation behavior:
 
-- the input file must exist and end with `.root`
-- the output path must resolve to a directory
+- the input file must exist, end with `.root` and be readable as a ROOT file
+- the output directory is created if it does not exist
+- an existing output file is overwritten without a prompt
 - all required options above must be provided
-- branch names are validated against the selected tree
+- the selected tree must be present in the input file; if it is not, the error
+  lists the trees the file actually holds
+- branch names are validated against the branches present in the input file
+- branches whose length varies per entry are reported as unsupported
+
+The output file holds the extracted tree only. Histograms stored next to the
+trees in a GATE file are not copied over.
+
+Fixed-width array branches, such as `volumeID`, keep their shape in the `root`
+and `hdf5` output. CSV has no cell for an array, so they are written there as
+one column per component, named `volumeID_0` to `volumeID_9`.
 
 Examples:
 
@@ -70,16 +94,94 @@ opengate-gate-tree \
 	--branches-to-extract eventID trackID edep posX
 ```
 
+## Library Usage
+
+Besides the command-line interface, the package can be used directly from
+Python code. Everything the command line does is reachable from
+`opengate_gate_tree`.
+
+### Loading And Exporting Files
+
+```python
+from pathlib import Path
+
+from opengate_gate_tree import (
+    GateTree,
+    OutputFileFormat,
+    read_tree,
+    write_tree,
+)
+
+# Load selected branches of the "Hits" tree from a GATE ROOT file.
+data = read_tree(
+    Path("simulation.root"),
+    GateTree.HITS,
+    ["eventID", "edep", "posX", "posY", "posZ"],
+)
+
+print(data.entry_count, data.branch_names)
+
+# Work with the data as NumPy arrays or as a pandas.DataFrame.
+energies = data["edep"]
+frame = data.to_dataframe()
+
+# Export to the format that fits the downstream analysis.
+write_tree(data, Path("out/hits.hdf5"), OutputFileFormat.HDF5)
+```
+
+Omit the branch list to read every branch of the tree:
+
+```python
+data = read_tree(Path("simulation.root"), GateTree.HITS)
+```
+
+When several trees come from the same file, open it once with `RootFile`:
+
+```python
+from opengate_gate_tree import RootFile
+
+with RootFile(Path("simulation.root")) as root_file:
+    print(root_file.tree_names)
+    hits = root_file.read(GateTree.HITS, ["eventID", "edep"])
+```
+
+Failures while reading or writing files are reported through a subclass of
+`GateTreeError`, so one `except` clause covers them. Malformed arguments, such as
+an empty branch name, raise `ValueError` instead:
+
+```python
+from opengate_gate_tree import GateTreeError, TreeNotFoundError
+
+try:
+    data = read_tree(Path("simulation.root"), GateTree.SINGLES)
+except TreeNotFoundError as error:
+    print(f"tree missing: {error}")
+except GateTreeError as error:
+    print(f"could not process the file: {error}")
+```
+
+The package does not configure logging on import. Applications that want the
+defaults used by the command line can ask for them:
+
+```python
+from opengate_gate_tree.logging_setup import configure_logging
+
+configure_logging()
+```
+
+The package ships a `py.typed` marker, so type checkers see its annotations.
+
 ## Available Package Capabilities (Cumulative)
 
 This section is append-only.
 Add a capability entry only when its roadmap stage status changes from `planned` to `completed`.
 
-Current development stage: version-0.1.0
+Current development stage: version-0.1.1
 
 Available capabilities:
 
 - 0.1.0: project structure initialized and minimal buildable package code added.
+- 0.2.0: GATE ROOT files can be loaded and validated, trees and branches extracted into a NumPy-backed representation with a pandas view, and written to ROOT, HDF5 or CSV. Usable both as a command-line tool and as a library, with user documentation on ReadTheDocs.
 
 
 
@@ -129,6 +231,15 @@ pre-commit run --all-files
 ```
 
 The configured hook runs `make check` before each commit and blocks the commit if validation fails.
+
+### Documentation
+
+The user documentation is built with Sphinx:
+
+```bash
+make docs        # build docs/_build/html
+make docs-check  # build with warnings treated as errors, as ReadTheDocs does
+```
 
 Project conventions and contribution standards:
 

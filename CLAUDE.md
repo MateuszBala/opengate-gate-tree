@@ -13,7 +13,7 @@ This file provides project-level instructions for Claude Code.
 - Package: opengate-gate-tree
 - Source root: src/opengate_gate_tree
 - Tests root: tests/unit
-- Python support: 3.11-3.14
+- Python support: 3.12-3.14
 - Tooling: uv, ruff, mypy, pytest, pre-commit
 
 ## Required workflow
