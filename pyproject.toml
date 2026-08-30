@@ -86,6 +86,17 @@ testpaths = ["tests"]
 addopts = "--cov=opengate_gate_tree --cov-report=term-missing"
 
 [tool.coverage.report]
-# The coverage threshold (>= 80%) will be enabled once the modules are implemented.
-# During the package scaffold stage we do not enforce a threshold so validation can pass.
 show_missing = true
+precision = 2
+# The suite currently covers every statement. The threshold sits below that on
+# purpose: it is a regression gate, not a target, and the margin absorbs a
+# genuinely untestable defensive branch without inviting tests written for the
+# metric rather than for behaviour.
+fail_under = 95
+# exclude_also adds to the built-in exclusions instead of replacing them, which
+# keeps the defaults that already skip bodies such as the "..." of a Protocol
+# method.
+exclude_also = [
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+]

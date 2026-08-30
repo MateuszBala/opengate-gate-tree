@@ -181,6 +181,7 @@ Current development stage: version-0.1.1
 Available capabilities:
 
 - 0.1.0: project structure initialized and minimal buildable package code added.
+- 0.2.0: GATE ROOT files can be loaded and validated, trees and branches extracted into a NumPy-backed representation with a pandas view, and written to ROOT, HDF5 or CSV. Usable both as a command-line tool and as a library, with user documentation on ReadTheDocs.
 
 
 
