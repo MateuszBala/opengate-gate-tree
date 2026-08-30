@@ -36,7 +36,7 @@ __version__ : str
 # The version is defined before the re-exports below: the HDF5 writer records
 # it in the files it writes, and importing it from a package that is still
 # being initialised only works once the name exists.
-__version__ = "0.2.0"
+__version__ = "0.2.1"
 
 import logging  # noqa: E402
 
