@@ -112,3 +112,19 @@ data = TreeData(
 Construction checks that branch names carry a value, that every column is a
 NumPy array of one or two dimensions, and that all columns agree on the number
 of entries. Anything else raises `ValueError`.
+
+## Values That Stand For Something
+
+Some branches hold whole numbers that are not quantities: the four branches a
+`PositroniumSource` writes say what a gamma was and where it came from. They
+stay integer columns, and the package describes what their values mean through
+enum classes whose members are those integers:
+
+```python
+from opengate_gate_tree import GammaType
+
+prompt = data["gammaType"] == GammaType.PROMPT
+```
+
+Nothing is converted, and nothing is copied: the comparison runs on the column
+as it was read. See [PositroniumSource Data](positronium.md).

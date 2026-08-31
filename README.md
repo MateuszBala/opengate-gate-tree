@@ -221,6 +221,24 @@ with RootFile(Path("simulation.root")) as root_file:
     print(describe_hits_tree(detection))
 ```
 
+### Reading What A Gamma Was
+
+The branches a `PositroniumSource` writes hold integers saying what each gamma
+was and where it came from. The package names those values, and the names are
+the integers themselves, so a column compares against them as it was read:
+
+```python
+from opengate_gate_tree import GammaType, SourceType, is_positronium_source
+
+prompt = data["gammaType"] == GammaType.PROMPT
+from_positronium = is_positronium_source(data["decayIndex"])
+```
+
+An enum written by hand would not work here and would not say so, because its
+members would not be integers. See the
+[guide](https://opengate-gate-tree.readthedocs.io/en/latest/guide/positronium.html)
+for the meaning of every value.
+
 Failures while reading or writing files are reported through a subclass of
 `GateTreeError`, so one `except` clause covers them. Malformed arguments, such as
 an empty branch name, raise `ValueError` instead:

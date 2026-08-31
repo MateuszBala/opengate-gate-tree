@@ -158,3 +158,13 @@ Four more errors join the hierarchy in this version:
 `HitsTreeValidationError` when a tree does not match the structure it was
 recognised as, `AmbiguousTreeError` when several trees hold hits and none was
 named, and `TreeMergeError` when trees cannot be read as one dataset.
+
+## PositroniumSource Branches
+
+`SourceType`, `DecayType` and `GammaType` name the values of the three
+branches a `PositroniumSource` fills, and their members are the integers GATE
+wrote, so a column compares against them as it was read. `decode_value` and
+`decode_column` read values as names, `is_positronium_source` tells rows
+written by such a source from the rest, and `POSITRONIUM_BRANCHES` maps each
+branch to the class describing it. See
+[PositroniumSource Data](positronium.md).
