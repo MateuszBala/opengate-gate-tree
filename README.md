@@ -54,7 +54,7 @@ The CLI accepts the following options:
 | --- | --- | --- | --- | --- |
 | `--input-gate-root-file` | path | yes | file with `.root` extension | Path to the GATE ROOT input file. |
 | `--output-dir` | path | yes | existing directory or new path | Directory where output file will be saved. If it does not exist, it is created automatically. |
-| `--output-file-title` | string | yes | non-empty string | Base name of the output file (without extension). |
+| `--output-file-title` | string | yes | file name without directories | Title of the output file. The file is named `<title>.<tree>.<format>`, for example `patient_01.hits.csv`. |
 | `--gate-tree` | enum-like string | yes | `Hits`, `Singles`, `Coincidences` | Name of the tree to process from the input ROOT file. |
 | `--output-file-format` | enum-like string | yes | `root`, `hdf5`, `csv` | Output file format. |
 | `--branches-to-extract` | list of strings | no | branch names valid for selected tree | Space-separated list of branches to extract. |
@@ -70,12 +70,26 @@ Validation behavior:
 - branch names are validated against the branches present in the input file
 - branches whose length varies per entry are reported as unsupported
 
+The output file is named after the title, the tree it holds and the format it
+is written in: a run extracting the hits into `csv` under the title
+`patient_01` writes `patient_01.hits.csv`. The tree is part of the name because
+one input file holds several trees, and extracting two of them should not land
+on the same file.
+
 The output file holds the extracted tree only. Histograms stored next to the
 trees in a GATE file are not copied over.
 
 Fixed-width array branches, such as `volumeID`, keep their shape in the `root`
 and `hdf5` output. CSV has no cell for an array, so they are written there as
 one column per component, named `volumeID_0` to `volumeID_9`.
+
+Two branch names cannot be carried by every format, and are refused rather than
+written as something else. A name holding a bracket, such as the `volumeID[0]`
+of the `GateToTree` output, cannot go into a `root` file: uproot reads the
+bracket as an array dimension and writes a file that cannot be read back. A
+name holding a slash cannot go into an `hdf5` file, where it would create a
+nested group instead of a dataset. Both layouts reach the other formats
+unchanged.
 
 Examples:
 

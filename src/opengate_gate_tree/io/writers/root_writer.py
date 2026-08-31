@@ -18,7 +18,7 @@ RootTreeWriter
 """
 
 from pathlib import Path
-from typing import Any
+from typing import Any, Final
 
 import uproot
 
@@ -28,8 +28,19 @@ from opengate_gate_tree.io.writers.base import (
     as_text_list,
     is_text_column,
     prepare_output_directory,
+    reject_branch_names,
 )
 from opengate_gate_tree.tree.treedata import ARRAY_BRANCH_NDIM, TreeData
+
+# Characters uproot reads as an array dimension rather than as part of a name.
+FORBIDDEN_NAME_CHARACTERS: Final[str] = "[]"
+
+# What uproot does with such a name, reported to the caller.
+FORBIDDEN_REASON: Final[str] = (
+    "uproot reads brackets in a branch name as an array dimension, which writes a file whose "
+    "branches cannot be read back. The GateToTree layout, which splits volumeID into "
+    "volumeID[0] and up, can be written as CSV or HDF5 instead."
+)
 
 
 class RootTreeWriter:
@@ -55,11 +66,13 @@ class RootTreeWriter:
         Raises
         ------
         ExportError
-            If the data holds no branches, or the file cannot be written.
+            If the data holds no branches, a branch name holds a bracket, or
+            the file cannot be written.
         """
         if not data.branch_names:
             raise ExportError("A ROOT tree cannot be written without branches.")
 
+        reject_branch_names(data, FORBIDDEN_NAME_CHARACTERS, self.file_format, FORBIDDEN_REASON)
         prepare_output_directory(path)
         branch_types, branch_data = _branch_specification(data)
         tree_name = data.tree.value

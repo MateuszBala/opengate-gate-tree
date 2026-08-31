@@ -67,7 +67,7 @@ def test_main_writes_the_output_file(gate_hits_file: Path, tmp_path: Path) -> No
 
     # ASSERT
     assert exit_code == 0
-    assert (output_dir / "run_01.csv").is_file()
+    assert (output_dir / "run_01.hits.csv").is_file()
 
 
 def test_main_accepts_a_branch_selection(gate_hits_file: Path, tmp_path: Path) -> None:
@@ -80,7 +80,7 @@ def test_main_accepts_a_branch_selection(gate_hits_file: Path, tmp_path: Path) -
 
     # ASSERT
     assert exit_code == 0
-    assert (output_dir / "run_01.csv").is_file()
+    assert (output_dir / "run_01.hits.csv").is_file()
 
 
 def test_main_returns_error_when_input_file_is_missing(tmp_path: Path) -> None:

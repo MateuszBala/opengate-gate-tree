@@ -69,6 +69,11 @@ from opengate_gate_tree.io.fileformat import (  # noqa: E402
     OutputFileFormat,
     parse_output_file_format,
 )
+from opengate_gate_tree.io.naming import (  # noqa: E402
+    build_output_file_name,
+    build_output_file_path,
+    build_statistics_file_path,
+)
 from opengate_gate_tree.io.reader import read_hits_trees, read_tree  # noqa: E402
 from opengate_gate_tree.io.rootfile import RootFile  # noqa: E402
 from opengate_gate_tree.io.statistics import write_statistics  # noqa: E402
@@ -133,6 +138,9 @@ __all__ = [
     "UnknownHitsVariantError",
     "UnsupportedBranchTypeError",
     "__version__",
+    "build_output_file_name",
+    "build_output_file_path",
+    "build_statistics_file_path",
     "compute_statistics",
     "describe_hits_tree",
     "detect_hits_variant",

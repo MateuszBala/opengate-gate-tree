@@ -35,7 +35,7 @@ opengate-gate-tree \
 	--output-file-format csv
 ```
 
-The run writes `./out/patient_01.csv`. The output directory is created if it
+The run writes `./out/patient_01.hits.csv`. The output directory is created if it
 does not exist, and an existing output file is overwritten without a prompt.
 
 Add `--branches-to-extract` to keep only what the analysis needs:

@@ -17,6 +17,7 @@ from conftest import HITS_VARIANT_LAYOUTS, HitsVariantLayout
 
 from opengate_gate_tree import (
     SOURCE_TREE_BRANCH,
+    ExportError,
     GateTree,
     OutputFileFormat,
     RootFile,
@@ -185,3 +186,23 @@ def test_merged_hits_survive_a_write_to_hdf5(
         sources = written["Hits"][SOURCE_TREE_BRANCH].asstr()[:]
     assert sorted(set(sources)) == ["Hits_DET_INNER", "Hits_DET_OUTER"]
     assert len(sources) == 1000
+
+
+def test_the_gate_to_tree_layout_is_refused_by_the_root_writer(
+    hits_variant_files: Mapping[str, Path],
+    tmp_path: Path,
+) -> None:
+    """The layout that names branches volumeID[0] has no way into a ROOT file.
+
+    uproot reads the brackets as an array dimension, so writing this layout
+    produces a file whose branches cannot be read back. CSV and HDF5 carry it
+    unchanged, and the two tests above show that they do.
+    """
+    # ARRANGE
+    data = read_tree(hits_variant_files["b1"], GateTree.HITS)
+    output_file = tmp_path / "hits.root"
+
+    # ACT / ASSERT
+    with pytest.raises(ExportError, match=r"volumeID\[0\]"):
+        write_tree(data, output_file, OutputFileFormat.ROOT)
+    assert not output_file.exists()

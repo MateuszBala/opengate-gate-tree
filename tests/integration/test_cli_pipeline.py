@@ -65,7 +65,7 @@ def test_pipeline_writes_every_entry_for_each_format(
     exit_code = run_cli(gate_hits_file, output_dir, output_file_format)
 
     # ASSERT
-    output_file = output_dir / f"patient_01.{EXTENSIONS[output_file_format]}"
+    output_file = output_dir / f"patient_01.hits.{EXTENSIONS[output_file_format]}"
     assert exit_code == 0
     assert output_file.is_file()
 
@@ -95,7 +95,7 @@ def test_pipeline_honours_a_branch_selection(
     exit_code = run_cli(gate_hits_file, output_dir, output_file_format, branches=requested)
 
     # ASSERT
-    output_file = output_dir / f"patient_01.{EXTENSIONS[output_file_format]}"
+    output_file = output_dir / f"patient_01.hits.{EXTENSIONS[output_file_format]}"
     assert exit_code == 0
 
     if output_file_format is OutputFileFormat.ROOT:
@@ -131,7 +131,7 @@ def test_pipeline_handles_the_array_branch(
     )
 
     # ASSERT
-    output_file = output_dir / f"patient_01.{EXTENSIONS[output_file_format]}"
+    output_file = output_dir / f"patient_01.hits.{EXTENSIONS[output_file_format]}"
     assert exit_code == 0
 
     if output_file_format is OutputFileFormat.ROOT:
@@ -159,7 +159,7 @@ def test_pipeline_preserves_values_through_root(
 
     # ASSERT
     assert exit_code == 0
-    restored = read_tree(output_dir / "patient_01.root", GateTree.HITS)
+    restored = read_tree(output_dir / "patient_01.hits.root", GateTree.HITS)
     assert restored.branch_names == source.branch_names
     for name in source.branch_names:
         if source.dtypes[name].kind == "O":
@@ -180,7 +180,7 @@ def test_pipeline_writes_a_ttree_not_an_rntuple(
     run_cli(gate_hits_file, output_dir, OutputFileFormat.ROOT)
 
     # ASSERT
-    with uproot.open(output_dir / "patient_01.root") as written:
+    with uproot.open(output_dir / "patient_01.hits.root") as written:
         assert list(written.classnames().values()) == ["TTree"]
 
 
@@ -198,7 +198,7 @@ def test_pipeline_does_not_copy_histograms(
     run_cli(gate_hits_file, output_dir, OutputFileFormat.ROOT)
 
     # ASSERT
-    with uproot.open(output_dir / "patient_01.root") as written:
+    with uproot.open(output_dir / "patient_01.hits.root") as written:
         assert list(written.keys(cycle=False)) == ["Hits"]
 
 
@@ -215,7 +215,7 @@ def test_pipeline_creates_a_missing_output_directory(
 
     # ASSERT
     assert exit_code == 0
-    assert (output_dir / "patient_01.csv").is_file()
+    assert (output_dir / "patient_01.hits.csv").is_file()
 
 
 def test_pipeline_overwrites_an_existing_output_file(
@@ -225,7 +225,7 @@ def test_pipeline_overwrites_an_existing_output_file(
     """Running twice should replace the previous output without complaint."""
     # ARRANGE
     output_dir = tmp_path / "output"
-    output_file = output_dir / "patient_01.csv"
+    output_file = output_dir / "patient_01.hits.csv"
     run_cli(gate_hits_file, output_dir, OutputFileFormat.CSV, branches=["eventID"])
     first_size = output_file.stat().st_size
 

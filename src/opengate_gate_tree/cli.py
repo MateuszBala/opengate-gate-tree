@@ -20,6 +20,7 @@ from typing import Final, NoReturn
 from .config import RunConfig
 from .errors import GateTreeError
 from .io.fileformat import OutputFileFormat, parse_output_file_format
+from .io.naming import build_output_file_path
 from .io.reader import read_tree
 from .io.writers import write_tree
 from .logger import log
@@ -174,8 +175,11 @@ def _run(config: RunConfig) -> Path:
         config.gate_tree.value,
     )
 
-    output_file_path = (
-        config.output_dir / f"{config.output_file_title}.{config.output_file_format.value}"
+    output_file_path = build_output_file_path(
+        config.output_dir,
+        config.output_file_title,
+        config.gate_tree,
+        config.output_file_format,
     )
     return write_tree(data, output_file_path, config.output_file_format)
 

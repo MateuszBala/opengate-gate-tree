@@ -15,9 +15,10 @@ opengate-gate-tree --help
 | `--output-file-format` | string | yes | `root`, `hdf5`, `csv` | Format of the output file. |
 | `--branches-to-extract` | list of strings | no | branch names present in the tree | Space-separated branches to keep. Every branch is kept when omitted. |
 
-The output file is named `<output-file-title>.<output-file-format>`, so
-`--output-file-title patient_01 --output-file-format csv` writes
-`patient_01.csv` into the output directory.
+The output file is named `<output-file-title>.<tree>.<output-file-format>`, so
+`--output-file-title patient_01 --gate-tree Hits --output-file-format csv`
+writes `patient_01.hits.csv` into the output directory. The tree is part of the
+name because one input file holds several of them.
 
 ## Examples
 
