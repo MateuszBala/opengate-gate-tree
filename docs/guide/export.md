@@ -20,6 +20,56 @@ write_tree(data, Path("out/hits.root"), OutputFileFormat.ROOT)
 The parent directory is created when missing. An existing file is overwritten
 without a prompt.
 
+## How An Output File Is Named
+
+A run of the command line names its output `<title>.<tree>.<format>`:
+`--output-file-title patient_01 --gate-tree Hits --output-file-format csv`
+writes `patient_01.hits.csv`. The tree is part of the name because one input
+file holds several of them, and extracting two should not land on the same
+file. A report, when one is asked for, sits next to the data as
+`patient_01.hits.stats.json`.
+
+Code using the package builds the same names without repeating the rule:
+
+```python
+from opengate_gate_tree import GateTree, OutputFileFormat, build_output_file_path
+
+path = build_output_file_path(Path("out"), "patient_01", GateTree.HITS, OutputFileFormat.CSV)
+```
+
+## Branch Names A Format Cannot Carry
+
+Two kinds of branch name are refused rather than written as something else,
+because both backends accept them and then store something other than what was
+asked for:
+
+| Format | Refused name | What it would become |
+| --- | --- | --- |
+| `root` | holds `[` or `]`, such as `volumeID[0]` | uproot reads the bracket as an array dimension and writes branches that cannot be read back |
+| `hdf5` | holds `/`, such as `cylindricalPET/gantryID` | h5py creates a nested group instead of a dataset |
+
+The first affects the `GateToTree` layout, which splits `volumeID` into ten
+branches named that way: it reaches `csv` and `hdf5` unchanged, but not `root`.
+The second affects `GateToTree` output of a simulation using more than one
+system, which prefixes identifier branches with the name of their system.
+
+## Reading Your Own Output Back
+
+An output file holding a **selection** of branches is no longer a whole hits
+structure, so reading it back needs the structure check turned off:
+
+```python
+from opengate_gate_tree import GateTree, read_tree
+
+subset = read_tree(Path("out/patient_01.hits.root"), GateTree.HITS, validate=False)
+```
+
+A merged dataset written out and read back is a different case: the added
+`sourceTreeName` column is reported as one the structure does not describe,
+which is a warning, so `read_tree` reads the file as it is. Reading it through
+`read_hits_trees` needs `add_source_branch=False`, because recording where the
+rows came from would otherwise overwrite the column that already says it.
+
 The output file holds the extracted tree only. Histograms stored next to the
 trees in the input file are not copied over.
 

@@ -16,13 +16,17 @@ from opengate_gate_tree.errors import (
     UnsupportedBranchTypeError,
 )
 from opengate_gate_tree.io.validation import (
+    find_hits_tree_names,
     find_tree_name,
+    resolve_requested_tree_name,
     resolve_tree_name,
     validate_branch_interpretations,
     validate_branches_present,
     validate_root_file_path,
 )
 from opengate_gate_tree.tree.gatetree import GateTree
+from opengate_gate_tree.tree.hits.schema import expected_branches
+from opengate_gate_tree.tree.hits.variant import HitsTreeVariant
 
 
 def test_validate_root_file_path_accepts_an_existing_root_file(tmp_path: Path) -> None:
@@ -191,3 +195,58 @@ def test_validate_branch_interpretations_rejects_branches_of_varying_length() ->
     message = str(error_info.value)
     assert "hitTimes" in message
     assert "eventID" not in message
+
+
+def test_a_named_tree_is_used_as_it_is() -> None:
+    """A caller naming the tree knows the file better than any rule does."""
+    # ARRANGE
+    available = ["Hits", "Hits_run1", "Hits_run2"]
+
+    # ACT
+    resolved = resolve_requested_tree_name(available, "Hits_run2")
+
+    # ASSERT
+    assert resolved == "Hits_run2"
+
+
+def test_a_named_tree_that_is_absent_is_reported() -> None:
+    """Naming a tree the file does not hold has to say what it does hold."""
+    # ARRANGE
+    available = ["Hits", "OpticalData"]
+
+    # ACT
+    with pytest.raises(TreeNotFoundError) as raised:
+        resolve_requested_tree_name(available, "Hits_run7", Path("simulation.root"))
+
+    # ASSERT
+    assert "Hits_run7" in str(raised.value)
+    assert "OpticalData" in str(raised.value)
+
+
+def test_trees_holding_hits_are_told_apart_by_their_branches() -> None:
+    """Which tree holds hits is answered by its branches, not by its name."""
+    # ARRANGE
+    hits_branches = [spec.name for spec in expected_branches(HitsTreeVariant.NO_SYSTEM)]
+    branches_by_tree = {
+        "pet_data": ["total_nb_primaries", "latest_event_ID"],
+        "tree": hits_branches,
+        "OpticalData": ["NumScintillation"],
+    }
+
+    # ACT
+    found = find_hits_tree_names(branches_by_tree)
+
+    # ASSERT
+    assert found == ("tree",)
+
+
+def test_a_file_without_hits_reports_no_tree() -> None:
+    """Nothing holds hits when no branch list forms a known structure."""
+    # ARRANGE
+    branches_by_tree = {"pet_data": ["start_time_sec"], "OpticalData": ["NumScintillation"]}
+
+    # ACT
+    found = find_hits_tree_names(branches_by_tree)
+
+    # ASSERT
+    assert found == ()

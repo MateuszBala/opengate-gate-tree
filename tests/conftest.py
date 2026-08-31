@@ -6,9 +6,13 @@ Two sources of test data are used together:
   readers work against branch names, types and file layout produced by GATE
 - files generated with ``uproot``, which cover cases the real file does not
   contain, such as branches of varying length or a missing tree
+
+The files in ``fixtures/hits-variants`` add one output per structure the "Hits"
+tree can have. Their provenance and the reason one of them is not trimmed are
+described in the README next to them.
 """
 
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -18,6 +22,7 @@ import numpy as np
 import numpy.typing as npt
 import pytest
 import uproot
+from uproot.interpretation.strings import AsStrings
 
 # Directory holding the binary test fixtures.
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
@@ -25,7 +30,165 @@ FIXTURES_DIR = Path(__file__).parent / "fixtures"
 # Real GATE 9.x output file, trimmed to 2000 entries of the "Hits" tree.
 GATE_HITS_FIXTURE = FIXTURES_DIR / "data-only-hits-tree-small-size.root"
 
+# One simulation output per structure the "Hits" tree can have.
+HITS_VARIANTS_DIR = FIXTURES_DIR / "hits-variants"
+
 TreeColumns = Mapping[str, npt.NDArray[Any]]
+
+
+@dataclass(frozen=True)
+class HitsVariantLayout:
+    """Measured properties of one "Hits" tree variant fixture.
+
+    Attributes
+    ----------
+    key : str
+        Short name the tests refer to the fixture by.
+    file_name : str
+        Name of the file in ``fixtures/hits-variants``.
+    reference : str
+        Label the reference material gives the structure, such as ``"A1"``.
+    tree_names : tuple[str, ...]
+        Trees stored in the file, in file order.
+    entries : int
+        Number of entries of every tree in the file.
+    branch_count : int
+        Number of branches of every tree in the file.
+    """
+
+    key: str
+    file_name: str
+    reference: str
+    tree_names: tuple[str, ...]
+    entries: int
+    branch_count: int
+
+    @property
+    def path(self) -> Path:
+        """Path of the fixture file."""
+        return HITS_VARIANTS_DIR / self.file_name
+
+
+# Properties of the variant fixtures, measured on the files they were cut from.
+# "b1-tree-common-output.root" keeps every entry of the simulation, because the
+# GateToTree layout cannot be rewritten by uproot; see the README next to it.
+HITS_VARIANT_LAYOUTS: tuple[HitsVariantLayout, ...] = (
+    HitsVariantLayout("a1", "a1-no-system.root", "A1", ("Hits",), 500, 40),
+    HitsVariantLayout("a2", "a2-system.root", "A2", ("Hits",), 500, 46),
+    HitsVariantLayout("a3", "a3-system-septal.root", "A3", ("Hits",), 500, 47),
+    HitsVariantLayout("a4", "a4-no-system-cc.root", "A4", ("Hits",), 500, 30),
+    HitsVariantLayout("a5", "a5-system-cc.root", "A5", ("Hits",), 500, 36),
+    HitsVariantLayout("b1", "b1-tree-common-output.root", "B1", ("tree",), 4441, 54),
+    HitsVariantLayout(
+        "multi-run",
+        "name-multi-run.root",
+        "A1",
+        ("Hits", "Hits_run1", "Hits_run2"),
+        500,
+        40,
+    ),
+    HitsVariantLayout(
+        "multi-sd",
+        "name-multi-sd.root",
+        "A1",
+        ("Hits_DET_INNER", "Hits_DET_OUTER"),
+        500,
+        40,
+    ),
+)
+
+
+# Branches GATE writes as double precision.
+HITS_FLOAT64_BRANCHES = frozenset({"trackLocalTime", "time"})
+
+# Branches GATE writes as single precision.
+HITS_FLOAT32_BRANCHES = frozenset(
+    {
+        "edep",
+        "stepLength",
+        "trackLength",
+        "posX",
+        "posY",
+        "posZ",
+        "localPosX",
+        "localPosY",
+        "localPosZ",
+        "sourcePosX",
+        "sourcePosY",
+        "sourcePosZ",
+        "momDirX",
+        "momDirY",
+        "momDirZ",
+        "axialPos",
+        "rotationAngle",
+        "sourceEnergy",
+        "energyFinal",
+        "energyIniT",
+    }
+)
+
+# Branches GATE writes as text.
+HITS_TEXT_BRANCHES = frozenset(
+    {"processName", "comptVolName", "RayleighVolName", "postStepProcess"}
+)
+
+# Branches GATE writes as a fixed-width array, mapped to their type.
+HITS_ARRAY_BRANCHES = {"volumeID": "int32[10]"}
+
+# Values used for text branches of generated trees.
+HITS_TEXT_VALUES = ("Compton", "PhotoElectric", "Transportation")
+
+
+def expected_hits_branch_type(name: str) -> str:
+    """Return the type GATE writes a branch of the given name with.
+
+    The rule is the one measured on the reference files: the type follows the
+    name of the branch. It is kept on the test side on purpose, so that the
+    schemas of the package are compared against something derived from the
+    files rather than from themselves.
+
+    Parameters
+    ----------
+    name : str
+        Branch name.
+
+    Returns
+    -------
+    str
+        Short type name, as :func:`branch_type_name` reports it.
+    """
+    if name in HITS_ARRAY_BRANCHES:
+        return HITS_ARRAY_BRANCHES[name]
+    if name in HITS_TEXT_BRANCHES:
+        return "text"
+    if name in HITS_FLOAT64_BRANCHES:
+        return "float64"
+    if name in HITS_FLOAT32_BRANCHES:
+        return "float32"
+    return "int32"
+
+
+def branch_type_name(interpretation: Any) -> str:
+    """Return a short name for the type an uproot interpretation reads.
+
+    Parameters
+    ----------
+    interpretation : Any
+        Interpretation of a branch, as reported by uproot.
+
+    Returns
+    -------
+    str
+        One of ``"int32"``, ``"float32"``, ``"float64"``, ``"text"`` or
+        ``"<type>[<width>]"`` for a fixed-width array branch.
+    """
+    if isinstance(interpretation, AsStrings):
+        return "text"
+    dtype = interpretation.to_dtype
+    scalar = dtype.base.newbyteorder("=")
+    if dtype.shape:
+        return f"{scalar.name}[{dtype.shape[0]}]"
+    return str(scalar.name)
 
 
 @dataclass(frozen=True)
@@ -55,6 +218,18 @@ def gate_hits_layout() -> GateHitsLayout:
     )
 
 
+@pytest.fixture(scope="session")
+def hits_variant_layouts() -> Mapping[str, HitsVariantLayout]:
+    """Return the variant fixtures, keyed by their short name."""
+    return {layout.key: layout for layout in HITS_VARIANT_LAYOUTS}
+
+
+@pytest.fixture(scope="session")
+def hits_variant_files() -> Mapping[str, Path]:
+    """Return the paths of the variant fixtures, keyed by their short name."""
+    return {layout.key: layout.path for layout in HITS_VARIANT_LAYOUTS}
+
+
 @pytest.fixture
 def make_gate_root_file(tmp_path: Path) -> Callable[..., Path]:
     """Return a factory writing a ROOT file with the given trees.
@@ -82,6 +257,48 @@ def make_gate_root_file(tmp_path: Path) -> Callable[..., Path]:
 
 
 @pytest.fixture
+def make_hits_root_file(tmp_path: Path) -> Callable[..., Path]:
+    """Return a factory writing a ROOT file with trees of the given branches.
+
+    Columns are generated from the branch names, following the rule GATE
+    follows, so a tree is described by its branch names alone. Names listed in
+    ``jagged`` are written as branches of varying length, which the package
+    cannot load but can look at.
+
+    Names holding brackets are refused: the uproot writer reads them as an
+    array dimension, which silently produces a file that cannot be read back.
+    Tests needing the layout that uses such names work on the B1 fixture.
+    """
+
+    def write_hits_file(
+        trees: Mapping[str, Sequence[str]],
+        entries: int = 5,
+        file_name: str = "hits.root",
+        jagged: Sequence[str] = (),
+    ) -> Path:
+        bracketed = sorted({name for names in trees.values() for name in names if "[" in name})
+        if bracketed:
+            raise ValueError(
+                f"uproot writes brackets in a branch name as an array dimension, so {bracketed} "
+                f"cannot be generated; use the B1 fixture for that layout."
+            )
+        path = tmp_path / file_name
+        with uproot.recreate(path) as out:
+            for tree_name, names in trees.items():
+                columns = {name: _hits_column(name, entries) for name in names}
+                branch_types, branch_data = _branch_specification(columns)
+                for name in jagged:
+                    branch_types[name] = "var * float64"
+                    branch_data[name] = ak.Array([[float(index)] for index in range(entries)])
+                out.mktree(tree_name, branch_types)
+                if entries:
+                    out[tree_name].extend(branch_data)
+        return path
+
+    return write_hits_file
+
+
+@pytest.fixture
 def make_jagged_root_file(tmp_path: Path) -> Callable[..., Path]:
     """Return a factory writing a ROOT file with a branch of varying length."""
 
@@ -101,6 +318,20 @@ def make_jagged_root_file(tmp_path: Path) -> Callable[..., Path]:
         return path
 
     return write_jagged_file
+
+
+def _hits_column(name: str, entries: int) -> npt.NDArray[Any]:
+    """Return a generated column for a branch of the given name."""
+    if name in HITS_ARRAY_BRANCHES:
+        return np.arange(entries * 10, dtype=np.int32).reshape(entries, 10)
+    if name in HITS_TEXT_BRANCHES:
+        values = [HITS_TEXT_VALUES[index % len(HITS_TEXT_VALUES)] for index in range(entries)]
+        return np.array(values, dtype=object)
+    if name in HITS_FLOAT64_BRANCHES:
+        return np.arange(entries, dtype=np.float64) / 8
+    if name in HITS_FLOAT32_BRANCHES:
+        return np.arange(entries, dtype=np.float32) / 4
+    return np.arange(entries, dtype=np.int32)
 
 
 def _branch_specification(

@@ -42,21 +42,25 @@ Basic support for trees from a GATE output file:
 - all tests pass
 - user documentation (ReadTheDocs) clearly and comprehensively covers the added representations and features
 
-## Version 0.3.0 (status: planned)
+## Version 0.3.0 (status: completed)
 
 Basic support for the "Hits" tree:
 
 - branch definitions depending on the simulation type
 - tree validation
 - statistics generation
+- merging "Hits" trees that a single file stores under several names
 
 ### Definition of Done (DoD)
 
-- all versions of the "Hits" tree structure are fully supported
-- all versions of the "Hits" tree structure have dedicated validation
+- all versions of the "Hits" tree structure confirmed by reference output files are fully supported: GateToRoot without a system, with a system, with septal penetration counting, both Compton camera output variants, and the common GateToTree output
+- structures written by GateToTree per hits collection with the Compton camera columns, and by the Compton camera actor, are recognised and reported as unsupported; they are not covered by test fixtures, because no reference file holds them. Without those columns the per-collection output holds the branches of the common output and is read as that structure
+- all supported versions of the "Hits" tree structure have dedicated validation
+- a file that stores the "Hits" tree under several names, one per run or per sensitive detector, can be read as a single dataset
+- identifiers written by GATE are preserved exactly as they are; an event is identified by the pair of `runID` and `eventID`, which stays valid across simulation runs started with the same seed
 - output files are named using the format `<title>.hits.<file-format>`
 - all tests pass
-- user documentation (ReadTheDocs) clearly and comprehensively covers the added representations and features
+- user documentation (ReadTheDocs) clearly and comprehensively covers the added representations and features, including the full branch list of every supported version
 
 ## Version 0.4.0 (status: planned)
 

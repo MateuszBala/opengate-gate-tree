@@ -25,6 +25,20 @@ data to the supported output formats.
    :members:
 ```
 
+## File names
+
+```{eval-rst}
+.. automodule:: opengate_gate_tree.io.naming
+   :members:
+```
+
+## Statistics files
+
+```{eval-rst}
+.. automodule:: opengate_gate_tree.io.statistics
+   :members:
+```
+
 ## Output formats
 
 ```{eval-rst}

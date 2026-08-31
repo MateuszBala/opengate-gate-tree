@@ -18,6 +18,8 @@ as_text_list(name, column) -> list[str]
     Return a text column as a list of strings.
 prepare_output_directory(path) -> None
     Create the directory the output file will be written to.
+reject_branch_names(data, characters, file_format, reason) -> None
+    Refuse branch names a backend cannot store faithfully.
 """
 
 from pathlib import Path
@@ -43,6 +45,44 @@ class TreeWriter(Protocol):
     def write(self, data: TreeData, path: Path) -> Path:
         """Write the data to ``path`` and return the path written to."""
         ...
+
+
+def reject_branch_names(
+    data: TreeData,
+    characters: str,
+    file_format: OutputFileFormat,
+    reason: str,
+) -> None:
+    """Refuse branch names a backend cannot store faithfully.
+
+    Both backends accept such a name and then write something other than what
+    was asked for, without reporting anything. Refusing the file is the only
+    way the caller learns about it before reading the result.
+
+    Parameters
+    ----------
+    data : TreeData
+        Data about to be written.
+    characters : str
+        Characters the backend cannot carry in a branch name.
+    file_format : OutputFileFormat
+        Format being written, named in the message.
+    reason : str
+        What the backend would do with such a name.
+
+    Raises
+    ------
+    ExportError
+        If any branch name holds one of the characters.
+    """
+    offenders = [
+        name for name in data.branch_names if any(character in name for character in characters)
+    ]
+    if offenders:
+        raise ExportError(
+            f"Branches cannot be written to a '{file_format.value}' file because their names "
+            f'hold one of "{characters}": {offenders}. {reason}'
+        )
 
 
 def is_text_column(column: npt.NDArray[Any]) -> bool:

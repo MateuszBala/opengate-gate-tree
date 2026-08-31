@@ -34,6 +34,16 @@ class RunConfig:
         Format of the output file.
     branches_to_extract : list[str]
         List of branch names to extract from the gate tree.
+    input_tree_name : str | None
+        Name of the tree in the input file, when it differs from the standard
+        one or when the file holds several trees of hits.
+    merge_hits_trees : bool
+        Whether to read every tree of hits in the file as a single dataset.
+    write_statistics : bool
+        Whether to write a report describing the extracted data.
+    skip_hits_validation : bool
+        Whether to extract the branches without recognising and checking the
+        structure of the "Hits" tree.
     """
 
     input_gate_root_file: Path | None
@@ -42,3 +52,7 @@ class RunConfig:
     gate_tree: GateTree | None
     output_file_format: OutputFileFormat | None
     branches_to_extract: list[str] = field(default_factory=list)
+    input_tree_name: str | None = None
+    merge_hits_trees: bool = False
+    write_statistics: bool = False
+    skip_hits_validation: bool = False
