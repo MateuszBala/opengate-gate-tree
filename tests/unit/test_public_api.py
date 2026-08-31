@@ -52,6 +52,8 @@ EXPECTED_EXPORTS = {
     "build_output_file_path",
     "build_statistics_file_path",
     "compute_statistics",
+    "decode_column",
+    "decode_value",
     "describe_hits_tree",
     "detect_hits_variant",
     "expected_branches",

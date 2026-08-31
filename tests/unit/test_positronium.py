@@ -1,5 +1,6 @@
 """Unit tests for the enum representations of the PositroniumSource branches."""
 
+import logging
 from collections.abc import Mapping
 from enum import IntEnum
 from pathlib import Path
@@ -17,6 +18,8 @@ from opengate_gate_tree.tree.hits.positronium import (
     DecayType,
     GammaType,
     SourceType,
+    decode_column,
+    decode_value,
     is_positronium_source,
     positronium_enum,
 )
@@ -216,3 +219,120 @@ def test_the_mask_answers_for_an_empty_column() -> None:
     # ASSERT
     assert from_positronium.dtype == np.bool_
     assert from_positronium.size == 0
+
+
+def test_one_value_is_read_as_what_it_means() -> None:
+    """A single value has one meaning, taken from the class describing it."""
+    # ARRANGE
+    # No additional setup required.
+
+    # ACT
+    meaning = decode_value("gammaType", 3)
+
+    # ASSERT
+    assert meaning is GammaType.PROMPT
+
+
+def test_a_value_the_package_does_not_know_is_refused() -> None:
+    """Reading an unknown value as "not defined" would report what no file says."""
+    # ARRANGE
+    # No additional setup required.
+
+    # ACT
+    with pytest.raises(ValueError) as raised:
+        decode_value("gammaType", 7)
+
+    # ASSERT
+    assert "no meaning for the value 7" in str(raised.value)
+    assert "2 (ANNIHILATION)" in str(raised.value)
+
+
+def test_a_branch_the_package_does_not_describe_is_refused() -> None:
+    """Only three branches carry values with a described meaning."""
+    # ARRANGE
+    # No additional setup required.
+
+    # ACT
+    with pytest.raises(ValueError) as raised:
+        decode_value("edep", 1)
+
+    # ASSERT
+    assert "does not hold values this package describes" in str(raised.value)
+    assert "sourceType" in str(raised.value)
+
+
+def test_a_column_is_read_row_by_row(positronium_files: Mapping[str, Path]) -> None:
+    """Every row keeps its place, so the result lines up with the other columns."""
+    # ARRANGE
+    data = read_tree(positronium_files["all-variants"], GateTree.HITS, ["sourceType"])
+    column = data["sourceType"]
+
+    # ACT
+    meanings = decode_column("sourceType", column)
+
+    # ASSERT
+    assert len(meanings) == len(column)
+    assert all(int(meaning) == value for meaning, value in zip(meanings, column, strict=True))
+    assert set(meanings) == {SourceType(value) for value in set(column.tolist())}
+
+
+def test_a_column_with_an_unknown_value_is_read_as_far_as_it_can_be(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A GATE build writing one value more must not cost the whole column."""
+    # ARRANGE
+    column = np.array([0, 2, 7, 3, 7], dtype=np.int32)
+
+    # ACT
+    with caplog.at_level(logging.WARNING):
+        meanings = decode_column("gammaType", column)
+
+    # ASSERT
+    assert list(meanings) == [
+        GammaType.UNKNOWN,
+        GammaType.ANNIHILATION,
+        None,
+        GammaType.PROMPT,
+        None,
+    ]
+    assert "7 (2 row(s))" in caplog.text
+
+
+def test_a_column_the_package_understands_is_read_without_a_word(
+    positronium_files: Mapping[str, Path],
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A file GATE wrote as expected deserves no warning."""
+    # ARRANGE
+    data = read_tree(positronium_files["pps"], GateTree.HITS, ["decayType"])
+
+    # ACT
+    with caplog.at_level(logging.WARNING):
+        decode_column("decayType", data["decayType"])
+
+    # ASSERT
+    assert caplog.text == ""
+
+
+def test_an_empty_column_is_read_as_nothing(caplog: pytest.LogCaptureFixture) -> None:
+    """An extraction can end up with no rows, and reading them is not an error."""
+    # ARRANGE
+    column = np.array([], dtype=np.int32)
+
+    # ACT
+    with caplog.at_level(logging.WARNING):
+        meanings = decode_column("gammaType", column)
+
+    # ASSERT
+    assert list(meanings) == []
+    assert caplog.text == ""
+
+
+def test_reading_a_column_of_a_branch_without_a_class_is_refused() -> None:
+    """The refusal is the same whether one value is asked about, or a column."""
+    # ARRANGE
+    column = np.array([1, 2], dtype=np.int32)
+
+    # ACT / ASSERT
+    with pytest.raises(ValueError, match="does not hold values"):
+        decode_column(DECAY_INDEX_BRANCH, column)

@@ -45,10 +45,15 @@ DECAY_INDEX_BRANCH, NOT_A_POSITRONIUM_SOURCE
     gamma written by another source.
 positronium_enum(branch) -> type[IntEnum] | None
     Class describing the values of a branch, when one describes them.
+decode_value(branch, value) -> IntEnum
+    What one value of a branch means.
+decode_column(branch, column) -> numpy.ndarray
+    What every value of a column means.
 is_positronium_source(decay_index) -> numpy.ndarray
     Which rows were written by a PositroniumSource.
 """
 
+from collections import Counter
 from collections.abc import Mapping
 from enum import IntEnum
 from types import MappingProxyType
@@ -56,6 +61,8 @@ from typing import Any, Final
 
 import numpy as np
 import numpy.typing as npt
+
+from opengate_gate_tree.logger import log
 
 
 class SourceType(IntEnum):
@@ -139,6 +146,11 @@ def is_positronium_source(decay_index: npt.NDArray[Any]) -> npt.NDArray[np.bool_
     decay_index : numpy.ndarray
         Column of the ``decayIndex`` branch.
 
+    The answer is about the source, not about the physics: a
+    ``PositroniumSource`` configured with a direct annihilation channel writes
+    those gammas too, and they carry a channel number like the rest. What the
+    gamma itself was is said by ``sourceType``.
+
     Returns
     -------
     numpy.ndarray
@@ -146,3 +158,96 @@ def is_positronium_source(decay_index: npt.NDArray[Any]) -> npt.NDArray[np.bool_
         than the value standing for another kind of source.
     """
     return np.asarray(decay_index != NOT_A_POSITRONIUM_SOURCE, dtype=np.bool_)
+
+
+def decode_value(branch: str, value: int) -> IntEnum:
+    """Return what one value of a branch means.
+
+    Parameters
+    ----------
+    branch : str
+        Branch name.
+    value : int
+        Value written by GATE.
+
+    Returns
+    -------
+    IntEnum
+        Member of the class describing the branch.
+
+    Raises
+    ------
+    ValueError
+        If the package describes no values for the branch, or the value is
+        not one of them. A question about a single value has one answer or
+        none: reading it as the value standing for "not defined" would report
+        something the file does not say.
+    """
+    enum_class = _described_enum(branch)
+    try:
+        return enum_class(value)
+    except ValueError as err:
+        written = ", ".join(f"{int(member)} ({member.name})" for member in enum_class)
+        raise ValueError(
+            f"Branch '{branch}' has no meaning for the value {value}. "
+            f"Values GATE writes there: {written}."
+        ) from err
+
+
+def decode_column(branch: str, column: npt.NDArray[Any]) -> npt.NDArray[Any]:
+    """Return what every value of a column means.
+
+    A value the package does not know becomes ``None`` rather than stopping
+    the reading: a GATE build can write one, and an analysis of the rows that
+    are understood is still worth having. The values that were not understood
+    are reported in the log, with how often each of them occurs.
+
+    Parameters
+    ----------
+    branch : str
+        Branch name.
+    column : numpy.ndarray
+        Column of that branch.
+
+    Returns
+    -------
+    numpy.ndarray
+        Array of members of the class describing the branch, with ``None``
+        wherever the value is not one of them.
+
+    Raises
+    ------
+    ValueError
+        If the package describes no values for the branch.
+    """
+    enum_class = _described_enum(branch)
+    known: dict[int, IntEnum] = {int(member): member for member in enum_class}
+    values = [int(value) for value in column]
+
+    unknown = Counter(value for value in values if value not in known)
+    if unknown:
+        reported = ", ".join(
+            f"{value} ({count} row(s))" for value, count in sorted(unknown.items())
+        )
+        log().warning(
+            "Branch '%s' holds %d value(s) this version does not describe: %s. "
+            "They are read as nothing at all.",
+            branch,
+            len(unknown),
+            reported,
+        )
+
+    decoded = np.empty(len(values), dtype=object)
+    decoded[:] = [known.get(value) for value in values]
+    return decoded
+
+
+def _described_enum(branch: str) -> type[IntEnum]:
+    """Return the class describing a branch, refusing one that has none."""
+    enum_class = positronium_enum(branch)
+    if enum_class is None:
+        raise ValueError(
+            f"Branch '{branch}' does not hold values this package describes. "
+            f"Described branches: {list(POSITRONIUM_BRANCHES)}."
+        )
+    return enum_class

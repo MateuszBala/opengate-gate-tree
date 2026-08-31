@@ -98,6 +98,8 @@ from opengate_gate_tree.tree.hits.positronium import (  # noqa: E402
     DecayType,
     GammaType,
     SourceType,
+    decode_column,
+    decode_value,
     is_positronium_source,
     positronium_enum,
 )
@@ -164,6 +166,8 @@ __all__ = [
     "build_output_file_path",
     "build_statistics_file_path",
     "compute_statistics",
+    "decode_column",
+    "decode_value",
     "describe_hits_tree",
     "detect_hits_variant",
     "expected_branches",
