@@ -25,6 +25,8 @@ The structure of the "Hits" tree depends on the simulation that wrote it.
 "Hits" tree recognises and checks its structure unless ``validate=False`` says
 otherwise. Hits stored under another name, one tree per run or per sensitive
 detector, are found by their structure, and the tree to read can be named.
+:func:`read_hits_trees` reads them all as one dataset, recording which tree
+each row came from.
 
 Failures while reading or writing files are reported through a subclass of
 :class:`GateTreeError`, so a single ``except`` clause covers them. Malformed
@@ -55,6 +57,7 @@ from opengate_gate_tree.errors import (  # noqa: E402
     GateTreeError,
     HitsTreeValidationError,
     RootFileError,
+    TreeMergeError,
     TreeNotFoundError,
     UnknownHitsVariantError,
     UnsupportedBranchTypeError,
@@ -63,7 +66,7 @@ from opengate_gate_tree.io.fileformat import (  # noqa: E402
     OutputFileFormat,
     parse_output_file_format,
 )
-from opengate_gate_tree.io.reader import read_tree  # noqa: E402
+from opengate_gate_tree.io.reader import read_hits_trees, read_tree  # noqa: E402
 from opengate_gate_tree.io.rootfile import RootFile  # noqa: E402
 from opengate_gate_tree.io.writers import write_tree  # noqa: E402
 from opengate_gate_tree.logging_setup import LOGGER_NAME  # noqa: E402
@@ -85,6 +88,7 @@ from opengate_gate_tree.tree.hits.variant import (  # noqa: E402
     GateSystemType,
     HitsTreeVariant,
 )
+from opengate_gate_tree.tree.merge import SOURCE_TREE_BRANCH, merge_tree_data  # noqa: E402
 from opengate_gate_tree.tree.treedata import TreeData  # noqa: E402
 
 # Keep the package quiet when the application using it has not configured
@@ -106,8 +110,10 @@ __all__ = [
     "HitsTreeVariant",
     "OutputFileFormat",
     "RootFile",
+    "SOURCE_TREE_BRANCH",
     "RootFileError",
     "TreeData",
+    "TreeMergeError",
     "TreeNotFoundError",
     "UnknownHitsVariantError",
     "UnsupportedBranchTypeError",
@@ -115,8 +121,10 @@ __all__ = [
     "describe_hits_tree",
     "detect_hits_variant",
     "expected_branches",
+    "merge_tree_data",
     "parse_gate_tree",
     "parse_output_file_format",
+    "read_hits_trees",
     "read_tree",
     "supported_variants",
     "validate_hits_tree",

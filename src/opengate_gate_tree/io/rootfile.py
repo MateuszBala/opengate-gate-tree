@@ -49,6 +49,7 @@ from opengate_gate_tree.tree.branch import normalize_branch_selection
 from opengate_gate_tree.tree.gatetree import GateTree
 from opengate_gate_tree.tree.hits.detection import HitsTreeDetection, detect_hits_variant
 from opengate_gate_tree.tree.hits.validation import validate_hits_tree
+from opengate_gate_tree.tree.merge import merge_tree_data
 from opengate_gate_tree.tree.treedata import TreeData
 
 # Class name of the ROOT objects the package reads.
@@ -293,6 +294,63 @@ class RootFile:
             log().warning("Tree '%s' in file %s has no entries.", tree_key, self._path)
 
         return data
+
+    def read_hits(
+        self,
+        branches: Sequence[str] | None = None,
+        tree_names: Sequence[str] | None = None,
+        validate: bool = True,
+        add_source_branch: bool = True,
+    ) -> TreeData:
+        """Read the hits of the file as a single dataset.
+
+        A file splitting its hits into one tree per run, or one per sensitive
+        detector, is read as one dataset with the trees placed one after
+        another. Every tree is held in memory before they are joined, so this
+        needs room for the whole file.
+
+        Parameters
+        ----------
+        branches : Sequence[str] | None
+            Branches to read from every tree. When omitted or empty, every
+            branch is read.
+        tree_names : Sequence[str] | None
+            Trees to read, in the order their rows should follow. When
+            omitted, every tree of the file holding hits is read, in file
+            order.
+        validate : bool
+            Whether to recognise the structure of each tree and check it.
+        add_source_branch : bool
+            Whether to record which tree each row came from.
+
+        Returns
+        -------
+        TreeData
+            Rows of every tree that was read, one tree after another.
+
+        Raises
+        ------
+        TreeNotFoundError
+            If the file holds no hits, or a named tree is not present.
+        UnknownHitsVariantError
+            If the structure of a tree is not a supported one.
+        HitsTreeValidationError
+            If a tree does not match the structure it was recognised as.
+        TreeMergeError
+            If the trees do not hold the same structure.
+        BranchNotFoundError
+            If any requested branch is not present in a tree.
+        """
+        names = tuple(tree_names) if tree_names is not None else self.hits_tree_names()
+        if not names:
+            # Reported the same way a missing tree is, with the trees the file
+            # does hold.
+            resolve_tree_name(self.tree_names, GateTree.HITS, self._path)
+
+        parts = [
+            self.read(GateTree.HITS, branches, tree_name=name, validate=validate) for name in names
+        ]
+        return merge_tree_data(parts, names, add_source_branch)
 
     def _open_tree(self, tree: GateTree, name: str | None = None) -> tuple[str, Any]:
         """Return the key of a tree and the tree itself."""

@@ -14,9 +14,10 @@ from opengate_gate_tree.errors import (
     TreeNotFoundError,
     UnknownHitsVariantError,
 )
-from opengate_gate_tree.io.reader import read_tree
+from opengate_gate_tree.io.reader import read_hits_trees, read_tree
 from opengate_gate_tree.io.rootfile import RootFile
 from opengate_gate_tree.tree.gatetree import GateTree
+from opengate_gate_tree.tree.merge import SOURCE_TREE_BRANCH
 
 
 def test_read_tree_loads_every_branch_by_default(
@@ -253,3 +254,55 @@ def test_read_tree_refuses_to_choose_between_trees_of_hits(
     # ACT / ASSERT
     with pytest.raises(AmbiguousTreeError):
         read_tree(hits_variant_files["multi-sd"], GateTree.HITS)
+
+
+def test_read_hits_trees_joins_the_trees_of_a_file(
+    hits_variant_files: Mapping[str, Path],
+) -> None:
+    """The entry point used by the command line merges like the reader."""
+    # ARRANGE
+    # No additional setup required.
+
+    # ACT
+    data = read_hits_trees(hits_variant_files["multi-run"])
+
+    # ASSERT
+    assert data.entry_count == 1500
+    assert sorted(set(data["runID"].tolist())) == [0, 1, 2]
+
+
+def test_read_hits_trees_reads_a_file_holding_one_tree(
+    hits_variant_files: Mapping[str, Path],
+) -> None:
+    """Merging is not something the caller has to know the file needs."""
+    # ARRANGE
+    # No additional setup required.
+
+    # ACT
+    data = read_hits_trees(hits_variant_files["b1"])
+
+    # ASSERT
+    assert data.entry_count == 4441
+    assert set(data[SOURCE_TREE_BRANCH]) == {"tree"}
+
+
+def test_read_hits_trees_closes_the_file(
+    hits_variant_files: Mapping[str, Path],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Reading several trees should leave no handle behind either."""
+    # ARRANGE
+    closed: list[Path] = []
+    original_close = RootFile.close
+
+    def record_close(self: RootFile) -> None:
+        closed.append(self.path)
+        original_close(self)
+
+    monkeypatch.setattr(RootFile, "close", record_close)
+
+    # ACT
+    read_hits_trees(hits_variant_files["a1"])
+
+    # ASSERT
+    assert closed == [hits_variant_files["a1"]]

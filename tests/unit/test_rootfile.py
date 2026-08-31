@@ -21,6 +21,7 @@ from opengate_gate_tree.io.rootfile import RootFile
 from opengate_gate_tree.tree.gatetree import GateTree
 from opengate_gate_tree.tree.hits.schema import expected_branches
 from opengate_gate_tree.tree.hits.variant import HitsTreeVariant
+from opengate_gate_tree.tree.merge import SOURCE_TREE_BRANCH
 
 # Variant fixtures storing their tree under the standard name.
 STANDARD_NAME_LAYOUTS = [
@@ -685,3 +686,128 @@ def test_the_structure_of_a_named_tree_is_recognised(
     # ASSERT
     assert detection.tree_name == "Hits_DET_INNER"
     assert detection.variant is HitsTreeVariant.NO_SYSTEM
+
+
+def test_hits_split_per_run_are_read_as_one_dataset(
+    hits_variant_files: Mapping[str, Path],
+) -> None:
+    """Three runs of a simulation are one measurement, not three."""
+    # ARRANGE
+    # No additional setup required.
+
+    # ACT
+    with RootFile(hits_variant_files["multi-run"]) as root_file:
+        data = root_file.read_hits()
+
+    # ASSERT
+    assert data.entry_count == 1500
+    assert sorted(set(data["runID"].tolist())) == [0, 1, 2]
+    assert sorted(set(data[SOURCE_TREE_BRANCH])) == ["Hits", "Hits_run1", "Hits_run2"]
+
+
+def test_hits_split_per_detector_keep_one_identity_per_event(
+    hits_variant_files: Mapping[str, Path],
+) -> None:
+    """The same decay recorded in two detectors stays one event."""
+    # ARRANGE
+    # Both trees hold run 0, and their events overlap.
+
+    # ACT
+    with RootFile(hits_variant_files["multi-sd"]) as root_file:
+        data = root_file.read_hits()
+
+    # ASSERT
+    key = np.stack([data["runID"], data["eventID"]], axis=1)
+    assert data.entry_count == 1000
+    assert len(np.unique(key, axis=0)) == len(np.unique(data["eventID"]))
+    assert sorted(set(data[SOURCE_TREE_BRANCH])) == ["Hits_DET_INNER", "Hits_DET_OUTER"]
+
+
+def test_reading_hits_can_be_limited_to_some_trees(
+    hits_variant_files: Mapping[str, Path],
+) -> None:
+    """Two runs out of three are a legitimate thing to ask for."""
+    # ARRANGE
+    # No additional setup required.
+
+    # ACT
+    with RootFile(hits_variant_files["multi-run"]) as root_file:
+        data = root_file.read_hits(tree_names=["Hits", "Hits_run2"])
+
+    # ASSERT
+    assert data.entry_count == 1000
+    assert sorted(set(data["runID"].tolist())) == [0, 2]
+
+
+def test_reading_hits_of_a_file_holding_one_tree_works(
+    hits_variant_files: Mapping[str, Path],
+) -> None:
+    """The usual file needs no special treatment to be read this way."""
+    # ARRANGE
+    # No additional setup required.
+
+    # ACT
+    with RootFile(hits_variant_files["a1"]) as root_file:
+        data = root_file.read_hits()
+
+    # ASSERT
+    assert data.entry_count == 500
+    assert set(data[SOURCE_TREE_BRANCH]) == {"Hits"}
+
+
+def test_reading_hits_can_leave_out_the_source_column(
+    hits_variant_files: Mapping[str, Path],
+    hits_variant_layouts: Mapping[str, HitsVariantLayout],
+) -> None:
+    """A result meant to match the structure exactly carries no extra column."""
+    # ARRANGE
+    expected_branches_count = hits_variant_layouts["a1"].branch_count
+
+    # ACT
+    with RootFile(hits_variant_files["multi-run"]) as root_file:
+        data = root_file.read_hits(add_source_branch=False)
+
+    # ASSERT
+    assert len(data.branch_names) == expected_branches_count
+    assert SOURCE_TREE_BRANCH not in data.branch_names
+
+
+def test_reading_hits_honours_a_branch_selection(
+    hits_variant_files: Mapping[str, Path],
+) -> None:
+    """A selection applies to every tree that goes into the dataset."""
+    # ARRANGE
+    # No additional setup required.
+
+    # ACT
+    with RootFile(hits_variant_files["multi-run"]) as root_file:
+        data = root_file.read_hits(["eventID", "edep"])
+
+    # ASSERT
+    assert data.branch_names == ("eventID", "edep", SOURCE_TREE_BRANCH)
+    assert data.entry_count == 1500
+
+
+def test_reading_hits_of_a_file_without_them_reports_the_trees_it_holds(
+    make_gate_root_file: Callable[..., Path],
+) -> None:
+    """Asking for hits that are not there must say what is there instead."""
+    # ARRANGE
+    path = make_gate_root_file({"pet_data": {"start_time_sec": np.zeros(1)}})
+
+    # ACT / ASSERT
+    with RootFile(path) as root_file, pytest.raises(TreeNotFoundError, match="pet_data"):
+        root_file.read_hits()
+
+
+def test_reading_hits_of_a_named_tree_that_is_absent_is_reported(
+    hits_variant_files: Mapping[str, Path],
+) -> None:
+    """A tree named among the ones to read still has to exist."""
+    # ARRANGE
+    # No additional setup required.
+
+    # ACT / ASSERT
+    with RootFile(hits_variant_files["multi-run"]) as root_file:
+        with pytest.raises(TreeNotFoundError, match="Hits_run7"):
+            root_file.read_hits(tree_names=["Hits", "Hits_run7"])

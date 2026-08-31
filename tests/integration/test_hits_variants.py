@@ -6,6 +6,7 @@ again. What the unit tests state one piece at a time is stated here as one
 path, on files a simulation produced.
 """
 
+import logging
 from collections.abc import Mapping
 from pathlib import Path
 
@@ -15,10 +16,12 @@ import pytest
 from conftest import HITS_VARIANT_LAYOUTS, HitsVariantLayout
 
 from opengate_gate_tree import (
+    SOURCE_TREE_BRANCH,
     GateTree,
     OutputFileFormat,
     RootFile,
     describe_hits_tree,
+    read_hits_trees,
     read_tree,
     write_tree,
 )
@@ -138,3 +141,47 @@ def test_a_file_split_per_run_reads_one_run_at_a_time(
         "Hits_run1": {1},
         "Hits_run2": {2},
     }
+
+
+def test_merged_hits_survive_a_write_to_root(
+    hits_variant_files: Mapping[str, Path],
+    tmp_path: Path,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A merged dataset should reach a ROOT file and come back whole.
+
+    Reading it back reports the source column as one the structure does not
+    describe, which is what a branch beyond the structure is meant to do.
+    """
+    # ARRANGE
+    data = read_hits_trees(hits_variant_files["multi-run"])
+    output_file = tmp_path / "hits.root"
+
+    # ACT
+    write_tree(data, output_file, OutputFileFormat.ROOT)
+    with caplog.at_level(logging.WARNING):
+        restored = read_tree(output_file, GateTree.HITS)
+
+    # ASSERT
+    assert restored.entry_count == 1500
+    assert list(restored[SOURCE_TREE_BRANCH]) == list(data[SOURCE_TREE_BRANCH])
+    assert SOURCE_TREE_BRANCH in caplog.text
+
+
+def test_merged_hits_survive_a_write_to_hdf5(
+    hits_variant_files: Mapping[str, Path],
+    tmp_path: Path,
+) -> None:
+    """The column saying where a row came from has to reach the output too."""
+    # ARRANGE
+    data = read_hits_trees(hits_variant_files["multi-sd"])
+    output_file = tmp_path / "hits.h5"
+
+    # ACT
+    write_tree(data, output_file, OutputFileFormat.HDF5)
+
+    # ASSERT
+    with h5py.File(output_file) as written:
+        sources = written["Hits"][SOURCE_TREE_BRANCH].asstr()[:]
+    assert sorted(set(sources)) == ["Hits_DET_INNER", "Hits_DET_OUTER"]
+    assert len(sources) == 1000

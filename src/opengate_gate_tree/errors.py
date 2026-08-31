@@ -27,6 +27,8 @@ UnknownHitsVariantError
     as one the package does not support.
 HitsTreeValidationError
     A "Hits" tree does not match the structure it was recognised as.
+TreeMergeError
+    Trees cannot be placed one after another into a single dataset.
 ExportError
     The output file cannot be written.
 """
@@ -77,6 +79,16 @@ class HitsTreeValidationError(GateTreeError):
     branch stored with a type other than the expected one. Branches beyond the
     structure are reported as a warning instead, because GATE builds routinely
     add them.
+    """
+
+
+class TreeMergeError(GateTreeError):
+    """Raised when trees cannot be merged into a single dataset.
+
+    Trees stored under several names hold the same structure when they come
+    from one simulation. Different branches, or a branch stored with another
+    type, mean they do not, and concatenating them would produce a dataset
+    that describes nothing.
     """
 
 
