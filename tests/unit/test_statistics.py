@@ -125,7 +125,7 @@ def test_hits_are_summarised_by_what_they_describe(gate_hits_file: Path) -> None
     # ASSERT
     assert summary is not None
     assert summary.run_count == len(np.unique(data["runID"]))
-    assert summary.track_count == len(np.unique(data["trackID"]))
+    assert summary.track_key == ("runID", "eventID", "trackID")
     assert summary.total_edep == pytest.approx(float(np.sum(data["edep"])))
     assert summary.time_min == pytest.approx(float(np.min(data["time"])))
 
@@ -499,3 +499,50 @@ def test_a_branch_of_flags_is_reported_as_whole_numbers() -> None:
     assert branch.kind is BranchKind.INTEGER
     assert branch.non_finite_count is None
     assert branch.unique_count == 2
+
+
+def test_tracks_are_counted_by_run_event_and_track_together(
+    hits_variant_files: dict[str, Path],
+) -> None:
+    """GATE numbers tracks within an event, so every event has a track 1."""
+    # ARRANGE
+    data = read_hits_trees(hits_variant_files["multi-run"])
+    key = np.stack([data["runID"], data["eventID"], data["trackID"]], axis=1)
+
+    # ACT
+    summary = compute_statistics(data).hits_summary
+
+    # ASSERT
+    assert summary is not None
+    assert summary.track_count == len(np.unique(key, axis=0))
+    assert summary.track_count > len(np.unique(data["trackID"]))
+
+
+def test_tracks_are_counted_from_the_branches_that_were_read() -> None:
+    """A selection without the run still names what the count was made of."""
+    # ARRANGE
+    columns = {
+        "eventID": np.array([1, 1, 2], dtype=np.int32),
+        "trackID": np.array([1, 2, 1], dtype=np.int32),
+    }
+
+    # ACT
+    summary = compute_statistics(TreeData(GateTree.HITS, columns)).hits_summary
+
+    # ASSERT
+    assert summary is not None
+    assert summary.track_key == ("eventID", "trackID")
+    assert summary.track_count == 3
+
+
+def test_tracks_are_not_counted_without_their_identifier() -> None:
+    """Nothing names a track when its identifier was not extracted."""
+    # ARRANGE
+    columns = {"eventID": np.array([1, 2], dtype=np.int32)}
+
+    # ACT
+    summary = compute_statistics(TreeData(GateTree.HITS, columns)).hits_summary
+
+    # ASSERT
+    assert summary is not None
+    assert (summary.track_key, summary.track_count) == ((), None)

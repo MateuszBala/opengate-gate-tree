@@ -859,3 +859,35 @@ def test_reading_hits_of_an_unrecognised_tree_is_possible_without_validation(
 
     # ASSERT
     assert data.branch_names == ("eventID", "edep", SOURCE_TREE_BRANCH)
+
+
+def test_hits_under_another_name_are_reported_as_present(
+    hits_variant_files: Mapping[str, Path],
+) -> None:
+    """Asking whether a file holds hits has to answer the way reading does."""
+    # ARRANGE
+    # The GateToTree output stores its tree under the name "tree".
+
+    # ACT
+    with RootFile(hits_variant_files["b1"]) as root_file:
+        holds_hits = root_file.has_tree(GateTree.HITS)
+        holds_singles = root_file.has_tree(GateTree.SINGLES)
+
+    # ASSERT
+    assert holds_hits is True
+    assert holds_singles is False
+
+
+def test_a_file_holding_no_hits_reports_none(
+    make_gate_root_file: Callable[..., Path],
+) -> None:
+    """Looking for hits by structure must not turn every tree into hits."""
+    # ARRANGE
+    path = make_gate_root_file({"pet_data": {"start_time_sec": np.zeros(1)}})
+
+    # ACT
+    with RootFile(path) as root_file:
+        holds_hits = root_file.has_tree(GateTree.HITS)
+
+    # ASSERT
+    assert holds_hits is False

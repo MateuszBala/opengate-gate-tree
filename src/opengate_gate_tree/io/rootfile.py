@@ -124,8 +124,17 @@ class RootFile:
         return tuple(dict.fromkeys(names))
 
     def has_tree(self, tree: GateTree) -> bool:
-        """Return whether the requested tree is present in the file."""
-        return find_tree_name(self.tree_names, tree) is not None
+        """Return whether the requested tree is present in the file.
+
+        Hits are looked for the way they are read: by name first, then by
+        structure, so a file whose hits sit in a tree called something else
+        answers ``True`` here and can be read. A file holding hits in several
+        trees answers ``True`` as well, although reading it needs one of them
+        to be named.
+        """
+        if find_tree_name(self.tree_names, tree) is not None:
+            return True
+        return tree is GateTree.HITS and bool(self.hits_tree_names())
 
     def hits_tree_names(self) -> tuple[str, ...]:
         """Return the names of the trees holding hits, whatever they are called.

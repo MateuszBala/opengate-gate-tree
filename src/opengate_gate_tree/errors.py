@@ -50,8 +50,8 @@ class AmbiguousTreeError(GateTreeError):
     """Raised when several trees in a file could be the requested one.
 
     A file can hold the hits of one run per tree, or of one sensitive
-    detector per tree. Picking one of them would answer a question the caller
-    has not been asked, so they are all reported instead.
+    detector per tree. Picking one of them would decide something the caller
+    never asked the package to decide, so they are all reported instead.
     """
 
 

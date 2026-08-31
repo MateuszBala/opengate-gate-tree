@@ -153,7 +153,7 @@ which records where every row came from. See [Merging Trees](merging.md).
 `compute_statistics`, `format_statistics` and `write_statistics` summarise what
 was extracted. See [Statistics](statistics.md).
 
-Three more errors join the hierarchy in this version:
+Four more errors join the hierarchy in this version:
 `UnknownHitsVariantError` when a structure is not a supported one,
 `HitsTreeValidationError` when a tree does not match the structure it was
 recognised as, `AmbiguousTreeError` when several trees hold hits and none was

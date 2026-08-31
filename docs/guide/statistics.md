@@ -61,7 +61,8 @@ name and the identifier scheme to the summary.
     "event_key": ["runID", "eventID"],
     "events": 458,
     "runs": 3,
-    "tracks": 2,
+    "track_key": ["runID", "eventID", "trackID"],
+    "tracks": 915,
     "total_edep": 467.565,
     "time_min": 1.59e-06,
     "time_max": 0.0417,
@@ -91,9 +92,12 @@ counts, a check that a file holds what a simulation was supposed to produce.
 
 Three details are worth knowing:
 
-- **events are counted by run and event identifier together**, and `event_key`
-  names the branches that were used. A selection without `runID` counts by the
-  event identifier alone and says so. See [Event Identifiers](events.md);
+- **events and tracks are counted by the identifiers that name them
+  together**, and `event_key` and `track_key` say which branches were used.
+  GATE numbers events within a run and tracks within an event, so an
+  identifier on its own counts far too few of them: every event has a track 1.
+  A selection without `runID` counts by what is left and says so. See
+  [Event Identifiers](events.md);
 - **values that are not finite are counted, not averaged.** JSON can write
   neither `NaN` nor an infinity, so both are counted as `not_finite` and left
   out of the range, the mean and the deposited energy; a branch holding

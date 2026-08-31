@@ -9,9 +9,10 @@ trees of a GATE file are summarised the same way once they are supported. The
 part that reads the numbers as physics is separate and is filled in only for
 hits, and only from the branches that were actually extracted.
 
-Events are counted by run and event identifier together. GATE numbers events
-within a run, so the identifier alone counts too few of them as soon as a file
-holds more than one run, and the package leaves those identifiers as they are.
+Events and tracks are counted by the identifiers that name them together. GATE
+numbers events within a run and tracks within an event, so an identifier on its
+own counts far too few of them: every event has a track 1. The package leaves
+those identifiers as they are, so a summary has to do the composing.
 
 Public objects:
 
@@ -30,7 +31,7 @@ statistics_to_dict(statistics) -> dict
 """
 
 from collections import Counter
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any, Final
 
@@ -125,6 +126,9 @@ class HitsSummary:
         Number of distinct events.
     run_count : int | None
         Number of distinct runs.
+    track_key : tuple[str, ...]
+        Branches the tracks were counted by. Empty when they could not be
+        counted at all.
     track_count : int | None
         Number of distinct tracks.
     total_edep : float | None
@@ -138,6 +142,7 @@ class HitsSummary:
     event_key: tuple[str, ...] = ()
     event_count: int | None = None
     run_count: int | None = None
+    track_key: tuple[str, ...] = ()
     track_count: int | None = None
     total_edep: float | None = None
     time_min: float | None = None
@@ -317,25 +322,42 @@ def _most_common(counts: Counter[str]) -> tuple[tuple[str, int], ...]:
 def _hits_summary(data: TreeData) -> HitsSummary:
     """Summarise what the hits describe, from the branches that are present."""
     columns = data.columns
-    key = tuple(name for name in (RUN_BRANCH, EVENT_BRANCH) if name in columns)
-    event_count = None
-    if EVENT_BRANCH in columns:
-        stacked = np.stack([columns[name] for name in key], axis=1)
-        event_count = int(len(np.unique(stacked, axis=0)))
-    else:
-        key = ()
+    event_key, event_count = _count_by_key(columns, (RUN_BRANCH, EVENT_BRANCH), EVENT_BRANCH)
+    track_key, track_count = _count_by_key(
+        columns, (RUN_BRANCH, EVENT_BRANCH, TRACK_BRANCH), TRACK_BRANCH
+    )
 
     time_min, time_max = _range(columns, TIME_BRANCH)
     return HitsSummary(
-        event_key=key,
+        event_key=event_key,
         event_count=event_count,
         run_count=_distinct_count(columns, RUN_BRANCH),
-        track_count=_distinct_count(columns, TRACK_BRANCH),
+        track_key=track_key,
+        track_count=track_count,
         total_edep=_total(columns, ENERGY_BRANCH),
         time_min=time_min,
         time_max=time_max,
         source_trees=_source_trees(columns),
     )
+
+
+def _count_by_key(
+    columns: Mapping[str, npt.NDArray[Any]],
+    key: Sequence[str],
+    required: str,
+) -> tuple[tuple[str, ...], int | None]:
+    """Count what the identifiers of a key name, and report the key used.
+
+    The identifiers of GATE are numbered within the thing that holds them, so
+    what names one event or one track is the whole key, not its last branch.
+    A key is built from the branches that were extracted; when the branch that
+    carries the count itself is missing, there is nothing to count.
+    """
+    if required not in columns:
+        return (), None
+    present = tuple(name for name in key if name in columns)
+    stacked = np.stack([columns[name] for name in present], axis=1)
+    return present, int(len(np.unique(stacked, axis=0)))
 
 
 def _distinct_count(columns: Mapping[str, npt.NDArray[Any]], name: str) -> int | None:
@@ -426,6 +448,7 @@ def _summary_to_dict(summary: HitsSummary) -> dict[str, Any]:
         "event_key": list(summary.event_key),
         "events": summary.event_count,
         "runs": summary.run_count,
+        "track_key": list(summary.track_key),
         "tracks": summary.track_count,
         "total_edep": summary.total_edep,
         "time_min": summary.time_min,
@@ -445,7 +468,7 @@ def _summary_lines(summary: HitsSummary) -> list[str]:
     if summary.run_count is not None:
         lines.append(f"Runs: {summary.run_count}")
     if summary.track_count is not None:
-        lines.append(f"Tracks: {summary.track_count}")
+        lines.append(f"Tracks: {summary.track_count} (counted by {', '.join(summary.track_key)})")
     if summary.total_edep is not None:
         lines.append(f"Deposited energy: {summary.total_edep:.6g}")
     if summary.time_min is not None and summary.time_max is not None:

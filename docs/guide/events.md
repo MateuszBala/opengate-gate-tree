@@ -33,12 +33,17 @@ sensitive detector, one decay is recorded in both of them under the same run
 and the same event identifier. Counting by the pair keeps it as one event,
 which is what it is.
 
+The same holds one level down: GATE numbers tracks within an event, so every
+event has a track 1, and a track is named by the run, the event and the track
+identifier together.
+
 The report a run can write names the branches it counted by, so a summary of a
 selection that left `runID` out says so instead of quietly counting too few
 events:
 
 ```json
-"hits": {"event_key": ["runID", "eventID"], "events": 5847, "runs": 3}
+"hits": {"event_key": ["runID", "eventID"], "events": 458, "runs": 3,
+         "track_key": ["runID", "eventID", "trackID"], "tracks": 915}
 ```
 
 ## Why Identifiers Are Never Renumbered
