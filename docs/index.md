@@ -32,6 +32,7 @@ guide/library
 guide/loading
 guide/hits
 guide/events
+guide/positronium
 guide/merging
 guide/representations
 guide/statistics

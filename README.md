@@ -221,6 +221,25 @@ with RootFile(Path("simulation.root")) as root_file:
     print(describe_hits_tree(detection))
 ```
 
+### Reading What A Gamma Was
+
+The branches a `PositroniumSource` writes hold integers saying what each gamma
+was and where it came from. The package names those values, and the names are
+the integers themselves, so a column compares against them as it was read:
+
+```python
+from opengate_gate_tree import GammaType, SourceType, has_positronium_metadata
+
+prompt = data["gammaType"] == GammaType.PROMPT
+from_positronium = has_positronium_metadata(data["decayIndex"])
+```
+
+A plain `enum.Enum` written for the same purpose would not work here and would
+not say so: its members are not integers, so the comparison yields a mask of
+`False` rather than an error. See the
+[guide](https://opengate-gate-tree.readthedocs.io/en/latest/guide/positronium.html)
+for the meaning of every value.
+
 Failures while reading or writing files are reported through a subclass of
 `GateTreeError`, so one `except` clause covers them. Malformed arguments, such as
 an empty branch name, raise `ValueError` instead:
@@ -259,6 +278,7 @@ Available capabilities:
 - 0.1.0: project structure initialized and minimal buildable package code added.
 - 0.2.0: GATE ROOT files can be loaded and validated, trees and branches extracted into a NumPy-backed representation with a pandas view, and written to ROOT, HDF5 or CSV. Usable both as a command-line tool and as a library, with user documentation on ReadTheDocs.
 - 0.3.0: the structure of the "Hits" tree is recognised and validated against the schema of the variant it holds, hits stored under another name are found by their structure, a file split into one tree per run or per sensitive detector is read as one dataset, statistics are computed and saved beside the data, and output files are named after the tree they hold.
+- 0.4.0: the branches a PositroniumSource writes are described by enum classes whose members are the integers GATE wrote, so a column compares against them as it was read; their values can be read as names, rows carrying the decay metadata of such a source are told from the rest, and a statistics report names those values instead of printing numbers.
 
 
 

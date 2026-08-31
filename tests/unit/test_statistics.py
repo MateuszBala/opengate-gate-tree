@@ -1,6 +1,7 @@
 """Unit tests for summarising extracted data."""
 
 import json
+from collections import Counter
 from dataclasses import replace
 from pathlib import Path
 
@@ -546,3 +547,105 @@ def test_tracks_are_not_counted_without_their_identifier() -> None:
     # ASSERT
     assert summary is not None
     assert (summary.track_key, summary.track_count) == ((), None)
+
+
+def test_positronium_values_are_reported_by_what_they_mean(
+    positronium_files: dict[str, Path],
+) -> None:
+    """A report saying 2 where the package knows it means annihilation says too little."""
+    # ARRANGE
+    data = read_tree(positronium_files["all-variants"], GateTree.HITS, ["gammaType"])
+    counts = Counter(int(value) for value in data["gammaType"])
+
+    # ACT
+    branch = summarise({"gammaType": data["gammaType"]})["gammaType"]
+
+    # ASSERT
+    assert branch.top_values == (
+        ("ANNIHILATION", counts[2]),
+        ("PROMPT", counts[3]),
+        ("UNKNOWN", counts[0]),
+    )
+
+
+def test_a_value_the_package_cannot_name_is_reported_as_itself() -> None:
+    """A report says what the file holds, and a number with no name is a number."""
+    # ARRANGE
+    columns = {"sourceType": np.array([2, 2, 9], dtype=np.int32)}
+
+    # ACT
+    branch = summarise(columns)["sourceType"]
+
+    # ASSERT
+    assert branch.top_values == (("PARA_POSITRONIUM", 2), ("9", 1))
+
+
+def test_other_whole_number_branches_are_not_named() -> None:
+    """Only three branches carry numbers standing for something."""
+    # ARRANGE
+    columns = {"eventID": np.array([1, 1, 2], dtype=np.int32)}
+
+    # ACT
+    branch = summarise(columns)["eventID"]
+
+    # ASSERT
+    assert branch.top_values == ()
+    assert branch.unique_count == 2
+
+
+def test_the_rendering_names_positronium_values(
+    positronium_files: dict[str, Path],
+) -> None:
+    """The rendering is what a run with --statistics puts in the log."""
+    # ARRANGE
+    data = read_tree(positronium_files["ops-prompt"], GateTree.HITS, ["gammaType", "decayType"])
+
+    # ACT
+    rendered = format_statistics(compute_statistics(data))
+
+    # ASSERT
+    assert "most frequent ANNIHILATION" in rendered
+    assert "DEEXCITATION" in rendered
+
+
+def test_a_report_naming_positronium_values_stays_valid_json(
+    positronium_files: dict[str, Path],
+) -> None:
+    """Names reach the saved report the same way the numbers do."""
+    # ARRANGE
+    data = read_tree(positronium_files["pps-direct"], GateTree.HITS, ["sourceType"])
+
+    # ACT
+    report = statistics_to_dict(compute_statistics(data))
+    written = json.loads(json.dumps(report, allow_nan=False))
+
+    # ASSERT
+    frequent = {item["value"] for item in written["branches"][0]["most_frequent"]}
+    assert frequent == {"PARA_POSITRONIUM", "DIRECT_ANNIHILATION"}
+
+
+def test_a_value_with_no_name_is_reported_however_rare_it_is() -> None:
+    """The five members of sourceType would push a sixth value out of a top five."""
+    # ARRANGE
+    column = np.array([0] * 10 + [1] * 9 + [2] * 8 + [3] * 7 + [4] * 6 + [9], dtype=np.int32)
+
+    # ACT
+    branch = summarise({"sourceType": column})["sourceType"]
+
+    # ASSERT
+    assert branch.top_values[-1] == ("9", 1)
+    assert len(branch.top_values) == 6
+
+
+def test_values_with_no_name_are_capped_while_named_ones_are_kept() -> None:
+    """A file the package does not understand could hold any number of values."""
+    # ARRANGE
+    column = np.concatenate([np.zeros(10, dtype=np.int32), np.arange(100, 900, dtype=np.int32)])
+
+    # ACT
+    branch = summarise({"sourceType": column})["sourceType"]
+
+    # ASSERT
+    assert ("NOT_DEFINED", 10) in branch.top_values
+    assert len(branch.top_values) == 6
+    assert branch.unique_count == 801

@@ -31,6 +31,14 @@ each row came from.
 :func:`compute_statistics` summarises what was extracted, and
 :func:`write_statistics` saves that summary next to the data.
 
+The branches a ``PositroniumSource`` writes carry integers whose meaning is
+described by :class:`SourceType`, :class:`DecayType` and :class:`GammaType`.
+Their members are those integers, so a column compares against them as it was
+read. :func:`decode_positronium_value` and :func:`decode_positronium_column`
+read those values as names, :func:`positronium_enum` says which class describes
+a branch, and :func:`has_positronium_metadata` reads the ``decayIndex`` branch to
+tell rows carrying the decay metadata of such a source from the rest.
+
 Failures while reading or writing files are reported through a subclass of
 :class:`GateTreeError`, so a single ``except`` clause covers them. Malformed
 arguments, such as an empty branch name or inconsistent columns, raise
@@ -86,6 +94,18 @@ from opengate_gate_tree.tree.hits.detection import (  # noqa: E402
     detect_hits_variant,
     summarise_hits_tree,
 )
+from opengate_gate_tree.tree.hits.positronium import (  # noqa: E402
+    DECAY_INDEX_BRANCH,
+    NO_POSITRONIUM_METADATA,
+    POSITRONIUM_BRANCHES,
+    DecayType,
+    GammaType,
+    SourceType,
+    decode_positronium_column,
+    decode_positronium_value,
+    has_positronium_metadata,
+    positronium_enum,
+)
 from opengate_gate_tree.tree.hits.schema import (  # noqa: E402
     BranchKind,
     BranchSpec,
@@ -120,7 +140,10 @@ __all__ = [
     "BranchNotFoundError",
     "BranchSpec",
     "BranchStatistics",
+    "DECAY_INDEX_BRANCH",
+    "DecayType",
     "ExportError",
+    "GammaType",
     "GateSystemType",
     "GateTree",
     "GateTreeError",
@@ -128,10 +151,13 @@ __all__ = [
     "HitsTreeDetection",
     "HitsTreeValidationError",
     "HitsTreeVariant",
+    "NO_POSITRONIUM_METADATA",
     "OutputFileFormat",
+    "POSITRONIUM_BRANCHES",
     "RootFile",
     "RootFileError",
     "SOURCE_TREE_BRANCH",
+    "SourceType",
     "TreeData",
     "TreeMergeError",
     "TreeNotFoundError",
@@ -143,13 +169,17 @@ __all__ = [
     "build_output_file_path",
     "build_statistics_file_path",
     "compute_statistics",
+    "decode_positronium_column",
+    "decode_positronium_value",
     "describe_hits_tree",
     "detect_hits_variant",
     "expected_branches",
     "format_statistics",
+    "has_positronium_metadata",
     "merge_tree_data",
     "parse_gate_tree",
     "parse_output_file_format",
+    "positronium_enum",
     "read_hits_trees",
     "read_tree",
     "statistics_to_dict",

@@ -104,7 +104,11 @@ Three details are worth knowing:
   nothing else reports `null`;
 - **the physics part is filled in from the branches that were extracted.** A
   selection without `edep` reports `null` for the deposited energy rather than
-  failing.
+  failing;
+- **values that stand for something are named.** The three branches a
+  `PositroniumSource` fills report `ANNIHILATION (367)` rather than `2 (367)`;
+  a value the package cannot name is reported as the number it is. See
+  [PositroniumSource Data](positronium.md).
 
 The part describing branches is not specific to hits, so the other trees of a
 GATE file will be summarised the same way once they are supported.
