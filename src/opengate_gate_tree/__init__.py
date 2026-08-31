@@ -51,6 +51,12 @@ Failures while reading or writing files are reported through a subclass of
 arguments, such as an empty branch name or inconsistent columns, raise
 ``ValueError`` instead, and are not caught by that clause.
 
+Quantities are read in the units GATE writes them in - MeV, mm and s. The
+conversions to the units an analysis uses are named after what they do::
+
+    energies = MeV_to_keV(frame["edep"])
+    resolution = s_to_ns(frame["time"])
+
 The package does not configure logging on import. Applications decide that for
 themselves; :func:`opengate_gate_tree.logging_setup.configure_logging` is
 available for the ones that want the defaults used by the command line.
@@ -164,6 +170,25 @@ from opengate_gate_tree.tree.statistics import (  # noqa: E402
     statistics_to_dict,
 )
 from opengate_gate_tree.tree.treedata import TreeData  # noqa: E402
+from opengate_gate_tree.units import (  # noqa: E402
+    GATE_UNITS,
+    MeV_to_keV,
+    cm_to_m,
+    cm_to_mm,
+    deg_to_rad,
+    keV_to_MeV,
+    m_to_cm,
+    m_to_mm,
+    mm_to_cm,
+    mm_to_m,
+    ms_to_ns,
+    ms_to_s,
+    ns_to_ms,
+    ns_to_s,
+    rad_to_deg,
+    s_to_ms,
+    s_to_ns,
+)
 
 # Keep the package quiet when the application using it has not configured
 # logging. Without a handler, logging falls back to writing warnings straight
@@ -181,6 +206,7 @@ __all__ = [
     "DecayType",
     "EVENT_COLUMN",
     "ExportError",
+    "GATE_UNITS",
     "GammaType",
     "GateSystemType",
     "GateTree",
@@ -190,6 +216,7 @@ __all__ = [
     "HitsTreeValidationError",
     "HitsTreeVariant",
     "InclusiveSide",
+    "MeV_to_keV",
     "NO_POSITRONIUM_METADATA",
     "OutputFileFormat",
     "POSITION_COLUMNS",
@@ -211,9 +238,12 @@ __all__ = [
     "build_statistics_file_path",
     "by_event",
     "by_run",
+    "cm_to_m",
+    "cm_to_mm",
     "compute_statistics",
     "decode_positronium_column",
     "decode_positronium_value",
+    "deg_to_rad",
     "describe_hits_tree",
     "detect_hits_variant",
     "expected_branches",
@@ -234,12 +264,24 @@ __all__ = [
     "is_in_sphere",
     "is_process",
     "is_source_type",
+    "keV_to_MeV",
+    "m_to_cm",
+    "m_to_mm",
     "merge_tree_data",
+    "mm_to_cm",
+    "mm_to_m",
+    "ms_to_ns",
+    "ms_to_s",
+    "ns_to_ms",
+    "ns_to_s",
     "parse_gate_tree",
     "parse_output_file_format",
     "positronium_enum",
+    "rad_to_deg",
     "read_hits_trees",
     "read_tree",
+    "s_to_ms",
+    "s_to_ns",
     "select_by_decay_type",
     "select_by_gamma_type",
     "select_by_process",

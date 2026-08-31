@@ -294,6 +294,22 @@ def format_result_value():
     pass
 ```
 
+One exception: a unit symbol keeps its own capital letters, because they carry
+meaning. `MeV` and `meV` are different units, so a conversion is named
+`MeV_to_keV` rather than `mev_to_kev`, which would name a different one. The
+separator stays `_to_`, and the exception covers unit symbols only.
+
+```python
+# Good
+def MeV_to_keV(values):
+    pass
+
+
+# Bad - names a conversion of millielectronvolts
+def mev_to_kev(values):
+    pass
+```
+
 ### Variable Names
 
 - Use snake_case for variables.
