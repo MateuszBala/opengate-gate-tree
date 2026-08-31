@@ -5,6 +5,7 @@
 [![Standard Python](https://img.shields.io/badge/Python-3.12-blue?logo=python&logoColor=white)]()
 [![Standard Python](https://img.shields.io/badge/Python-3.13-blue?logo=python&logoColor=white)]()
 [![Standard Python](https://img.shields.io/badge/Python-3.14-blue?logo=python&logoColor=white)]()
+[![Documentation Status](https://readthedocs.org/projects/opengate-gate-tree/badge/?version=stable)](https://opengate-gate-tree.readthedocs.io/en/stable/?badge=stable)
 [![license](https://img.shields.io/badge/license-MIT-brightgreen)](LICENSE)
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 [![Checked with mypy](https://www.mypy-lang.org/static/mypy_badge.svg)](https://mypy-lang.org/)
@@ -26,6 +27,9 @@ simulation output into whichever format suits the analysis that follows:
 | `hdf5` | analysis in Python or MATLAB, large datasets, columnar access |
 | `csv` | quick inspection, spreadsheets, plain `pandas.read_csv` |
 
+## Documentation
+
+Full documentation, tutorials, and API reference are available on [Read the Docs](https://opengate-gate-tree.readthedocs.io/).
 
 ## Quick Start
 
