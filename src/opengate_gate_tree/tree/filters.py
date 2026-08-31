@@ -33,6 +33,18 @@ is_in_cylinder(frame, centre, radius, z_range, inner_radius, columns) -> pandas.
     Which rows lie in a cylinder or a ring.
 in_cylinder(frame, centre, radius, z_range, inner_radius, columns) -> pandas.DataFrame
     The rows that lie in a cylinder or a ring.
+is_from_run(frame, run_id) -> pandas.Series
+    Which rows come from a run.
+by_run(frame, run_id) -> pandas.DataFrame
+    The rows of a run.
+is_from_event(frame, run_id, event_id) -> pandas.Series
+    Which rows come from an event.
+by_event(frame, run_id, event_id) -> pandas.DataFrame
+    The rows of an event.
+has_decay_metadata(frame) -> pandas.Series
+    Which rows carry the decay metadata of a PositroniumSource.
+with_decay_metadata(frame) -> pandas.DataFrame
+    The rows that carry it.
 """
 
 from collections.abc import Sequence
@@ -41,8 +53,17 @@ from typing import Final, Literal
 import numpy as np
 import pandas as pd
 
+from opengate_gate_tree.tree.hits.positronium import (
+    DECAY_INDEX_BRANCH,
+    has_positronium_metadata,
+)
+
 # Which ends of a range belong to it, in the vocabulary of ``pandas.Series.between``.
 InclusiveSide = Literal["both", "neither", "left", "right"]
+
+# Columns naming the run and the event a row belongs to.
+RUN_COLUMN: Final[str] = "runID"
+EVENT_COLUMN: Final[str] = "eventID"
 
 # Columns holding the position of a hit, used by the shape filters unless the
 # caller names others. A "Hits" tree carries three such triples: where the hit
@@ -342,3 +363,111 @@ def _positive_radius(radius: float, name: str) -> None:
     """Refuse a radius that is not a distance."""
     if radius < 0:
         raise ValueError(f"The '{name}' of a shape cannot be negative, got {radius}.")
+
+
+def is_from_run(frame: pd.DataFrame, run_id: int) -> pd.Series:
+    """Return which rows come from a run.
+
+    Parameters
+    ----------
+    frame : pandas.DataFrame
+        Rows to test.
+    run_id : int
+        Run to look for, as GATE numbered it.
+
+    Returns
+    -------
+    pandas.Series
+        Boolean column of the same length and index as ``frame``.
+
+    Raises
+    ------
+    KeyError
+        If the frame holds no ``runID`` column.
+    """
+    return frame[RUN_COLUMN] == run_id
+
+
+def by_run(frame: pd.DataFrame, run_id: int) -> pd.DataFrame:
+    """Return the rows of a run.
+
+    See :func:`is_from_run` for the parameters.
+    """
+    return frame[is_from_run(frame, run_id)]
+
+
+def is_from_event(frame: pd.DataFrame, run_id: int, event_id: int) -> pd.Series:
+    """Return which rows come from an event.
+
+    An event is named by **both** identifiers. GATE numbers events within a
+    run, so a file holding more than one run holds an event 5 in each of them,
+    and they are different decays. There is deliberately no filter taking the
+    event identifier alone: writing ``frame["eventID"] == 5`` is one
+    comparison, and it should look like the guess it is.
+
+    Parameters
+    ----------
+    frame : pandas.DataFrame
+        Rows to test.
+    run_id, event_id : int
+        Run and event to look for, as GATE numbered them.
+
+    Returns
+    -------
+    pandas.Series
+        Boolean column of the same length and index as ``frame``.
+
+    Raises
+    ------
+    KeyError
+        If the frame holds no ``runID`` or no ``eventID`` column.
+    """
+    return is_from_run(frame, run_id) & (frame[EVENT_COLUMN] == event_id)
+
+
+def by_event(frame: pd.DataFrame, run_id: int, event_id: int) -> pd.DataFrame:
+    """Return the rows of an event.
+
+    See :func:`is_from_event` for the parameters and for why an event needs
+    both identifiers.
+    """
+    return frame[is_from_event(frame, run_id, event_id)]
+
+
+def has_decay_metadata(frame: pd.DataFrame) -> pd.Series:
+    """Return which rows carry the decay metadata of a PositroniumSource.
+
+    The frame-wide counterpart of
+    :func:`~opengate_gate_tree.tree.hits.positronium.has_positronium_metadata`,
+    which answers about a column. Both say the same thing, and it is narrower
+    than "written by a PositroniumSource": such a source writes the metadata
+    for every gamma it emits, and GATE leaves it out for a gamma of another
+    source **or** for a particle it never reached.
+
+    Parameters
+    ----------
+    frame : pandas.DataFrame
+        Rows to test.
+
+    Returns
+    -------
+    pandas.Series
+        Boolean column of the same length and index as ``frame``.
+
+    Raises
+    ------
+    KeyError
+        If the frame holds no ``decayIndex`` column.
+    """
+    return pd.Series(
+        has_positronium_metadata(frame[DECAY_INDEX_BRANCH]),
+        index=frame.index,
+    )
+
+
+def with_decay_metadata(frame: pd.DataFrame) -> pd.DataFrame:
+    """Return the rows that carry the decay metadata of a PositroniumSource.
+
+    See :func:`has_decay_metadata` for what the answer covers.
+    """
+    return frame[has_decay_metadata(frame)]

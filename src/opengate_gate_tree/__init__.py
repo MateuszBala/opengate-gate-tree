@@ -89,14 +89,20 @@ from opengate_gate_tree.io.writers import write_tree  # noqa: E402
 from opengate_gate_tree.logging_setup import LOGGER_NAME  # noqa: E402
 from opengate_gate_tree.tree.filters import (  # noqa: E402
     POSITION_COLUMNS,
+    by_event,
+    by_run,
+    has_decay_metadata,
     in_box,
     in_cylinder,
     in_range,
     in_sphere,
+    is_from_event,
+    is_from_run,
     is_in_box,
     is_in_cylinder,
     is_in_range,
     is_in_sphere,
+    with_decay_metadata,
 )
 from opengate_gate_tree.tree.gatetree import GateTree, parse_gate_tree  # noqa: E402
 from opengate_gate_tree.tree.hits.detection import (  # noqa: E402
@@ -180,6 +186,8 @@ __all__ = [
     "build_output_file_name",
     "build_output_file_path",
     "build_statistics_file_path",
+    "by_event",
+    "by_run",
     "compute_statistics",
     "decode_positronium_column",
     "decode_positronium_value",
@@ -187,11 +195,14 @@ __all__ = [
     "detect_hits_variant",
     "expected_branches",
     "format_statistics",
+    "has_decay_metadata",
     "has_positronium_metadata",
     "in_box",
     "in_cylinder",
     "in_range",
     "in_sphere",
+    "is_from_event",
+    "is_from_run",
     "is_in_box",
     "is_in_cylinder",
     "is_in_range",
@@ -207,6 +218,7 @@ __all__ = [
     "supported_variants",
     "validate_hits_tree",
     "variant_reference",
+    "with_decay_metadata",
     "write_statistics",
     "write_tree",
 ]
