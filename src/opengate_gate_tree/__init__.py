@@ -51,6 +51,12 @@ Failures while reading or writing files are reported through a subclass of
 arguments, such as an empty branch name or inconsistent columns, raise
 ``ValueError`` instead, and are not caught by that clause.
 
+Three columns of a frame are a column of vectors, and
+:func:`as_vectors` reads them as one. :func:`normalize`, :func:`dot` and
+:func:`cross` work on whole columns at once; a vector of no length has no
+direction, so such a row is answered with ``nan`` and reported, rather than
+refusing the column it sits in.
+
 Quantities are read in the units GATE writes them in - MeV, mm and s. The
 conversions to the units an analysis uses are named after what they do::
 
@@ -85,6 +91,15 @@ from opengate_gate_tree.errors import (  # noqa: E402
     TreeNotFoundError,
     UnknownHitsVariantError,
     UnsupportedBranchTypeError,
+)
+from opengate_gate_tree.geometry.vectors import (  # noqa: E402
+    as_vectors,
+    clip_cosine,
+    cross,
+    dot,
+    ensure_vectors,
+    norm,
+    normalize,
 )
 from opengate_gate_tree.io.fileformat import (  # noqa: E402
     OutputFileFormat,
@@ -233,19 +248,24 @@ __all__ = [
     "UnknownHitsVariantError",
     "UnsupportedBranchTypeError",
     "__version__",
+    "as_vectors",
     "build_output_file_name",
     "build_output_file_path",
     "build_statistics_file_path",
     "by_event",
     "by_run",
+    "clip_cosine",
     "cm_to_m",
     "cm_to_mm",
     "compute_statistics",
+    "cross",
     "decode_positronium_column",
     "decode_positronium_value",
     "deg_to_rad",
     "describe_hits_tree",
     "detect_hits_variant",
+    "dot",
+    "ensure_vectors",
     "expected_branches",
     "format_statistics",
     "has_decay_metadata",
@@ -272,6 +292,8 @@ __all__ = [
     "mm_to_m",
     "ms_to_ns",
     "ms_to_s",
+    "norm",
+    "normalize",
     "ns_to_ms",
     "ns_to_s",
     "parse_gate_tree",
