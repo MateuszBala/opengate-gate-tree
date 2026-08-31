@@ -12,7 +12,7 @@ Branch       Meaning of the values                        Enum in GATE
 `sourceType` which model emitted the gamma                ``SourceKind``
 `decayType`  which decay channel it came through          ``DecayModel``
 `gammaType`  what kind of gamma it is                     ``GammaKind``
-`decayIndex` channel of the configured mixture, or -1     none
+`decayIndex` component of the sampled decay, or -1       none
 ============ ============================================ =====================
 
 The classes here are named after the branches rather than after the enums of
@@ -45,12 +45,12 @@ DECAY_INDEX_BRANCH, NOT_A_POSITRONIUM_SOURCE
     gamma written by another source.
 positronium_enum(branch) -> type[IntEnum] | None
     Class describing the values of a branch, when one describes them.
-decode_value(branch, value) -> IntEnum
+decode_positronium_value(branch, value) -> IntEnum
     What one value of a branch means.
-decode_column(branch, column) -> numpy.ndarray
+decode_positronium_column(branch, column) -> numpy.ndarray
     What every value of a column means.
 is_positronium_source(decay_index) -> numpy.ndarray
-    Which rows were written by a PositroniumSource.
+    Which rows carry the decay metadata of a PositroniumSource.
 """
 
 from collections import Counter
@@ -113,10 +113,14 @@ POSITRONIUM_BRANCHES: Final[Mapping[str, type[IntEnum]]] = MappingProxyType(
 # Branch holding which channel of a configured mixture a gamma came from.
 DECAY_INDEX_BRANCH: Final[str] = "decayIndex"
 
-# Value that branch holds for a gamma written by a source that is not a
-# PositroniumSource. The channel numbers themselves depend on the order the
-# fractions were configured in, so only this value has a fixed meaning.
+# Value that branch holds when a row carries no decay metadata: a gamma from
+# another kind of source, or one the metadata never reached. The component
+# numbers themselves depend on how the source was configured, so this is the
+# only value of the branch with a fixed meaning.
 NOT_A_POSITRONIUM_SOURCE: Final[int] = -1
+
+# NumPy data type kinds a branch of whole numbers can be read from.
+WHOLE_NUMBER_DTYPE_KINDS: Final[frozenset[str]] = frozenset({"i", "u", "b"})
 
 
 def positronium_enum(branch: str) -> type[IntEnum] | None:
@@ -139,28 +143,39 @@ def positronium_enum(branch: str) -> type[IntEnum] | None:
 
 
 def is_positronium_source(decay_index: npt.NDArray[Any]) -> npt.NDArray[np.bool_]:
-    """Return which rows were written by a PositroniumSource.
+    """Return which rows carry the decay metadata of a PositroniumSource.
+
+    What the mask answers is narrower than it may look. It says the row was
+    given the metadata of a sampled decay component, which GATE writes for
+    every gamma of a ``PositroniumSource`` — including the ones from a direct
+    annihilation component, since the source numbers those like the rest. A
+    row without it comes from another kind of source, or from a particle the
+    metadata never reached. What a gamma itself was is said by ``sourceType``.
 
     Parameters
     ----------
     decay_index : numpy.ndarray
         Column of the ``decayIndex`` branch.
 
-    The answer is about the source, not about the physics: a
-    ``PositroniumSource`` configured with a direct annihilation channel writes
-    those gammas too, and they carry a channel number like the rest. What the
-    gamma itself was is said by ``sourceType``.
-
     Returns
     -------
     numpy.ndarray
-        Boolean mask, ``True`` where the row carries a channel number rather
-        than the value standing for another kind of source.
+        Boolean mask, ``True`` where the row carries a component number rather
+        than the value standing for no metadata.
+
+    Raises
+    ------
+    ValueError
+        If the column is not one-dimensional or does not hold whole numbers.
+        A comparison against a value that is not a column answers with a
+        single truth value instead of one per row, which selects everything
+        without saying so.
     """
-    return np.asarray(decay_index != NOT_A_POSITRONIUM_SOURCE, dtype=np.bool_)
+    column = _whole_number_column(DECAY_INDEX_BRANCH, decay_index)
+    return np.asarray(column != NOT_A_POSITRONIUM_SOURCE, dtype=np.bool_)
 
 
-def decode_value(branch: str, value: int) -> IntEnum:
+def decode_positronium_value(branch: str, value: int) -> IntEnum:
     """Return what one value of a branch means.
 
     Parameters
@@ -194,7 +209,7 @@ def decode_value(branch: str, value: int) -> IntEnum:
         ) from err
 
 
-def decode_column(branch: str, column: npt.NDArray[Any]) -> npt.NDArray[Any]:
+def decode_positronium_column(branch: str, column: npt.NDArray[Any]) -> npt.NDArray[Any]:
     """Return what every value of a column means.
 
     A value the package does not know becomes ``None`` rather than stopping
@@ -218,11 +233,14 @@ def decode_column(branch: str, column: npt.NDArray[Any]) -> npt.NDArray[Any]:
     Raises
     ------
     ValueError
-        If the package describes no values for the branch.
+        If the package describes no values for the branch, or the column is
+        not a one-dimensional column of whole numbers. A column of another
+        type would be read by truncating its values, which is the silent
+        substitution this function exists to avoid.
     """
     enum_class = _described_enum(branch)
     known: dict[int, IntEnum] = {int(member): member for member in enum_class}
-    values = [int(value) for value in column]
+    values = [int(value) for value in _whole_number_column(branch, column)]
 
     unknown = Counter(value for value in values if value not in known)
     if unknown:
@@ -240,6 +258,22 @@ def decode_column(branch: str, column: npt.NDArray[Any]) -> npt.NDArray[Any]:
     decoded = np.empty(len(values), dtype=object)
     decoded[:] = [known.get(value) for value in values]
     return decoded
+
+
+def _whole_number_column(branch: str, column: npt.NDArray[Any]) -> npt.NDArray[Any]:
+    """Return a column of whole numbers, refusing anything else.
+
+    Values are read from a column, one per row. Anything that is not such a
+    column either compares as a single value, which selects every row without
+    saying so, or is read by truncation, which reads one thing as another.
+    """
+    values = np.asarray(column)
+    if values.ndim != 1 or values.dtype.kind not in WHOLE_NUMBER_DTYPE_KINDS:
+        raise ValueError(
+            f"Branch '{branch}' has to be read from a one-dimensional column of whole numbers, "
+            f"got a {values.ndim}-dimensional column of {values.dtype}."
+        )
+    return values
 
 
 def _described_enum(branch: str) -> type[IntEnum]:

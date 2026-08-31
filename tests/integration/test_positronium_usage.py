@@ -17,7 +17,7 @@ from opengate_gate_tree import (
     GateTree,
     OutputFileFormat,
     SourceType,
-    decode_column,
+    decode_positronium_column,
     is_positronium_source,
     read_tree,
     write_tree,
@@ -104,7 +104,7 @@ def test_a_data_frame_carries_the_meaning_alongside_the_values(
 
     # ACT
     frame["gammaTypeName"] = [
-        meaning.name for meaning in decode_column("gammaType", data["gammaType"])
+        meaning.name for meaning in decode_positronium_column("gammaType", data["gammaType"])
     ]
     by_kind = frame.groupby("gammaTypeName")["edep"].sum()
 

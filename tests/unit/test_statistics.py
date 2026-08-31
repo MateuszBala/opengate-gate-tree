@@ -622,3 +622,16 @@ def test_a_report_naming_positronium_values_stays_valid_json(
     # ASSERT
     frequent = {item["value"] for item in written["branches"][0]["most_frequent"]}
     assert frequent == {"PARA_POSITRONIUM", "DIRECT_ANNIHILATION"}
+
+
+def test_a_value_with_no_name_is_reported_however_rare_it_is() -> None:
+    """The five members of sourceType would push a sixth value out of a top five."""
+    # ARRANGE
+    column = np.array([0] * 10 + [1] * 9 + [2] * 8 + [3] * 7 + [4] * 6 + [9], dtype=np.int32)
+
+    # ACT
+    branch = summarise({"sourceType": column})["sourceType"]
+
+    # ASSERT
+    assert branch.top_values[-1] == ("9", 1)
+    assert len(branch.top_values) == 6

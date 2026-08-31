@@ -310,12 +310,6 @@ def hits_variant_files() -> Mapping[str, Path]:
 
 
 @pytest.fixture(scope="session")
-def positronium_layouts() -> Mapping[str, PositroniumLayout]:
-    """Return the PositroniumSource fixtures, keyed by their short name."""
-    return {layout.key: layout for layout in POSITRONIUM_LAYOUTS}
-
-
-@pytest.fixture(scope="session")
 def positronium_files() -> Mapping[str, Path]:
     """Return the paths of the PositroniumSource fixtures, keyed by short name."""
     return {layout.key: layout.path for layout in POSITRONIUM_LAYOUTS}

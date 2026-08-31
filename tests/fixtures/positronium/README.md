@@ -43,8 +43,9 @@ Two values of the enums do not occur in any scene:
 - `gammaType = 1` (a single gamma).
 
 Both are written by the `sg` model of the source, which none of these simulations uses. Their
-meaning comes from `GateEmittedGammaInformation.hh`, so the package does not guess it, but the
-tests covering them work on arrays built in Python rather than on a file.
+meaning comes from `GateEmittedGammaInformation.hh`, so the package does not guess it, and
+`test_the_values_no_scene_holds_are_read_all_the_same` in `tests/unit/test_positronium.py` reads
+them from an array built in Python, since no file can provide one.
 
 ## Regenerating
 

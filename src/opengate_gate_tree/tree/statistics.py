@@ -61,7 +61,8 @@ ENERGY_BRANCH: Final[str] = "edep"
 # Branch holding the time of an entry.
 TIME_BRANCH: Final[str] = "time"
 
-# Number of values a text branch reports as its most frequent ones.
+# Number of values a branch of unbounded content reports as its most frequent
+# ones. Branches whose values stand for something report all of them.
 TOP_VALUE_COUNT: Final[int] = 5
 
 # NumPy data type kinds holding text.
@@ -328,13 +329,24 @@ def _named_values(name: str, column: npt.NDArray[Any]) -> tuple[tuple[str, int],
     ``ANNIHILATION`` would keep that to itself. A value with no name is
     reported as the number it is: the report says what the file holds, and
     naming it something else would not make it true.
+
+    Counting runs on the whole column, so it is done the way NumPy does it
+    rather than a value at a time: at ten million rows the difference is
+    seconds against a fraction of one.
     """
     enum_class = POSITRONIUM_BRANCHES.get(name)
     if enum_class is None:
         return ()
     known = {int(member): member.name for member in enum_class}
-    counts = Counter(known.get(int(value), str(int(value))) for value in column)
-    return _most_common(counts)
+    values, counts = np.unique(column, return_counts=True)
+    named = [
+        (known.get(int(value), str(int(value))), int(count))
+        for value, count in zip(values, counts, strict=True)
+    ]
+    # Every value is reported, not the most frequent five: the branch has a
+    # handful of them by construction, and a value the package cannot name is
+    # exactly the one worth seeing, however rare it is.
+    return tuple(sorted(named, key=lambda item: (-item[1], item[0])))
 
 
 def _most_common(counts: Counter[str]) -> tuple[tuple[str, int], ...]:

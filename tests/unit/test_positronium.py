@@ -18,8 +18,8 @@ from opengate_gate_tree.tree.hits.positronium import (
     DecayType,
     GammaType,
     SourceType,
-    decode_column,
-    decode_value,
+    decode_positronium_column,
+    decode_positronium_value,
     is_positronium_source,
     positronium_enum,
 )
@@ -87,16 +87,21 @@ def test_a_column_compares_against_a_member_as_it_was_read(
 def test_a_data_frame_column_compares_against_a_member_too(
     positronium_files: Mapping[str, Path],
 ) -> None:
-    """The pandas view has to behave the way the NumPy columns do."""
+    """The pandas view has to behave the way the NumPy columns do.
+
+    The file mixes two kinds of source on purpose: a selection keeping every
+    row would pass just as well against a comparison that never filtered.
+    """
     # ARRANGE
-    data = read_tree(positronium_files["ops"], GateTree.HITS, ["sourceType", "edep"])
+    data = read_tree(positronium_files["pps-direct"], GateTree.HITS, ["sourceType", "edep"])
     frame = data.to_dataframe()
 
     # ACT
-    ortho = frame[frame["sourceType"] == SourceType.ORTHO_POSITRONIUM]
+    para = frame[frame["sourceType"] == SourceType.PARA_POSITRONIUM]
 
     # ASSERT
-    assert len(ortho) == len(frame)
+    assert 0 < len(para) < len(frame)
+    assert set(para["sourceType"]) == {int(SourceType.PARA_POSITRONIUM)}
 
 
 @pytest.mark.parametrize("layout", POSITRONIUM_LAYOUTS, ids=lambda layout: layout.key)
@@ -227,7 +232,7 @@ def test_one_value_is_read_as_what_it_means() -> None:
     # No additional setup required.
 
     # ACT
-    meaning = decode_value("gammaType", 3)
+    meaning = decode_positronium_value("gammaType", 3)
 
     # ASSERT
     assert meaning is GammaType.PROMPT
@@ -240,7 +245,7 @@ def test_a_value_the_package_does_not_know_is_refused() -> None:
 
     # ACT
     with pytest.raises(ValueError) as raised:
-        decode_value("gammaType", 7)
+        decode_positronium_value("gammaType", 7)
 
     # ASSERT
     assert "no meaning for the value 7" in str(raised.value)
@@ -254,7 +259,7 @@ def test_a_branch_the_package_does_not_describe_is_refused() -> None:
 
     # ACT
     with pytest.raises(ValueError) as raised:
-        decode_value("edep", 1)
+        decode_positronium_value("edep", 1)
 
     # ASSERT
     assert "does not hold values this package describes" in str(raised.value)
@@ -268,7 +273,7 @@ def test_a_column_is_read_row_by_row(positronium_files: Mapping[str, Path]) -> N
     column = data["sourceType"]
 
     # ACT
-    meanings = decode_column("sourceType", column)
+    meanings = decode_positronium_column("sourceType", column)
 
     # ASSERT
     assert len(meanings) == len(column)
@@ -285,7 +290,7 @@ def test_a_column_with_an_unknown_value_is_read_as_far_as_it_can_be(
 
     # ACT
     with caplog.at_level(logging.WARNING):
-        meanings = decode_column("gammaType", column)
+        meanings = decode_positronium_column("gammaType", column)
 
     # ASSERT
     assert list(meanings) == [
@@ -308,7 +313,7 @@ def test_a_column_the_package_understands_is_read_without_a_word(
 
     # ACT
     with caplog.at_level(logging.WARNING):
-        decode_column("decayType", data["decayType"])
+        decode_positronium_column("decayType", data["decayType"])
 
     # ASSERT
     assert caplog.text == ""
@@ -321,7 +326,7 @@ def test_an_empty_column_is_read_as_nothing(caplog: pytest.LogCaptureFixture) ->
 
     # ACT
     with caplog.at_level(logging.WARNING):
-        meanings = decode_column("gammaType", column)
+        meanings = decode_positronium_column("gammaType", column)
 
     # ASSERT
     assert list(meanings) == []
@@ -335,4 +340,85 @@ def test_reading_a_column_of_a_branch_without_a_class_is_refused() -> None:
 
     # ACT / ASSERT
     with pytest.raises(ValueError, match="does not hold values"):
-        decode_column(DECAY_INDEX_BRANCH, column)
+        decode_positronium_column(DECAY_INDEX_BRANCH, column)
+
+
+def test_a_column_given_as_a_list_is_read_row_by_row() -> None:
+    """A column is a column, however the caller happens to hold it."""
+    # ARRANGE
+    values = [-1, 0, 1]
+
+    # ACT
+    from_positronium = is_positronium_source(values)
+
+    # ASSERT
+    assert list(from_positronium) == [False, True, True]
+
+
+@pytest.mark.parametrize(
+    ("column", "label"),
+    [
+        (np.zeros((3, 2), dtype=np.int32), "two-dimensional"),
+        (np.array(["a", "b"]), "text"),
+        (np.array([1.5, 2.5]), "floating point"),
+    ],
+    ids=["two-dimensional", "text", "floating-point"],
+)
+def test_asking_about_something_that_is_not_a_column_is_refused(
+    column: np.ndarray,
+    label: str,
+) -> None:
+    """A wrong argument must not answer with a mask that selects everything.
+
+    Comparing a value that is not a column of whole numbers answers with a
+    single truth value, and a selection made with it keeps every row while
+    changing its shape - the quiet kind of wrong this package is built to
+    avoid.
+    """
+    # ARRANGE
+    # No additional setup required.
+
+    # ACT / ASSERT
+    with pytest.raises(ValueError, match="one-dimensional column of whole numbers"):
+        is_positronium_source(column)
+
+
+def test_reading_a_column_of_another_type_is_refused() -> None:
+    """Truncating a floating point column would read one thing as another."""
+    # ARRANGE
+    # Passing the wrong branch is how a column like this arrives here.
+    column = np.array([2.9, 0.4])
+
+    # ACT / ASSERT
+    with pytest.raises(ValueError, match="one-dimensional column of whole numbers"):
+        decode_positronium_column("gammaType", column)
+
+
+def test_reading_a_two_dimensional_column_is_refused() -> None:
+    """The tree holds such a column - volumeID - so this is not hypothetical."""
+    # ARRANGE
+    column = np.zeros((3, 10), dtype=np.int32)
+
+    # ACT / ASSERT
+    with pytest.raises(ValueError, match="got a 2-dimensional column"):
+        decode_positronium_column("sourceType", column)
+
+
+def test_the_values_no_scene_holds_are_read_all_the_same() -> None:
+    """A single gamma emitter and a single gamma come from a model no fixture uses.
+
+    Their meaning comes from the GATE header rather than from a file, so the
+    only thing that can exercise them is an array built here.
+    """
+    # ARRANGE
+    column = np.array([1], dtype=np.int32)
+
+    # ACT
+    source = decode_positronium_column("sourceType", column)
+    gamma = decode_positronium_column("gammaType", column)
+
+    # ASSERT
+    assert list(source) == [SourceType.SINGLE_GAMMA_EMITTER]
+    assert list(gamma) == [GammaType.SINGLE]
+    assert decode_positronium_value("sourceType", 1) is SourceType.SINGLE_GAMMA_EMITTER
+    assert decode_positronium_value("gammaType", 1) is GammaType.SINGLE

@@ -82,18 +82,18 @@ instead of retyping.
 For a table meant for people, or a summary, the values can be read as names:
 
 ```python
-from opengate_gate_tree import decode_column, decode_value
+from opengate_gate_tree import decode_positronium_column, decode_positronium_value
 
-decode_value("gammaType", 3)                   # GammaType.PROMPT
-meanings = decode_column("gammaType", data["gammaType"])
+decode_positronium_value("gammaType", 3)                   # GammaType.PROMPT
+meanings = decode_positronium_column("gammaType", data["gammaType"])
 ```
 
 The two differ in what they do with a value the package does not know:
 
 | Call | A value outside the class |
 | --- | --- |
-| `decode_value` | raises `ValueError`, naming the values GATE writes there |
-| `decode_column` | leaves `None` in its place and reports it in the log, with how often it occurs |
+| `decode_positronium_value` | raises `ValueError`, naming the values GATE writes there |
+| `decode_positronium_column` | leaves `None` in its place and reports it in the log, with how often it occurs |
 
 A question about one value has one answer or none; reading an unknown value as
 the one standing for "not defined" would report something the file does not
@@ -107,23 +107,44 @@ from. Channel numbers depend on the order the fractions were configured in, so
 they have no fixed meaning and no class of their own. One value does have one:
 
 ```python
-from opengate_gate_tree import DECAY_INDEX_BRANCH, is_positronium_source, read_tree
+from pathlib import Path
 
-data = read_tree(path, GateTree.HITS, [DECAY_INDEX_BRANCH, "sourceType"])
-written_by_positronium = is_positronium_source(data[DECAY_INDEX_BRANCH])
+from opengate_gate_tree import (
+    DECAY_INDEX_BRANCH,
+    NOT_A_POSITRONIUM_SOURCE,
+    GateTree,
+    is_positronium_source,
+    read_tree,
+)
+
+data = read_tree(Path("simulation.root"), GateTree.HITS, [DECAY_INDEX_BRANCH, "sourceType"])
+carries_decay_metadata = is_positronium_source(data[DECAY_INDEX_BRANCH])
 ```
 
-`-1` is what GATE writes for a gamma emitted by another kind of source.
+`NOT_A_POSITRONIUM_SOURCE`, the value `-1`, is what GATE writes when a row
+carries no decay metadata at all: for a gamma from another kind of source, and
+for a particle the metadata never reached.
 
 ```{note}
-The answer is about the source, not about the physics. A `PositroniumSource`
-configured with a direct annihilation channel writes those gammas too, and
-numbers them like the rest, so the mask holds `True` for them. What the gamma
+What the mask answers is narrower than its name suggests. It says the row was
+given the metadata of a sampled decay component, which a `PositroniumSource`
+writes for every gamma it emits — including the ones from a direct
+annihilation component, since it numbers those like the rest. What a gamma
 itself was is said by `sourceType`.
 ```
 
 The deprecated `ExtendedVSource` never fills `decayIndex` at all, so a file
 written by it holds `-1` everywhere.
+
+`positronium_enum` answers which class describes a branch, and `None` for a
+branch none of them does:
+
+```python
+from opengate_gate_tree import positronium_enum
+
+positronium_enum("gammaType")     # GammaType
+positronium_enum(DECAY_INDEX_BRANCH)   # None
+```
 
 ## In A Report
 
@@ -131,12 +152,15 @@ A run with `--statistics`, and `compute_statistics` from code, name the values
 of the three branches:
 
 ```text
-- gammaType / int32: min 0, max 3, mean 1.9, std 0.79, 3 distinct,
+- gammaType / int32: min 0, max 3, mean 1.9, std 0.78867, 3 distinct,
   most frequent ANNIHILATION (367), PROMPT (72), UNKNOWN (61)
 ```
 
 A value the package cannot name is reported as the number it is: the report
-says what the file holds. `decayIndex` keeps its numbers, for the reason above.
+says what the file holds. These three branches report every value they hold
+rather than the most frequent few, so a number nothing names cannot be crowded
+out of the report by the members that have names. `decayIndex` keeps its
+numbers, for the reason above.
 
 ## In A Written File
 
