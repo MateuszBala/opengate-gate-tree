@@ -31,6 +31,13 @@ each row came from.
 :func:`compute_statistics` summarises what was extracted, and
 :func:`write_statistics` saves that summary next to the data.
 
+Filters and selectors work on the pandas view of the data, both as functions
+and through the ``gate`` namespace this package registers on a column and on a
+frame::
+
+    prompt = frame["gammaType"].gate.select_by_gamma_type(GammaType.PROMPT)
+    in_the_ring = frame.gate.in_cylinder((0, 0), radius=500.0, inner_radius=409.0)
+
 The branches a ``PositroniumSource`` writes carry integers whose meaning is
 described by :class:`SourceType`, :class:`DecayType` and :class:`GammaType`.
 Their members are those integers, so a column compares against them as it was
@@ -87,6 +94,35 @@ from opengate_gate_tree.io.rootfile import RootFile  # noqa: E402
 from opengate_gate_tree.io.statistics import write_statistics  # noqa: E402
 from opengate_gate_tree.io.writers import write_tree  # noqa: E402
 from opengate_gate_tree.logging_setup import LOGGER_NAME  # noqa: E402
+from opengate_gate_tree.tree.accessors import ACCESSOR_NAME  # noqa: E402
+from opengate_gate_tree.tree.filters import (  # noqa: E402
+    EVENT_COLUMN,
+    POSITION_COLUMNS,
+    RUN_COLUMN,
+    InclusiveSide,
+    by_event,
+    by_run,
+    has_decay_metadata,
+    in_box,
+    in_cylinder,
+    in_range,
+    in_sphere,
+    is_decay_type,
+    is_from_event,
+    is_from_run,
+    is_gamma_type,
+    is_in_box,
+    is_in_cylinder,
+    is_in_range,
+    is_in_sphere,
+    is_process,
+    is_source_type,
+    select_by_decay_type,
+    select_by_gamma_type,
+    select_by_process,
+    select_by_source_type,
+    with_decay_metadata,
+)
 from opengate_gate_tree.tree.gatetree import GateTree, parse_gate_tree  # noqa: E402
 from opengate_gate_tree.tree.hits.detection import (  # noqa: E402
     HitsTreeDetection,
@@ -135,6 +171,7 @@ from opengate_gate_tree.tree.treedata import TreeData  # noqa: E402
 logging.getLogger(LOGGER_NAME).addHandler(logging.NullHandler())
 
 __all__ = [
+    "ACCESSOR_NAME",
     "AmbiguousTreeError",
     "BranchKind",
     "BranchNotFoundError",
@@ -142,6 +179,7 @@ __all__ = [
     "BranchStatistics",
     "DECAY_INDEX_BRANCH",
     "DecayType",
+    "EVENT_COLUMN",
     "ExportError",
     "GammaType",
     "GateSystemType",
@@ -151,9 +189,12 @@ __all__ = [
     "HitsTreeDetection",
     "HitsTreeValidationError",
     "HitsTreeVariant",
+    "InclusiveSide",
     "NO_POSITRONIUM_METADATA",
     "OutputFileFormat",
+    "POSITION_COLUMNS",
     "POSITRONIUM_BRANCHES",
+    "RUN_COLUMN",
     "RootFile",
     "RootFileError",
     "SOURCE_TREE_BRANCH",
@@ -168,6 +209,8 @@ __all__ = [
     "build_output_file_name",
     "build_output_file_path",
     "build_statistics_file_path",
+    "by_event",
+    "by_run",
     "compute_statistics",
     "decode_positronium_column",
     "decode_positronium_value",
@@ -175,18 +218,38 @@ __all__ = [
     "detect_hits_variant",
     "expected_branches",
     "format_statistics",
+    "has_decay_metadata",
     "has_positronium_metadata",
+    "in_box",
+    "in_cylinder",
+    "in_range",
+    "in_sphere",
+    "is_decay_type",
+    "is_from_event",
+    "is_from_run",
+    "is_gamma_type",
+    "is_in_box",
+    "is_in_cylinder",
+    "is_in_range",
+    "is_in_sphere",
+    "is_process",
+    "is_source_type",
     "merge_tree_data",
     "parse_gate_tree",
     "parse_output_file_format",
     "positronium_enum",
     "read_hits_trees",
     "read_tree",
+    "select_by_decay_type",
+    "select_by_gamma_type",
+    "select_by_process",
+    "select_by_source_type",
     "statistics_to_dict",
     "summarise_hits_tree",
     "supported_variants",
     "validate_hits_tree",
     "variant_reference",
+    "with_decay_metadata",
     "write_statistics",
     "write_tree",
 ]

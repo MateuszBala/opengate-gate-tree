@@ -43,6 +43,16 @@ The trees GATE writes and the in-memory representation of their data.
    :members:
 ```
 
+## Filters and selectors
+
+```{eval-rst}
+.. automodule:: opengate_gate_tree.tree.filters
+   :members:
+
+.. automodule:: opengate_gate_tree.tree.accessors
+   :members:
+```
+
 ## Merging
 
 ```{eval-rst}

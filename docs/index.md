@@ -35,6 +35,7 @@ guide/events
 guide/positronium
 guide/merging
 guide/representations
+guide/filtering
 guide/statistics
 guide/export
 guide/cli
