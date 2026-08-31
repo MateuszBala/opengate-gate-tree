@@ -9,7 +9,7 @@ trees are read from the same file, so that the file is opened only once.
 
 Public functions:
 
-read_tree(path: Path, tree: GateTree, branches: Sequence[str] | None, validate: bool) -> TreeData
+read_tree(path, tree, branches, tree_name, validate) -> TreeData
     Read one tree from a GATE ROOT file.
 """
 
@@ -25,6 +25,7 @@ def read_tree(
     path: Path,
     tree: GateTree,
     branches: Sequence[str] | None = None,
+    tree_name: str | None = None,
     validate: bool = True,
 ) -> TreeData:
     """Read one tree from a GATE ROOT file.
@@ -39,6 +40,9 @@ def read_tree(
         Branches to read. When omitted or empty, every branch of the tree is
         read. Repeated names are read once, at the position of their first
         occurrence.
+    tree_name : str | None
+        Name of the tree in the file, when it differs from the standard one or
+        when a file holds several trees of hits.
     validate : bool
         Whether to recognise the structure of the "Hits" tree and check the
         tree against it before reading. Turn it off to extract branches from a
@@ -55,6 +59,8 @@ def read_tree(
         If the path is not a readable ROOT file.
     TreeNotFoundError
         If the tree is not present in the file.
+    AmbiguousTreeError
+        If several trees hold hits and none of them was named.
     UnknownHitsVariantError
         If the structure of the "Hits" tree is not a supported one.
     HitsTreeValidationError
@@ -67,4 +73,4 @@ def read_tree(
         If any requested branch name is empty.
     """
     with RootFile(path) as root_file:
-        return root_file.read(tree, branches, validate)
+        return root_file.read(tree, branches, tree_name=tree_name, validate=validate)

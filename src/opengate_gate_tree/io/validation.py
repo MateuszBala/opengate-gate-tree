@@ -15,6 +15,10 @@ find_tree_name(available: Sequence[str], tree: GateTree) -> str | None
     Look up the key of a tree without raising.
 resolve_tree_name(available: Sequence[str], tree: GateTree, source: Path | None) -> str
     Look up the key of a tree, reporting the available trees when absent.
+resolve_requested_tree_name(available: Sequence[str], name: str, source: Path | None) -> str
+    Look up a tree the caller named.
+find_hits_tree_names(branches_by_tree: Mapping[str, Sequence[str]]) -> tuple[str, ...]
+    Names of the trees whose branches form a supported "Hits" structure.
 validate_branches_present(available: Sequence[str], requested: Sequence[str]) -> None
     Check that every requested branch exists in the tree.
 validate_branch_interpretations(interpretations: Mapping[str, Any]) -> None
@@ -37,6 +41,7 @@ from opengate_gate_tree.errors import (
     UnsupportedBranchTypeError,
 )
 from opengate_gate_tree.tree.gatetree import GateTree
+from opengate_gate_tree.tree.hits.detection import find_hits_variant
 
 # File extension expected for GATE output files.
 ROOT_FILE_SUFFIX: Final[str] = ".root"
@@ -128,6 +133,61 @@ def resolve_tree_name(
             f"Trees available in the file: {list(available)}."
         )
     return resolved
+
+
+def resolve_requested_tree_name(
+    available: Sequence[str],
+    name: str,
+    source: Path | None = None,
+) -> str:
+    """Return the key of a tree the caller named.
+
+    Parameters
+    ----------
+    available : Sequence[str]
+        Names of the trees present in the file.
+    name : str
+        Name the caller asked for.
+    source : Path | None
+        File the names came from, named in the error message when given.
+
+    Returns
+    -------
+    str
+        The name, once it is known to be present.
+
+    Raises
+    ------
+    TreeNotFoundError
+        If no tree of that name is present.
+    """
+    if name in available:
+        return name
+    location = f" in file: {source}" if source is not None else " in the file"
+    raise TreeNotFoundError(
+        f"Tree '{name}' is not present{location}. Trees available in the file: {list(available)}."
+    )
+
+
+def find_hits_tree_names(branches_by_tree: Mapping[str, Sequence[str]]) -> tuple[str, ...]:
+    """Return the names of the trees holding a supported "Hits" structure.
+
+    Parameters
+    ----------
+    branches_by_tree : Mapping[str, Sequence[str]]
+        Tree names mapped to their branch names.
+
+    Returns
+    -------
+    tuple[str, ...]
+        Names of the trees whose branches form a structure the package
+        supports, in the order they were given.
+    """
+    return tuple(
+        name
+        for name, branches in branches_by_tree.items()
+        if find_hits_variant(branches) is not None
+    )
 
 
 def validate_branches_present(available: Sequence[str], requested: Sequence[str]) -> None:

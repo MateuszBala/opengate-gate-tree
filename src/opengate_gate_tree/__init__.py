@@ -23,7 +23,8 @@ The structure of the "Hits" tree depends on the simulation that wrote it.
 :func:`detect_hits_variant` recognises the one a tree has, and
 :func:`expected_branches` states which branches each of them holds. Reading a
 "Hits" tree recognises and checks its structure unless ``validate=False`` says
-otherwise.
+otherwise. Hits stored under another name, one tree per run or per sensitive
+detector, are found by their structure, and the tree to read can be named.
 
 Failures while reading or writing files are reported through a subclass of
 :class:`GateTreeError`, so a single ``except`` clause covers them. Malformed
@@ -48,6 +49,7 @@ __version__ = "0.2.1"
 import logging  # noqa: E402
 
 from opengate_gate_tree.errors import (  # noqa: E402
+    AmbiguousTreeError,
     BranchNotFoundError,
     ExportError,
     GateTreeError,
@@ -91,6 +93,7 @@ from opengate_gate_tree.tree.treedata import TreeData  # noqa: E402
 logging.getLogger(LOGGER_NAME).addHandler(logging.NullHandler())
 
 __all__ = [
+    "AmbiguousTreeError",
     "BranchKind",
     "BranchNotFoundError",
     "BranchSpec",

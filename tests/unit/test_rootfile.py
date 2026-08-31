@@ -9,6 +9,7 @@ import pytest
 from conftest import HITS_VARIANT_LAYOUTS, GateHitsLayout, HitsVariantLayout
 
 from opengate_gate_tree.errors import (
+    AmbiguousTreeError,
     BranchNotFoundError,
     HitsTreeValidationError,
     RootFileError,
@@ -496,3 +497,191 @@ def test_an_unloadable_branch_is_still_refused_when_it_is_asked_for(
     # ACT / ASSERT
     with RootFile(path) as root_file, pytest.raises(UnsupportedBranchTypeError, match="hitTimes"):
         root_file.read(GateTree.HITS, ["eventID", "hitTimes"])
+
+
+def test_hits_stored_under_another_name_are_found(
+    hits_variant_files: Mapping[str, Path],
+) -> None:
+    """The GateToTree output calls its tree "tree", and still holds hits."""
+    # ARRANGE
+    # Nothing in the file is named "Hits".
+
+    # ACT
+    with RootFile(hits_variant_files["b1"]) as root_file:
+        resolved = root_file.resolve_tree_name(GateTree.HITS)
+        data = root_file.read(GateTree.HITS)
+
+    # ASSERT
+    assert resolved == "tree"
+    assert len(data.branch_names) == 54
+
+
+def test_a_named_tree_is_read_as_asked(hits_variant_files: Mapping[str, Path]) -> None:
+    """Naming the tree is how one run or one detector is singled out."""
+    # ARRANGE
+    # The file holds one tree per run.
+
+    # ACT
+    with RootFile(hits_variant_files["multi-run"]) as root_file:
+        data = root_file.read(GateTree.HITS, tree_name="Hits_run2")
+
+    # ASSERT
+    assert set(data["runID"].tolist()) == {2}
+
+
+def test_naming_a_tree_that_is_absent_is_reported(
+    hits_variant_files: Mapping[str, Path],
+) -> None:
+    """A name the file does not hold should say what the file does hold."""
+    # ARRANGE
+    # No additional setup required.
+
+    # ACT / ASSERT
+    with RootFile(hits_variant_files["multi-run"]) as root_file:
+        with pytest.raises(TreeNotFoundError, match="Hits_run7"):
+            root_file.read(GateTree.HITS, tree_name="Hits_run7")
+
+
+def test_naming_a_tree_that_holds_no_hits_is_reported(gate_hits_file: Path) -> None:
+    """A named tree is still checked, so pointing at the wrong one is caught."""
+    # ARRANGE
+    # The file holds a "pet_data" tree of run metadata.
+
+    # ACT / ASSERT
+    with RootFile(gate_hits_file) as root_file:
+        with pytest.raises(UnknownHitsVariantError, match="pet_data"):
+            root_file.read(GateTree.HITS, tree_name="pet_data")
+
+
+def test_other_trees_holding_hits_are_reported(
+    hits_variant_files: Mapping[str, Path],
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Reading one run of three without a word would hide two thirds of the data."""
+    # ARRANGE
+    # The file holds "Hits", "Hits_run1" and "Hits_run2".
+
+    # ACT
+    with caplog.at_level(logging.WARNING), RootFile(hits_variant_files["multi-run"]) as root_file:
+        data = root_file.read(GateTree.HITS)
+
+    # ASSERT
+    assert data.entry_count == 500
+    assert "Hits_run1" in caplog.text
+    assert "Hits_run2" in caplog.text
+
+
+def test_a_single_hits_tree_is_read_without_a_warning(
+    hits_variant_files: Mapping[str, Path],
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """The usual file holds one tree of hits and deserves no noise."""
+    # ARRANGE
+    # No additional setup required.
+
+    # ACT
+    with caplog.at_level(logging.WARNING), RootFile(hits_variant_files["a1"]) as root_file:
+        root_file.read(GateTree.HITS)
+
+    # ASSERT
+    assert caplog.text == ""
+
+
+def test_several_unnamed_trees_of_hits_are_refused(
+    hits_variant_files: Mapping[str, Path],
+) -> None:
+    """Choosing one detector over the other is not the package's call."""
+    # ARRANGE
+    # The file holds one tree per sensitive detector, neither named "Hits".
+
+    # ACT
+    with RootFile(hits_variant_files["multi-sd"]) as root_file:
+        with pytest.raises(AmbiguousTreeError) as raised:
+            root_file.read(GateTree.HITS)
+
+    # ASSERT
+    assert "Hits_DET_INNER" in str(raised.value)
+    assert "Hits_DET_OUTER" in str(raised.value)
+
+
+def test_trees_holding_hits_are_listed(hits_variant_files: Mapping[str, Path]) -> None:
+    """The names are what the caller needs to pick one, or to read them all."""
+    # ARRANGE
+    # No additional setup required.
+
+    # ACT
+    with RootFile(hits_variant_files["multi-sd"]) as root_file:
+        names = root_file.hits_tree_names()
+
+    # ASSERT
+    assert names == ("Hits_DET_INNER", "Hits_DET_OUTER")
+
+
+def test_trees_that_hold_no_hits_are_left_out_of_the_listing(gate_hits_file: Path) -> None:
+    """A GATE file holds trees of other things, and they are not hits."""
+    # ARRANGE
+    # The file holds "pet_data" and an empty "OpticalData" next to the hits.
+
+    # ACT
+    with RootFile(gate_hits_file) as root_file:
+        names = root_file.hits_tree_names()
+
+    # ASSERT
+    assert names == ("Hits",)
+
+
+def test_a_file_without_hits_reports_the_trees_it_holds(
+    make_gate_root_file: Callable[..., Path],
+) -> None:
+    """Looking for hits that are not there must say what is there instead."""
+    # ARRANGE
+    path = make_gate_root_file({"pet_data": {"start_time_sec": np.zeros(1)}})
+
+    # ACT
+    with RootFile(path) as root_file:
+        with pytest.raises(TreeNotFoundError, match="pet_data"):
+            root_file.read(GateTree.HITS)
+
+
+def test_other_trees_are_not_looked_for_by_their_structure(
+    make_hits_root_file: Callable[..., Path],
+) -> None:
+    """Only the structure of hits is described, so only hits can be found by it."""
+    # ARRANGE
+    path = hits_file(make_hits_root_file, tree_name="tree")
+
+    # ACT / ASSERT
+    with RootFile(path) as root_file, pytest.raises(TreeNotFoundError):
+        root_file.read(GateTree.SINGLES)
+
+
+def test_branch_names_can_be_asked_for_by_tree_name(
+    hits_variant_files: Mapping[str, Path],
+) -> None:
+    """Listing the branches of one run should not need the tree to be read."""
+    # ARRANGE
+    # No additional setup required.
+
+    # ACT
+    with RootFile(hits_variant_files["multi-sd"]) as root_file:
+        names = root_file.branch_names(GateTree.HITS, "Hits_DET_OUTER")
+
+    # ASSERT
+    assert len(names) == 40
+    assert "volumeID" in names
+
+
+def test_the_structure_of_a_named_tree_is_recognised(
+    hits_variant_files: Mapping[str, Path],
+) -> None:
+    """Recognition follows the same naming rules as reading does."""
+    # ARRANGE
+    # No additional setup required.
+
+    # ACT
+    with RootFile(hits_variant_files["multi-sd"]) as root_file:
+        detection = root_file.detect_hits_tree("Hits_DET_INNER")
+
+    # ASSERT
+    assert detection.tree_name == "Hits_DET_INNER"
+    assert detection.variant is HitsTreeVariant.NO_SYSTEM

@@ -16,6 +16,8 @@ RootFileError
     The ROOT file cannot be opened or is not a valid ROOT file.
 TreeNotFoundError
     The requested tree is not present in the ROOT file.
+AmbiguousTreeError
+    Several trees in the file could be the requested one.
 BranchNotFoundError
     One or more requested branches are not present in the tree.
 UnsupportedBranchTypeError
@@ -40,6 +42,15 @@ class RootFileError(GateTreeError):
 
 class TreeNotFoundError(GateTreeError):
     """Raised when the requested tree is not present in the ROOT file."""
+
+
+class AmbiguousTreeError(GateTreeError):
+    """Raised when several trees in a file could be the requested one.
+
+    A file can hold the hits of one run per tree, or of one sensitive
+    detector per tree. Picking one of them would answer a question the caller
+    has not been asked, so they are all reported instead.
+    """
 
 
 class BranchNotFoundError(GateTreeError):

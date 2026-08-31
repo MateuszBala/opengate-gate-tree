@@ -3,6 +3,7 @@
 import pytest
 
 from opengate_gate_tree.errors import (
+    AmbiguousTreeError,
     BranchNotFoundError,
     ExportError,
     GateTreeError,
@@ -16,6 +17,7 @@ from opengate_gate_tree.errors import (
 PACKAGE_ERRORS: list[type[GateTreeError]] = [
     RootFileError,
     TreeNotFoundError,
+    AmbiguousTreeError,
     BranchNotFoundError,
     UnsupportedBranchTypeError,
     UnknownHitsVariantError,

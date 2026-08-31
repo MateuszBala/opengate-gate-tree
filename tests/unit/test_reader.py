@@ -1,6 +1,6 @@
 """Unit tests for tree extraction."""
 
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from pathlib import Path
 
 import numpy as np
@@ -8,6 +8,7 @@ import pytest
 from conftest import GateHitsLayout
 
 from opengate_gate_tree.errors import (
+    AmbiguousTreeError,
     BranchNotFoundError,
     RootFileError,
     TreeNotFoundError,
@@ -214,3 +215,41 @@ def test_validation_leaves_the_data_untouched(gate_hits_file: Path) -> None:
     assert np.array_equal(checked["eventID"], unchecked["eventID"])
     assert np.array_equal(checked["volumeID"], unchecked["volumeID"])
     assert list(checked["processName"]) == list(unchecked["processName"])
+
+
+def test_read_tree_finds_hits_stored_under_another_name(
+    hits_variant_files: Mapping[str, Path],
+) -> None:
+    """The entry point used by the command line resolves names like the reader."""
+    # ARRANGE
+    # The GateToTree output calls its tree "tree".
+
+    # ACT
+    data = read_tree(hits_variant_files["b1"], GateTree.HITS)
+
+    # ASSERT
+    assert len(data.branch_names) == 54
+
+
+def test_read_tree_reads_the_named_tree(hits_variant_files: Mapping[str, Path]) -> None:
+    """One run out of three is singled out by naming its tree."""
+    # ARRANGE
+    # No additional setup required.
+
+    # ACT
+    data = read_tree(hits_variant_files["multi-run"], GateTree.HITS, tree_name="Hits_run1")
+
+    # ASSERT
+    assert set(data["runID"].tolist()) == {1}
+
+
+def test_read_tree_refuses_to_choose_between_trees_of_hits(
+    hits_variant_files: Mapping[str, Path],
+) -> None:
+    """A file split per detector needs the caller to say which one to read."""
+    # ARRANGE
+    # No additional setup required.
+
+    # ACT / ASSERT
+    with pytest.raises(AmbiguousTreeError):
+        read_tree(hits_variant_files["multi-sd"], GateTree.HITS)
