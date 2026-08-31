@@ -62,7 +62,7 @@ Basic support for the "Hits" tree:
 - all tests pass
 - user documentation (ReadTheDocs) clearly and comprehensively covers the added representations and features, including the full branch list of every supported version
 
-## Version 0.4.0 (status: planned)
+## Version 0.4.0 (status: completed)
 
 Add support for representing PositroniumSource data in the "Hits" tree:
 
