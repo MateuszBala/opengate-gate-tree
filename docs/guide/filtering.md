@@ -90,8 +90,10 @@ frame["edep"].gate.in_range(0.2, 0.511, inclusive="neither")    # ends left out
 
 Both ends belong to the range unless `inclusive` says otherwise. The vocabulary
 is the one of `pandas.Series.between` — `"both"`, `"neither"`, `"left"`,
-`"right"` — so there is no second convention to remember, and a value that is
-not a number falls outside the range the same way it does there.
+`"right"` — so there is no second convention to remember, and neither is there
+a second behaviour: a missing value falls outside the range, and a column that
+cannot be compared against the ends at all, such as text against numbers,
+raises the `TypeError` pandas raises rather than answering.
 
 ## Shapes
 

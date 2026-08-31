@@ -105,9 +105,11 @@ def is_in_range(
         Ends of the range.
     inclusive : {"both", "neither", "left", "right"}
         Which ends belong to the range. The vocabulary is the one of
-        :meth:`pandas.Series.between`, so a reader of pandas needs no second
-        convention, and a value that is not a number falls outside the range
-        the same way it does there.
+        :meth:`pandas.Series.between`, and so is everything else about the
+        comparison: a reader of pandas needs no second convention, a missing
+        value falls outside the range, and a column that cannot be compared
+        against the ends at all - text against numbers - raises the
+        ``TypeError`` pandas raises.
 
     Returns
     -------
