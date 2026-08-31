@@ -67,7 +67,7 @@ git pull --ff-only origin main
 Run the dedicated version-update script:
 
 ```bash
-bash script/update_version_in_files.sh "$VERSION"
+bash scripts/update_version_in_files.sh "$VERSION"
 ```
 
 Verify updated values:
