@@ -99,7 +99,10 @@ def test_pipeline_honours_a_branch_selection(
     assert exit_code == 0
 
     if output_file_format is OutputFileFormat.ROOT:
-        assert list(read_tree(output_file, GateTree.HITS).branch_names) == requested
+        # A file holding a selection is no longer a whole hits structure, so
+        # it is read back without the structure check.
+        restored_names = read_tree(output_file, GateTree.HITS, validate=False).branch_names
+        assert list(restored_names) == requested
     elif output_file_format is OutputFileFormat.HDF5:
         with h5py.File(output_file) as written:
             assert list(written["Hits"]) == requested
@@ -132,7 +135,7 @@ def test_pipeline_handles_the_array_branch(
     assert exit_code == 0
 
     if output_file_format is OutputFileFormat.ROOT:
-        restored = read_tree(output_file, GateTree.HITS)
+        restored = read_tree(output_file, GateTree.HITS, validate=False)
         assert restored["volumeID"].shape == (gate_hits_layout.entries, width)
     elif output_file_format is OutputFileFormat.HDF5:
         with h5py.File(output_file) as written:

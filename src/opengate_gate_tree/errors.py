@@ -23,6 +23,8 @@ UnsupportedBranchTypeError
 UnknownHitsVariantError
     The structure of a "Hits" tree could not be recognised, or was recognised
     as one the package does not support.
+HitsTreeValidationError
+    A "Hits" tree does not match the structure it was recognised as.
 ExportError
     The output file cannot be written.
 """
@@ -54,6 +56,16 @@ class UnknownHitsVariantError(GateTreeError):
     Covers both a tree whose branches match none of the known structures and
     one recognised as a structure the package does not support, such as the
     output of the Compton camera actor.
+    """
+
+
+class HitsTreeValidationError(GateTreeError):
+    """Raised when a "Hits" tree does not match its recognised structure.
+
+    Covers a branch the structure describes but the tree does not hold, and a
+    branch stored with a type other than the expected one. Branches beyond the
+    structure are reported as a warning instead, because GATE builds routinely
+    add them.
     """
 
 

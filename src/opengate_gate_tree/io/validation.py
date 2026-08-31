@@ -19,6 +19,8 @@ validate_branches_present(available: Sequence[str], requested: Sequence[str]) ->
     Check that every requested branch exists in the tree.
 validate_branch_interpretations(interpretations: Mapping[str, Any]) -> None
     Check that every branch uses a supported type.
+branch_type_name(interpretation: Any) -> str
+    Name the type a branch is stored with.
 """
 
 from collections.abc import Mapping, Sequence
@@ -38,6 +40,9 @@ from opengate_gate_tree.tree.gatetree import GateTree
 
 # File extension expected for GATE output files.
 ROOT_FILE_SUFFIX: Final[str] = ".root"
+
+# Reported for a branch whose type the package cannot represent.
+UNSUPPORTED_TYPE_NAME: Final[str] = "unsupported"
 
 
 def validate_root_file_path(path: Path) -> None:
@@ -180,3 +185,33 @@ def validate_branch_interpretations(interpretations: Mapping[str, Any]) -> None:
             f"Branches use types that are not supported: {unsupported}. "
             f"Only scalar, fixed-width array and text branches can be extracted."
         )
+
+
+def branch_type_name(interpretation: Any) -> str:
+    """Return the name of the type a branch is stored with.
+
+    The names are the ones the branch schemas use, so that what a file holds
+    can be compared with what a structure describes.
+
+    Parameters
+    ----------
+    interpretation : Any
+        Interpretation of the branch, as reported by uproot.
+
+    Returns
+    -------
+    str
+        ``"text"`` for a text branch, the name of the scalar type for a
+        numeric one, ``"<type>[<width>]"`` for a fixed-width array branch, and
+        ``"unsupported"`` for a type the package cannot represent.
+    """
+    if isinstance(interpretation, AsStrings):
+        return "text"
+    if isinstance(interpretation, AsDtype):
+        dtype = interpretation.to_dtype
+        scalar = dtype.base.newbyteorder("=")
+        if dtype.shape:
+            widths = "".join(f"[{width}]" for width in dtype.shape)
+            return f"{scalar.name}{widths}"
+        return str(scalar.name)
+    return UNSUPPORTED_TYPE_NAME

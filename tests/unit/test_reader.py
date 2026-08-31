@@ -1,7 +1,9 @@
 """Unit tests for tree extraction."""
 
+from collections.abc import Callable
 from pathlib import Path
 
+import numpy as np
 import pytest
 from conftest import GateHitsLayout
 
@@ -9,6 +11,7 @@ from opengate_gate_tree.errors import (
     BranchNotFoundError,
     RootFileError,
     TreeNotFoundError,
+    UnknownHitsVariantError,
 )
 from opengate_gate_tree.io.reader import read_tree
 from opengate_gate_tree.io.rootfile import RootFile
@@ -169,3 +172,45 @@ def test_read_tree_closes_the_file_when_reading_fails(
 
     # ASSERT
     assert closed == [gate_hits_file]
+
+
+def test_read_tree_checks_the_structure_by_default(
+    make_hits_root_file: Callable[..., Path],
+) -> None:
+    """The entry point used by the command line validates like the reader."""
+    # ARRANGE
+    path = make_hits_root_file({"Hits": ["eventID", "edep"]})
+
+    # ACT / ASSERT
+    with pytest.raises(UnknownHitsVariantError):
+        read_tree(path, GateTree.HITS)
+
+
+def test_read_tree_can_skip_the_structure_check(
+    make_hits_root_file: Callable[..., Path],
+) -> None:
+    """Extraction has to stay possible for a structure nothing describes."""
+    # ARRANGE
+    path = make_hits_root_file({"Hits": ["eventID", "edep"]})
+
+    # ACT
+    data = read_tree(path, GateTree.HITS, validate=False)
+
+    # ASSERT
+    assert data.branch_names == ("eventID", "edep")
+
+
+def test_validation_leaves_the_data_untouched(gate_hits_file: Path) -> None:
+    """Checking a tree must not change a single value it holds."""
+    # ARRANGE
+    branches = ["eventID", "runID", "edep", "volumeID", "processName"]
+
+    # ACT
+    checked = read_tree(gate_hits_file, GateTree.HITS, branches)
+    unchecked = read_tree(gate_hits_file, GateTree.HITS, branches, validate=False)
+
+    # ASSERT
+    assert checked.branch_names == unchecked.branch_names
+    assert np.array_equal(checked["eventID"], unchecked["eventID"])
+    assert np.array_equal(checked["volumeID"], unchecked["volumeID"])
+    assert list(checked["processName"]) == list(unchecked["processName"])

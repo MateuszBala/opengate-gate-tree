@@ -10,72 +10,17 @@ from pathlib import Path
 
 import pytest
 import uproot
-from conftest import HITS_VARIANT_LAYOUTS, HitsVariantLayout, branch_type_name
-
-# Branches GATE writes as double precision.
-FLOAT64_BRANCHES = frozenset({"trackLocalTime", "time"})
-
-# Branches GATE writes as single precision.
-FLOAT32_BRANCHES = frozenset(
-    {
-        "edep",
-        "stepLength",
-        "trackLength",
-        "posX",
-        "posY",
-        "posZ",
-        "localPosX",
-        "localPosY",
-        "localPosZ",
-        "sourcePosX",
-        "sourcePosY",
-        "sourcePosZ",
-        "momDirX",
-        "momDirY",
-        "momDirZ",
-        "axialPos",
-        "rotationAngle",
-        "sourceEnergy",
-        "energyFinal",
-        "energyIniT",
-    }
+from conftest import (
+    HITS_VARIANT_LAYOUTS,
+    HitsVariantLayout,
+    branch_type_name,
+    expected_hits_branch_type,
 )
-
-# Branches GATE writes as text.
-TEXT_BRANCHES = frozenset({"processName", "comptVolName", "RayleighVolName", "postStepProcess"})
-
-# Branches GATE writes as a fixed-width array, mapped to their type.
-ARRAY_BRANCHES = {"volumeID": "int32[10]"}
 
 # Variants stored under a single tree, used where one tree per file is needed.
 SINGLE_TREE_LAYOUTS = tuple(
     layout for layout in HITS_VARIANT_LAYOUTS if len(layout.tree_names) == 1
 )
-
-
-def expected_branch_type(name: str) -> str:
-    """Return the type GATE writes a branch of the given name with.
-
-    Parameters
-    ----------
-    name : str
-        Branch name.
-
-    Returns
-    -------
-    str
-        Short type name, in the form used by
-        :func:`conftest.branch_type_name`.
-    """
-    if name in ARRAY_BRANCHES:
-        return ARRAY_BRANCHES[name]
-    if name in TEXT_BRANCHES:
-        return "text"
-    if name in FLOAT64_BRANCHES:
-        return "float64"
-    if name in FLOAT32_BRANCHES:
-        return "float32"
-    return "int32"
 
 
 @pytest.mark.parametrize("layout", HITS_VARIANT_LAYOUTS, ids=lambda layout: layout.key)
@@ -139,7 +84,7 @@ def test_variant_fixture_follows_gate_branch_types(layout: HitsVariantLayout) ->
 
     # ASSERT
     expected = {
-        name: "int32" if name.startswith("volumeID[") else expected_branch_type(name)
+        name: "int32" if name.startswith("volumeID[") else expected_hits_branch_type(name)
         for name in types
     }
     assert types == expected

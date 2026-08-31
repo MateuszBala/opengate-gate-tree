@@ -194,8 +194,10 @@ def test_root_round_trip_preserves_a_byte_string_column(tmp_path: Path) -> None:
     path = tmp_path / "hits.root"
 
     # ACT
+    # The file holds what the writer was given, not a hits structure, so it is
+    # read back without the structure check.
     write_tree(data, path, OutputFileFormat.ROOT)
-    restored = read_tree(path, GateTree.HITS)
+    restored = read_tree(path, GateTree.HITS, validate=False)
 
     # ASSERT
     assert list(restored["processName"]) == ["Compton", "PhotoElectric"]
@@ -209,8 +211,10 @@ def test_root_round_trip_preserves_a_unicode_text_column(tmp_path: Path) -> None
     path = tmp_path / "hits.root"
 
     # ACT
+    # The file holds what the writer was given, not a hits structure, so it is
+    # read back without the structure check.
     write_tree(data, path, OutputFileFormat.ROOT)
-    restored = read_tree(path, GateTree.HITS)
+    restored = read_tree(path, GateTree.HITS, validate=False)
 
     # ASSERT
     assert list(restored["processName"]) == list(names)
@@ -380,8 +384,10 @@ def test_root_round_trip_preserves_every_branch_kind(tmp_path: Path) -> None:
     path = tmp_path / "hits.root"
 
     # ACT
+    # The file holds what the writer was given, not a hits structure, so it is
+    # read back without the structure check.
     write_tree(data, path, OutputFileFormat.ROOT)
-    restored = read_tree(path, GateTree.HITS)
+    restored = read_tree(path, GateTree.HITS, validate=False)
 
     # ASSERT
     assert restored.branch_names == data.branch_names

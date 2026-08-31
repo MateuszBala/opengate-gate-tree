@@ -26,6 +26,7 @@ EXPECTED_EXPORTS = {
     "GateTree",
     "GateTreeError",
     "HitsTreeDetection",
+    "HitsTreeValidationError",
     "HitsTreeVariant",
     "OutputFileFormat",
     "RootFile",
@@ -42,6 +43,7 @@ EXPECTED_EXPORTS = {
     "parse_output_file_format",
     "read_tree",
     "supported_variants",
+    "validate_hits_tree",
     "variant_reference",
     "write_tree",
 }

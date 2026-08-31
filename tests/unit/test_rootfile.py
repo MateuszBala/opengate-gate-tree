@@ -1,20 +1,45 @@
 """Unit tests for reading GATE ROOT files."""
 
-from collections.abc import Callable
+import logging
+from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 
 import numpy as np
 import pytest
-from conftest import GateHitsLayout
+from conftest import HITS_VARIANT_LAYOUTS, GateHitsLayout, HitsVariantLayout
 
 from opengate_gate_tree.errors import (
     BranchNotFoundError,
+    HitsTreeValidationError,
     RootFileError,
     TreeNotFoundError,
+    UnknownHitsVariantError,
     UnsupportedBranchTypeError,
 )
 from opengate_gate_tree.io.rootfile import RootFile
 from opengate_gate_tree.tree.gatetree import GateTree
+from opengate_gate_tree.tree.hits.schema import expected_branches
+from opengate_gate_tree.tree.hits.variant import HitsTreeVariant
+
+# Variant fixtures storing their tree under the standard name.
+STANDARD_NAME_LAYOUTS = [
+    layout for layout in HITS_VARIANT_LAYOUTS if layout.tree_names[0] == "Hits"
+]
+
+# Branch names of the structure generated trees are built from.
+NO_SYSTEM_BRANCHES: Sequence[str] = [
+    spec.name for spec in expected_branches(HitsTreeVariant.NO_SYSTEM)
+]
+
+
+def hits_file(
+    factory: Callable[..., Path],
+    branches: Sequence[str] = NO_SYSTEM_BRANCHES,
+    tree_name: str = "Hits",
+    **extra: Mapping[str, Sequence[str]],
+) -> Path:
+    """Write a file holding one tree of the given branches."""
+    return factory({tree_name: list(branches)}, **extra)
 
 
 def test_tree_names_reports_only_trees(
@@ -219,11 +244,13 @@ def test_read_raises_for_a_branch_of_varying_length(
 ) -> None:
     """Branches whose length varies per entry should be rejected."""
     # ARRANGE
+    # The generated tree holds two branches, so it is no hits structure and
+    # is read with the structure check turned off.
     path = make_jagged_root_file()
 
     # ACT & ASSERT
     with RootFile(path) as root_file, pytest.raises(UnsupportedBranchTypeError) as error_info:
-        root_file.read(GateTree.HITS)
+        root_file.read(GateTree.HITS, validate=False)
 
     assert "hitTimes" in str(error_info.value)
 
@@ -238,7 +265,7 @@ def test_read_warns_for_an_empty_tree(
 
     # ACT
     with caplog.at_level("WARNING"), RootFile(path) as root_file:
-        data = root_file.read(GateTree.HITS)
+        data = root_file.read(GateTree.HITS, validate=False)
 
     # ASSERT
     assert data.entry_count == 0
@@ -290,3 +317,182 @@ def test_close_can_be_called_directly(gate_hits_file: Path) -> None:
 
     # ASSERT
     assert "Hits" in names
+
+
+@pytest.mark.parametrize("layout", STANDARD_NAME_LAYOUTS, ids=lambda layout: layout.key)
+def test_variant_files_are_read_with_validation_on(layout: HitsVariantLayout) -> None:
+    """Every structure the package supports should read without complaint."""
+    # ARRANGE
+    # Validation is on by default and covers the whole tree.
+
+    # ACT
+    with RootFile(layout.path) as root_file:
+        data = root_file.read(GateTree.HITS)
+
+    # ASSERT
+    assert data.entry_count == layout.entries
+    assert len(data.branch_names) == layout.branch_count
+
+
+def test_reading_recognises_the_structure_of_the_hits_tree(
+    hits_variant_files: Mapping[str, Path],
+) -> None:
+    """The structure is reported for a file, not only for a branch list."""
+    # ARRANGE
+    # No additional setup required.
+
+    # ACT
+    with RootFile(hits_variant_files["a3"]) as root_file:
+        detection = root_file.detect_hits_tree()
+
+    # ASSERT
+    assert detection.variant is HitsTreeVariant.SYSTEM_SEPTAL
+    assert detection.tree_name == "Hits"
+
+
+def test_recognising_a_missing_hits_tree_reports_it(
+    make_gate_root_file: Callable[..., Path],
+) -> None:
+    """A file without hits cannot have their structure recognised."""
+    # ARRANGE
+    path = make_gate_root_file({"Singles": {"eventID": np.arange(3, dtype=np.int32)}})
+
+    # ACT / ASSERT
+    with RootFile(path) as root_file, pytest.raises(TreeNotFoundError):
+        root_file.detect_hits_tree()
+
+
+def test_reading_an_unknown_structure_is_refused(
+    make_hits_root_file: Callable[..., Path],
+) -> None:
+    """A tree that is not a hits tree should be reported, not half read."""
+    # ARRANGE
+    path = hits_file(make_hits_root_file, ["eventID", "edep", "sinogramTheta"])
+
+    # ACT / ASSERT
+    with RootFile(path) as root_file, pytest.raises(UnknownHitsVariantError):
+        root_file.read(GateTree.HITS)
+
+
+def test_reading_an_unknown_structure_is_possible_without_validation(
+    make_hits_root_file: Callable[..., Path],
+) -> None:
+    """A file from a build the package does not know still has to be usable."""
+    # ARRANGE
+    path = hits_file(make_hits_root_file, ["eventID", "edep", "sinogramTheta"])
+
+    # ACT
+    with RootFile(path) as root_file:
+        data = root_file.read(GateTree.HITS, validate=False)
+
+    # ASSERT
+    assert data.branch_names == ("eventID", "edep", "sinogramTheta")
+
+
+def test_reading_a_tree_missing_a_branch_is_refused(
+    make_hits_root_file: Callable[..., Path],
+) -> None:
+    """A tree that almost matches its structure is reported as such."""
+    # ARRANGE
+    incomplete = [name for name in NO_SYSTEM_BRANCHES if name != "edep"]
+    path = hits_file(make_hits_root_file, incomplete)
+
+    # ACT / ASSERT
+    with RootFile(path) as root_file, pytest.raises(HitsTreeValidationError, match="edep"):
+        root_file.read(GateTree.HITS)
+
+
+def test_reading_a_tree_with_an_extra_branch_warns_and_continues(
+    make_hits_root_file: Callable[..., Path],
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A GATE build adding a branch must not stop the extraction."""
+    # ARRANGE
+    path = hits_file(make_hits_root_file, [*NO_SYSTEM_BRANCHES, "multiPhotonFlag"])
+
+    # ACT
+    with caplog.at_level(logging.WARNING), RootFile(path) as root_file:
+        data = root_file.read(GateTree.HITS)
+
+    # ASSERT
+    assert "multiPhotonFlag" in caplog.text
+    assert "multiPhotonFlag" in data.branch_names
+
+
+def test_validation_covers_the_tree_and_not_only_the_selection(
+    make_hits_root_file: Callable[..., Path],
+) -> None:
+    """Reading two branches of a broken tree is still reading a broken tree."""
+    # ARRANGE
+    incomplete = [name for name in NO_SYSTEM_BRANCHES if name != "edep"]
+    path = hits_file(make_hits_root_file, incomplete)
+
+    # ACT / ASSERT
+    with RootFile(path) as root_file, pytest.raises(HitsTreeValidationError):
+        root_file.read(GateTree.HITS, ["eventID", "runID"])
+
+
+def test_a_selection_of_a_valid_tree_reads_the_selected_branches(
+    hits_variant_files: Mapping[str, Path],
+) -> None:
+    """Validation looks at the whole tree, extraction at what was asked for."""
+    # ARRANGE
+    # The A2 tree holds 46 branches; two of them are wanted.
+
+    # ACT
+    with RootFile(hits_variant_files["a2"]) as root_file:
+        data = root_file.read(GateTree.HITS, ["eventID", "edep"])
+
+    # ASSERT
+    assert data.branch_names == ("eventID", "edep")
+
+
+def test_other_trees_are_read_without_being_checked(
+    make_gate_root_file: Callable[..., Path],
+) -> None:
+    """Only the structure of the hits tree is described, so only it is checked."""
+    # ARRANGE
+    path = make_gate_root_file(
+        {"Singles": {"eventID": np.arange(3, dtype=np.int32), "energy": np.zeros(3)}}
+    )
+
+    # ACT
+    with RootFile(path) as root_file:
+        data = root_file.read(GateTree.SINGLES)
+
+    # ASSERT
+    assert data.branch_names == ("eventID", "energy")
+
+
+def test_validation_looks_at_branches_it_could_not_load(
+    make_hits_root_file: Callable[..., Path],
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """The check runs on branch types, so an unreadable branch is no obstacle.
+
+    A branch of varying length cannot be loaded, but it can be looked at. It
+    is reported as one the structure does not describe, and the branches that
+    were asked for are read as usual.
+    """
+    # ARRANGE
+    path = make_hits_root_file({"Hits": NO_SYSTEM_BRANCHES}, jagged=["hitTimes"])
+
+    # ACT
+    with caplog.at_level(logging.WARNING), RootFile(path) as root_file:
+        data = root_file.read(GateTree.HITS, ["eventID", "edep"])
+
+    # ASSERT
+    assert "hitTimes" in caplog.text
+    assert data.branch_names == ("eventID", "edep")
+
+
+def test_an_unloadable_branch_is_still_refused_when_it_is_asked_for(
+    make_hits_root_file: Callable[..., Path],
+) -> None:
+    """Tolerating a branch in the tree is not the same as being able to read it."""
+    # ARRANGE
+    path = make_hits_root_file({"Hits": NO_SYSTEM_BRANCHES}, jagged=["hitTimes"])
+
+    # ACT / ASSERT
+    with RootFile(path) as root_file, pytest.raises(UnsupportedBranchTypeError, match="hitTimes"):
+        root_file.read(GateTree.HITS, ["eventID", "hitTimes"])

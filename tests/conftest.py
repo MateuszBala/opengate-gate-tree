@@ -12,7 +12,7 @@ tree can have. Their provenance and the reason one of them is not trimmed are
 described in the README next to them.
 """
 
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -96,6 +96,76 @@ HITS_VARIANT_LAYOUTS: tuple[HitsVariantLayout, ...] = (
         40,
     ),
 )
+
+
+# Branches GATE writes as double precision.
+HITS_FLOAT64_BRANCHES = frozenset({"trackLocalTime", "time"})
+
+# Branches GATE writes as single precision.
+HITS_FLOAT32_BRANCHES = frozenset(
+    {
+        "edep",
+        "stepLength",
+        "trackLength",
+        "posX",
+        "posY",
+        "posZ",
+        "localPosX",
+        "localPosY",
+        "localPosZ",
+        "sourcePosX",
+        "sourcePosY",
+        "sourcePosZ",
+        "momDirX",
+        "momDirY",
+        "momDirZ",
+        "axialPos",
+        "rotationAngle",
+        "sourceEnergy",
+        "energyFinal",
+        "energyIniT",
+    }
+)
+
+# Branches GATE writes as text.
+HITS_TEXT_BRANCHES = frozenset(
+    {"processName", "comptVolName", "RayleighVolName", "postStepProcess"}
+)
+
+# Branches GATE writes as a fixed-width array, mapped to their type.
+HITS_ARRAY_BRANCHES = {"volumeID": "int32[10]"}
+
+# Values used for text branches of generated trees.
+HITS_TEXT_VALUES = ("Compton", "PhotoElectric", "Transportation")
+
+
+def expected_hits_branch_type(name: str) -> str:
+    """Return the type GATE writes a branch of the given name with.
+
+    The rule is the one measured on the reference files: the type follows the
+    name of the branch. It is kept on the test side on purpose, so that the
+    schemas of the package are compared against something derived from the
+    files rather than from themselves.
+
+    Parameters
+    ----------
+    name : str
+        Branch name.
+
+    Returns
+    -------
+    str
+        Short type name, as :func:`branch_type_name` reports it.
+    """
+    if name in HITS_ARRAY_BRANCHES:
+        return HITS_ARRAY_BRANCHES[name]
+    if name in HITS_TEXT_BRANCHES:
+        return "text"
+    if name in HITS_FLOAT64_BRANCHES:
+        return "float64"
+    if name in HITS_FLOAT32_BRANCHES:
+        return "float32"
+    return "int32"
 
 
 def branch_type_name(interpretation: Any) -> str:
@@ -187,6 +257,48 @@ def make_gate_root_file(tmp_path: Path) -> Callable[..., Path]:
 
 
 @pytest.fixture
+def make_hits_root_file(tmp_path: Path) -> Callable[..., Path]:
+    """Return a factory writing a ROOT file with trees of the given branches.
+
+    Columns are generated from the branch names, following the rule GATE
+    follows, so a tree is described by its branch names alone. Names listed in
+    ``jagged`` are written as branches of varying length, which the package
+    cannot load but can look at.
+
+    Names holding brackets are refused: the uproot writer reads them as an
+    array dimension, which silently produces a file that cannot be read back.
+    Tests needing the layout that uses such names work on the B1 fixture.
+    """
+
+    def write_hits_file(
+        trees: Mapping[str, Sequence[str]],
+        entries: int = 5,
+        file_name: str = "hits.root",
+        jagged: Sequence[str] = (),
+    ) -> Path:
+        bracketed = sorted({name for names in trees.values() for name in names if "[" in name})
+        if bracketed:
+            raise ValueError(
+                f"uproot writes brackets in a branch name as an array dimension, so {bracketed} "
+                f"cannot be generated; use the B1 fixture for that layout."
+            )
+        path = tmp_path / file_name
+        with uproot.recreate(path) as out:
+            for tree_name, names in trees.items():
+                columns = {name: _hits_column(name, entries) for name in names}
+                branch_types, branch_data = _branch_specification(columns)
+                for name in jagged:
+                    branch_types[name] = "var * float64"
+                    branch_data[name] = ak.Array([[float(index)] for index in range(entries)])
+                out.mktree(tree_name, branch_types)
+                if entries:
+                    out[tree_name].extend(branch_data)
+        return path
+
+    return write_hits_file
+
+
+@pytest.fixture
 def make_jagged_root_file(tmp_path: Path) -> Callable[..., Path]:
     """Return a factory writing a ROOT file with a branch of varying length."""
 
@@ -206,6 +318,20 @@ def make_jagged_root_file(tmp_path: Path) -> Callable[..., Path]:
         return path
 
     return write_jagged_file
+
+
+def _hits_column(name: str, entries: int) -> npt.NDArray[Any]:
+    """Return a generated column for a branch of the given name."""
+    if name in HITS_ARRAY_BRANCHES:
+        return np.arange(entries * 10, dtype=np.int32).reshape(entries, 10)
+    if name in HITS_TEXT_BRANCHES:
+        values = [HITS_TEXT_VALUES[index % len(HITS_TEXT_VALUES)] for index in range(entries)]
+        return np.array(values, dtype=object)
+    if name in HITS_FLOAT64_BRANCHES:
+        return np.arange(entries, dtype=np.float64) / 8
+    if name in HITS_FLOAT32_BRANCHES:
+        return np.arange(entries, dtype=np.float32) / 4
+    return np.arange(entries, dtype=np.int32)
 
 
 def _branch_specification(

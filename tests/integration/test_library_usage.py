@@ -130,7 +130,9 @@ def test_a_selection_survives_the_whole_round_trip(
     data = read_tree(gate_hits_file, GateTree.HITS)
     reduced = data.select(["edep", "eventID"])
     write_tree(reduced, output_file, OutputFileFormat.ROOT)
-    restored = read_tree(output_file, GateTree.HITS)
+    # Two branches are no longer a hits structure, so reading the result back
+    # skips the structure check.
+    restored = read_tree(output_file, GateTree.HITS, validate=False)
 
     # ASSERT
     assert restored.branch_names == ("edep", "eventID")

@@ -7,6 +7,12 @@ Only trees are considered. GATE files also store histograms, such as
 ``latest_event_ID`` and ``total_nb_primaries``; they are ignored when the file
 contents are inspected and are never carried over to an output file.
 
+Reading the "Hits" tree recognises which structure it has and checks the tree
+against it before any data is loaded, so a file that is not what it is taken
+for is reported rather than half read. Passing ``validate=False`` extracts the
+branches without asking what structure they form, which is what a file from a
+GATE build the package does not know needs.
+
 Public objects:
 
 RootFile
@@ -23,6 +29,7 @@ import uproot
 
 from opengate_gate_tree.errors import RootFileError
 from opengate_gate_tree.io.validation import (
+    branch_type_name,
     find_tree_name,
     resolve_tree_name,
     validate_branch_interpretations,
@@ -32,6 +39,8 @@ from opengate_gate_tree.io.validation import (
 from opengate_gate_tree.logger import log
 from opengate_gate_tree.tree.branch import normalize_branch_selection
 from opengate_gate_tree.tree.gatetree import GateTree
+from opengate_gate_tree.tree.hits.detection import HitsTreeDetection, detect_hits_variant
+from opengate_gate_tree.tree.hits.validation import validate_hits_tree
 from opengate_gate_tree.tree.treedata import TreeData
 
 # Class name of the ROOT objects the package reads.
@@ -141,7 +150,30 @@ class RootFile:
         """
         return tuple(str(name) for name in self._file[self.resolve_tree_name(tree)].keys())
 
-    def read(self, tree: GateTree, branches: Sequence[str] | None = None) -> TreeData:
+    def detect_hits_tree(self) -> HitsTreeDetection:
+        """Recognise the structure of the "Hits" tree stored in the file.
+
+        Returns
+        -------
+        HitsTreeDetection
+            Structure of the tree.
+
+        Raises
+        ------
+        TreeNotFoundError
+            If the file holds no "Hits" tree.
+        UnknownHitsVariantError
+            If the structure of the tree is not a supported one.
+        """
+        tree_key, tree_object = self._open_tree(GateTree.HITS)
+        return detect_hits_variant(tuple(str(name) for name in tree_object.keys()), tree_key)
+
+    def read(
+        self,
+        tree: GateTree,
+        branches: Sequence[str] | None = None,
+        validate: bool = True,
+    ) -> TreeData:
         """Read a tree into the package representation.
 
         Parameters
@@ -152,6 +184,11 @@ class RootFile:
             Branches to read. When omitted or empty, every branch is read.
             Repeated names are read once, at the position of their first
             occurrence.
+        validate : bool
+            Whether to recognise the structure of the "Hits" tree and check
+            the tree against it. The check covers the whole tree, not only the
+            branches being read, and runs before any data is loaded. Other
+            trees are read the same way either way.
 
         Returns
         -------
@@ -162,6 +199,11 @@ class RootFile:
         ------
         TreeNotFoundError
             If the tree is not present in the file.
+        UnknownHitsVariantError
+            If the structure of the "Hits" tree is not a supported one.
+        HitsTreeValidationError
+            If the "Hits" tree does not match the structure it was recognised
+            as.
         BranchNotFoundError
             If any requested branch is not present in the tree.
         UnsupportedBranchTypeError
@@ -169,9 +211,15 @@ class RootFile:
         ValueError
             If any requested branch name is empty.
         """
-        tree_key = self.resolve_tree_name(tree)
-        tree_object = self._file[tree_key]
+        tree_key, tree_object = self._open_tree(tree)
         available = tuple(str(name) for name in tree_object.keys())
+
+        if validate and tree is GateTree.HITS:
+            detection = detect_hits_variant(available, tree_key)
+            dtypes = {
+                name: branch_type_name(tree_object[name].interpretation) for name in available
+            }
+            validate_hits_tree(available, dtypes, detection)
 
         selected = normalize_branch_selection(branches or [], available)
         validate_branches_present(available, selected)
@@ -188,6 +236,11 @@ class RootFile:
             log().warning("Tree '%s' in file %s has no entries.", tree_key, self._path)
 
         return data
+
+    def _open_tree(self, tree: GateTree) -> tuple[str, Any]:
+        """Return the key of a tree and the tree itself."""
+        tree_key = self.resolve_tree_name(tree)
+        return tree_key, self._file[tree_key]
 
 
 def _strip_cycle(key: str) -> str:

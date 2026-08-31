@@ -21,7 +21,9 @@ that the file is opened once.
 The structure of the "Hits" tree depends on the simulation that wrote it.
 :class:`HitsTreeVariant` names the structures the package supports,
 :func:`detect_hits_variant` recognises the one a tree has, and
-:func:`expected_branches` states which branches each of them holds.
+:func:`expected_branches` states which branches each of them holds. Reading a
+"Hits" tree recognises and checks its structure unless ``validate=False`` says
+otherwise.
 
 Failures while reading or writing files are reported through a subclass of
 :class:`GateTreeError`, so a single ``except`` clause covers them. Malformed
@@ -49,6 +51,7 @@ from opengate_gate_tree.errors import (  # noqa: E402
     BranchNotFoundError,
     ExportError,
     GateTreeError,
+    HitsTreeValidationError,
     RootFileError,
     TreeNotFoundError,
     UnknownHitsVariantError,
@@ -75,6 +78,7 @@ from opengate_gate_tree.tree.hits.schema import (  # noqa: E402
     supported_variants,
     variant_reference,
 )
+from opengate_gate_tree.tree.hits.validation import validate_hits_tree  # noqa: E402
 from opengate_gate_tree.tree.hits.variant import (  # noqa: E402
     GateSystemType,
     HitsTreeVariant,
@@ -95,6 +99,7 @@ __all__ = [
     "GateTree",
     "GateTreeError",
     "HitsTreeDetection",
+    "HitsTreeValidationError",
     "HitsTreeVariant",
     "OutputFileFormat",
     "RootFile",
@@ -111,6 +116,7 @@ __all__ = [
     "parse_output_file_format",
     "read_tree",
     "supported_variants",
+    "validate_hits_tree",
     "variant_reference",
     "write_tree",
 ]
