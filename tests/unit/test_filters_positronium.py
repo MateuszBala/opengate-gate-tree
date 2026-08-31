@@ -134,7 +134,7 @@ def test_a_member_of_another_class_is_refused(positronium_files: Mapping[str, Pa
 
     # ACT / ASSERT
     with pytest.raises(ValueError, match="takes its own members"):
-        is_gamma_type(frame["gammaType"], SourceType.PARA_POSITRONIUM)
+        is_gamma_type(frame["gammaType"], SourceType.PARA_POSITRONIUM)  # type: ignore[arg-type]
 
 
 @pytest.mark.parametrize("given", [2, "PROMPT", None], ids=["number", "text", "nothing"])
@@ -216,3 +216,7 @@ def test_the_masks_cover_every_row(positronium_files: Mapping[str, Path]) -> Non
     assert len(of_kind) == len(frame)
     assert list(of_process.index) == list(frame.index)
     assert of_kind.dtype == bool
+    # A mask of the right shape holding nothing would pass everything above,
+    # and both of these name something the scene really holds.
+    assert of_kind.any()
+    assert of_process.any()

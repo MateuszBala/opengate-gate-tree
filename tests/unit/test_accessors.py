@@ -9,14 +9,16 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from opengate_gate_tree.io.reader import read_tree
+from opengate_gate_tree.io.reader import read_hits_trees, read_tree
 from opengate_gate_tree.tree import filters
 from opengate_gate_tree.tree.accessors import ACCESSOR_NAME
 from opengate_gate_tree.tree.gatetree import GateTree
 from opengate_gate_tree.tree.hits.positronium import DecayType, GammaType, SourceType
 
-# Every filter of a single column, with arguments that hold for the scene the
-# tests read. The name is the name of both the function and the method.
+# Every filter of a single column, with arguments chosen so that the answer is
+# a proper subset of the scene: a filter that selected everything, or nothing,
+# would compare equal to a broken counterpart. The name is the name of both the
+# function and the method.
 COLUMN_CALLS: list[tuple[str, str, tuple[object, ...]]] = [
     ("is_in_range", "edep", (0.2, 0.4)),
     ("in_range", "edep", (0.2, 0.4)),
@@ -24,33 +26,58 @@ COLUMN_CALLS: list[tuple[str, str, tuple[object, ...]]] = [
     ("select_by_source_type", "sourceType", (SourceType.ORTHO_POSITRONIUM,)),
     ("is_decay_type", "decayType", (DecayType.DEEXCITATION,)),
     ("select_by_decay_type", "decayType", (DecayType.DEEXCITATION,)),
-    ("is_gamma_type", "gammaType", (GammaType.PROMPT, GammaType.ANNIHILATION)),
+    ("is_gamma_type", "gammaType", (GammaType.PROMPT, GammaType.UNKNOWN)),
     ("select_by_gamma_type", "gammaType", (GammaType.PROMPT,)),
     ("is_process", "processName", ("Compton",)),
-    ("select_by_process", "processName", ("Compton", "PhotoElectric")),
+    ("select_by_process", "processName", ("Compton",)),
 ]
 
-# Every filter reading several columns at once.
-FRAME_CALLS: list[tuple[str, tuple[object, ...]]] = [
-    ("is_in_box", ((0, 0, 0), 100)),
-    ("in_box", ((0, 0, 0), 100)),
-    ("is_in_sphere", ((0, 0, 0), 500.0)),
-    ("in_sphere", ((0, 0, 0), 500.0)),
-    ("is_in_cylinder", ((0, 0), 500.0)),
-    ("in_cylinder", ((0, 0), 500.0)),
-    ("is_from_run", (0,)),
-    ("by_run", (0,)),
-    ("is_from_event", (0, 5)),
-    ("by_event", (0, 5)),
-    ("has_decay_metadata", ()),
-    ("with_decay_metadata", ()),
+# Every filter reading several columns at once, with the scene it is asked
+# about: the identity filters need a file of several runs, the rest a file
+# where a source wrote its metadata for some of the rows and not for others.
+FRAME_CALLS: list[tuple[str, str, tuple[object, ...]]] = [
+    ("is_in_box", "positronium", ((100, 0, 0), 200)),
+    ("in_box", "positronium", ((100, 0, 0), 200)),
+    ("is_in_sphere", "positronium", ((0, 0, 0), 215.0)),
+    ("in_sphere", "positronium", ((0, 0, 0), 215.0)),
+    ("is_in_cylinder", "positronium", ((0, 0), 250.0, (-100.0, 100.0), 100.0)),
+    ("in_cylinder", "positronium", ((0, 0), 250.0, (-100.0, 100.0), 100.0)),
+    ("is_from_run", "runs", (1,)),
+    ("by_run", "runs", (1,)),
+    ("is_from_event", "runs", (1, 5)),
+    ("by_event", "runs", (1, 5)),
+    ("has_decay_metadata", "positronium", ()),
+    ("with_decay_metadata", "positronium", ()),
 ]
 
 
 @pytest.fixture(scope="module")
 def hits(positronium_files: Mapping[str, Path]) -> pd.DataFrame:
-    """Return a scene holding every branch the filters read."""
-    return read_tree(positronium_files["ops-prompt"], GateTree.HITS).to_dataframe()
+    """Return a scene holding every branch the filters read.
+
+    This one was written by a source configured with every component at once,
+    so its rows differ in what a gamma was and in whether it carries decay
+    metadata at all - which is what lets a filter answer part of the scene.
+    """
+    return read_tree(positronium_files["all-variants"], GateTree.HITS).to_dataframe()
+
+
+@pytest.fixture(scope="module")
+def scenes(hits: pd.DataFrame, hits_variant_files: Mapping[str, Path]) -> dict[str, pd.DataFrame]:
+    """Return the scenes the frame filters are asked about, by name."""
+    return {
+        "positronium": hits,
+        "runs": read_hits_trees(hits_variant_files["multi-run"]).to_dataframe(),
+    }
+
+
+def _selected(answer: pd.Series | pd.DataFrame) -> int:
+    """Return how many rows an answer covers, whichever of the two it is."""
+    if isinstance(answer, pd.DataFrame):
+        return len(answer)
+    if answer.dtype == bool:
+        return int(answer.sum())
+    return len(answer)
 
 
 def public_filters() -> list[str]:
@@ -98,26 +125,37 @@ def test_a_column_method_answers_what_its_function_answers(
     from_function = getattr(filters, name)(values, *arguments)
 
     # ASSERT
-    assert list(from_method) == list(from_function)
-    assert list(from_method.index) == list(from_function.index)
+    assert from_method.equals(from_function)
+    assert 0 < _selected(from_method) < len(values)
 
 
-@pytest.mark.parametrize(("name", "arguments"), FRAME_CALLS, ids=[name for name, _ in FRAME_CALLS])
+@pytest.mark.parametrize(
+    ("name", "scene", "arguments"),
+    FRAME_CALLS,
+    ids=[name for name, _, _ in FRAME_CALLS],
+)
 def test_a_frame_method_answers_what_its_function_answers(
     name: str,
+    scene: str,
     arguments: tuple[object, ...],
-    hits: pd.DataFrame,
+    scenes: dict[str, pd.DataFrame],
 ) -> None:
-    """The same, for the filters that read several columns."""
+    """The same, for the filters that read several columns.
+
+    A mask carries the index of the frame it was built from whatever it holds,
+    so comparing the two answers by their index alone would pass for a method
+    answering the opposite of its function. The values are what is compared.
+    """
     # ARRANGE
-    # No additional setup required.
+    frame = scenes[scene]
 
     # ACT
-    from_method = getattr(hits.gate, name)(*arguments)
-    from_function = getattr(filters, name)(hits, *arguments)
+    from_method = getattr(frame.gate, name)(*arguments)
+    from_function = getattr(filters, name)(frame, *arguments)
 
     # ASSERT
-    assert list(from_method.index) == list(from_function.index)
+    assert from_method.equals(from_function)
+    assert 0 < _selected(from_method) < len(frame)
 
 
 def test_every_filter_is_reachable_through_the_namespace() -> None:
@@ -153,16 +191,27 @@ def test_columns_chain(hits: pd.DataFrame) -> None:
 
 
 def test_frames_chain(hits: pd.DataFrame) -> None:
-    """A frame in, a frame out, so shapes and identities compose."""
+    """A frame in, a frame out, so shapes and identities compose.
+
+    Every stage removes rows, so a stage that stopped filtering would be seen:
+    the sphere leaves out the hits furthest from the centre, and the metadata
+    the gammas of the component that carries none.
+    """
     # ARRANGE
     # No additional setup required.
 
     # ACT
-    selected = hits.gate.in_sphere((0, 0, 0), 500.0).gate.by_run(0).gate.with_decay_metadata()
+    selected = hits.gate.in_sphere((0, 0, 0), 215.0).gate.by_run(0).gate.with_decay_metadata()
 
     # ASSERT
     assert isinstance(selected, pd.DataFrame)
-    assert len(selected) == len(hits)
+    by_hand = hits[
+        filters.is_in_sphere(hits, (0, 0, 0), 215.0)
+        & filters.is_from_run(hits, 0)
+        & filters.has_decay_metadata(hits)
+    ]
+    assert selected.equals(by_hand)
+    assert 0 < len(selected) < len(hits)
 
 
 def test_a_column_of_a_selected_frame_carries_the_namespace(hits: pd.DataFrame) -> None:
@@ -171,11 +220,11 @@ def test_a_column_of_a_selected_frame_carries_the_namespace(hits: pd.DataFrame) 
     # No additional setup required.
 
     # ACT
-    energies = hits.gate.by_run(0)["edep"].gate.in_range(0.2, 0.4)
+    energies = hits.gate.with_decay_metadata()["edep"].gate.in_range(0.2, 0.4)
 
     # ASSERT
     assert isinstance(energies, pd.Series)
-    assert len(energies) > 0
+    assert 0 < len(energies) < len(hits)
 
 
 def test_importing_the_package_registers_the_namespace_quietly() -> None:
@@ -212,7 +261,12 @@ def test_the_namespace_answers_to_the_name_the_package_declares() -> None:
 
 
 def test_the_arguments_of_a_method_are_the_arguments_of_its_function() -> None:
-    """A method taking other arguments than its function would be a second API."""
+    """A method taking other arguments than its function would be a second API.
+
+    Names, order, kinds and defaults are all compared: a method whose default
+    differed from its function's would answer a different question when asked
+    the short way.
+    """
     # ARRANGE
     from opengate_gate_tree.tree.accessors import GateFrameAccessor, GateSeriesAccessor
 
@@ -223,8 +277,8 @@ def test_the_arguments_of_a_method_are_the_arguments_of_its_function() -> None:
         for name in vars(accessor):
             if name.startswith("_"):
                 continue
-            method = list(inspect.signature(getattr(accessor, name)).parameters)[1:]
-            function = list(inspect.signature(getattr(filters, name)).parameters)[1:]
+            method = list(inspect.signature(getattr(accessor, name)).parameters.values())[1:]
+            function = list(inspect.signature(getattr(filters, name)).parameters.values())[1:]
             if method != function:
                 mismatched.append(f"{first}.{name}: {method} against {function}")
 
