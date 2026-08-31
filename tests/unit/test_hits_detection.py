@@ -13,6 +13,7 @@ from opengate_gate_tree.errors import UnknownHitsVariantError
 from opengate_gate_tree.tree.hits.detection import (
     describe_hits_tree,
     detect_hits_variant,
+    find_complete_hits_variant,
     find_hits_variant,
 )
 from opengate_gate_tree.tree.hits.schema import expected_branches
@@ -361,3 +362,61 @@ def test_description_names_the_system_of_the_gate_to_tree_output() -> None:
     assert "Branches (50):" in description
     assert "  - rsectorID / int32" in description
     assert "moduleID" not in description
+
+
+def test_a_marker_branch_alone_does_not_make_a_tree_hits() -> None:
+    """Recognising a tree and finding one among many are different questions.
+
+    Recognition is lenient on purpose, so that a tree which almost matches can
+    be told what is wrong with it. Deciding which tree of a file holds the hits
+    cannot be that lenient, or an unrelated tree carrying a branch named like a
+    marker would be read as hits.
+    """
+    # ARRANGE
+    branches = ["volumeID", "edep"]
+
+    # ACT
+    lenient = find_hits_variant(branches)
+    strict = find_complete_hits_variant(branches)
+
+    # ASSERT
+    assert lenient is not None
+    assert strict is None
+
+
+def test_a_tree_holding_a_whole_structure_is_found() -> None:
+    """A tree that holds everything its structure describes is one to read."""
+    # ARRANGE
+    names = names_of(HitsTreeVariant.SYSTEM, GateSystemType.CYLINDRICAL_PET)
+
+    # ACT
+    detection = find_complete_hits_variant(names)
+
+    # ASSERT
+    assert detection is not None
+    assert detection.variant is HitsTreeVariant.SYSTEM
+
+
+def test_a_tree_missing_one_branch_of_its_structure_is_not_found() -> None:
+    """A broken tree is still diagnosed, but it is not what a search returns."""
+    # ARRANGE
+    names = [name for name in names_of(HitsTreeVariant.NO_SYSTEM, None) if name != "edep"]
+
+    # ACT
+    detection = find_complete_hits_variant(names)
+
+    # ASSERT
+    assert detection is None
+    assert find_hits_variant(names) is not None
+
+
+def test_a_tree_with_more_branches_than_its_structure_is_found() -> None:
+    """A GATE build adding a branch still writes hits."""
+    # ARRANGE
+    names = [*names_of(HitsTreeVariant.NO_SYSTEM, None), "multiPhotonFlag"]
+
+    # ACT
+    detection = find_complete_hits_variant(names)
+
+    # ASSERT
+    assert detection is not None

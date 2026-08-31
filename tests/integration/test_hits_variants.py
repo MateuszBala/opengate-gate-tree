@@ -206,3 +206,21 @@ def test_the_gate_to_tree_layout_is_refused_by_the_root_writer(
     with pytest.raises(ExportError, match=r"volumeID\[0\]"):
         write_tree(data, output_file, OutputFileFormat.ROOT)
     assert not output_file.exists()
+
+
+def test_a_merged_dataset_can_be_read_back_as_one(
+    hits_variant_files: Mapping[str, Path],
+    tmp_path: Path,
+) -> None:
+    """A merged file already says where its rows came from, and keeps saying it."""
+    # ARRANGE
+    data = read_hits_trees(hits_variant_files["multi-run"])
+    output_file = tmp_path / "merged.root"
+    write_tree(data, output_file, OutputFileFormat.ROOT)
+
+    # ACT
+    restored = read_hits_trees(output_file, add_source_branch=False)
+
+    # ASSERT
+    assert restored.entry_count == data.entry_count
+    assert list(restored[SOURCE_TREE_BRANCH]) == list(data[SOURCE_TREE_BRANCH])

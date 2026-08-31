@@ -241,20 +241,39 @@ def _extract(config: RunConfig) -> tuple[HitsTreeDetection | None, TreeData]:
 
     validate = not config.skip_hits_validation
     with RootFile(config.input_gate_root_file) as root_file:
-        detection = _recognise(root_file, config)
+        tree_name = _resolve_tree_name(root_file, config)
+        detection = _recognise(root_file, config, tree_name)
         if config.merge_hits_trees:
             data = root_file.read_hits(config.branches_to_extract, validate=validate)
         else:
             data = root_file.read(
                 config.gate_tree,
                 config.branches_to_extract,
-                tree_name=config.input_tree_name,
+                tree_name=tree_name,
                 validate=validate,
             )
     return detection, data
 
 
-def _recognise(root_file: RootFile, config: RunConfig) -> HitsTreeDetection | None:
+def _resolve_tree_name(root_file: RootFile, config: RunConfig) -> str | None:
+    """Return the name of the tree to read, resolved once for the whole run.
+
+    Resolving the name is what reports a file holding hits in more trees than
+    the one being read, and that report is worth making exactly once. Naming
+    the tree here keeps the later calls from resolving it again.
+    """
+    if config.input_tree_name is not None:
+        return config.input_tree_name
+    if config.gate_tree is not GateTree.HITS or config.merge_hits_trees:
+        return None
+    return root_file.resolve_tree_name(GateTree.HITS)
+
+
+def _recognise(
+    root_file: RootFile,
+    config: RunConfig,
+    tree_name: str | None,
+) -> HitsTreeDetection | None:
     """Return the structure of the tree about to be read, when it is known.
 
     Nothing is recognised for a tree the package describes no structure for,
@@ -264,11 +283,11 @@ def _recognise(root_file: RootFile, config: RunConfig) -> HitsTreeDetection | No
     if config.gate_tree is not GateTree.HITS or config.skip_hits_validation:
         return None
 
-    tree_name = config.input_tree_name
-    if config.merge_hits_trees and tree_name is None:
+    name = tree_name
+    if config.merge_hits_trees and name is None:
         names = root_file.hits_tree_names()
-        tree_name = names[0] if names else None
-    return root_file.detect_hits_tree(tree_name)
+        name = names[0] if names else None
+    return root_file.detect_hits_tree(name)
 
 
 def _report(

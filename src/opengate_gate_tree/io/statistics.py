@@ -14,13 +14,14 @@ write_statistics(statistics, path) -> Path
 
 import json
 from pathlib import Path
+from typing import Final
 
 from opengate_gate_tree.errors import ExportError
 from opengate_gate_tree.io.writers.base import prepare_output_directory
 from opengate_gate_tree.tree.statistics import TreeStatistics, statistics_to_dict
 
 # Indentation of the written report.
-REPORT_INDENT: int = 2
+REPORT_INDENT: Final[int] = 2
 
 
 def write_statistics(statistics: TreeStatistics, path: Path) -> Path:
@@ -43,16 +44,22 @@ def write_statistics(statistics: TreeStatistics, path: Path) -> Path:
     ExportError
         If the file cannot be written.
     """
+    # The report is rendered in full before the file is touched. json.dump()
+    # writes as it goes, so a value it refuses part way through would leave an
+    # unfinished file behind, and a report that cannot be parsed is worse than
+    # no report at all.
+    try:
+        report = json.dumps(
+            statistics_to_dict(statistics),
+            indent=REPORT_INDENT,
+            allow_nan=False,
+        )
+    except (TypeError, ValueError) as err:
+        raise ExportError(f"Statistics could not be rendered as JSON: {path}") from err
+
     prepare_output_directory(path)
     try:
-        with path.open("w", encoding="utf-8") as report_file:
-            json.dump(
-                statistics_to_dict(statistics),
-                report_file,
-                indent=REPORT_INDENT,
-                allow_nan=False,
-            )
-            report_file.write("\n")
-    except (OSError, TypeError, ValueError) as err:
+        path.write_text(f"{report}\n", encoding="utf-8")
+    except OSError as err:
         raise ExportError(f"Statistics file could not be written: {path}") from err
     return path

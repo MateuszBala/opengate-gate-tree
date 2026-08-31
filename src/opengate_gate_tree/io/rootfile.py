@@ -343,9 +343,12 @@ class RootFile:
         """
         names = tuple(tree_names) if tree_names is not None else self.hits_tree_names()
         if not names:
-            # Reported the same way a missing tree is, with the trees the file
-            # does hold.
-            resolve_tree_name(self.tree_names, GateTree.HITS, self._path)
+            # No tree holds a whole structure. Fall back to resolving the name,
+            # so that a file whose "Hits" tree the package does not recognise
+            # is reported by what is wrong with that tree, and can still be
+            # read with the check turned off. A file holding no hits at all
+            # raises here, naming the trees it does hold.
+            names = (self.resolve_tree_name(GateTree.HITS),)
 
         parts = [
             self.read(GateTree.HITS, branches, tree_name=name, validate=validate) for name in names

@@ -41,7 +41,7 @@ from opengate_gate_tree.errors import (
     UnsupportedBranchTypeError,
 )
 from opengate_gate_tree.tree.gatetree import GateTree
-from opengate_gate_tree.tree.hits.detection import find_hits_variant
+from opengate_gate_tree.tree.hits.detection import find_complete_hits_variant
 
 # File extension expected for GATE output files.
 ROOT_FILE_SUFFIX: Final[str] = ".root"
@@ -177,6 +177,11 @@ def find_hits_tree_names(branches_by_tree: Mapping[str, Sequence[str]]) -> tuple
     branches_by_tree : Mapping[str, Sequence[str]]
         Tree names mapped to their branch names.
 
+    A tree counts as holding hits when it holds every branch of a supported
+    structure. Matching a marker branch is not enough here: deciding which tree
+    of a file to read is not the place for the leniency that makes a diagnosis
+    useful.
+
     Returns
     -------
     tuple[str, ...]
@@ -186,7 +191,7 @@ def find_hits_tree_names(branches_by_tree: Mapping[str, Sequence[str]]) -> tuple
     return tuple(
         name
         for name, branches in branches_by_tree.items()
-        if find_hits_variant(branches) is not None
+        if find_complete_hits_variant(branches) is not None
     )
 
 

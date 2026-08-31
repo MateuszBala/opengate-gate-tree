@@ -1,6 +1,7 @@
 """Unit tests for summarising extracted data."""
 
 import json
+from dataclasses import replace
 from pathlib import Path
 
 import numpy as np
@@ -40,7 +41,7 @@ def test_a_whole_number_branch_is_summarised_by_its_range() -> None:
     assert branch.mean == 3.0
     assert branch.unique_count == 3
     assert branch.kind is BranchKind.INTEGER
-    assert branch.nan_count is None
+    assert branch.non_finite_count is None
 
 
 def test_values_that_are_not_a_number_are_counted_and_left_out() -> None:
@@ -52,7 +53,7 @@ def test_values_that_are_not_a_number_are_counted_and_left_out() -> None:
     branch = summarise(columns)["edep"]
 
     # ASSERT
-    assert branch.nan_count == 1
+    assert branch.non_finite_count == 1
     assert branch.mean == 2.0
     assert (branch.minimum, branch.maximum) == (1.0, 3.0)
 
@@ -66,7 +67,7 @@ def test_a_branch_of_nothing_but_missing_values_has_no_range() -> None:
     branch = summarise(columns)["edep"]
 
     # ASSERT
-    assert branch.nan_count == 2
+    assert branch.non_finite_count == 2
     assert (branch.minimum, branch.maximum, branch.mean, branch.std) == (None, None, None, None)
 
 
@@ -289,7 +290,7 @@ def test_the_report_survives_values_that_are_not_a_number() -> None:
     written = json.dumps(statistics_to_dict(statistics), allow_nan=False)
 
     # ASSERT
-    assert json.loads(written)["branches"][0]["not_a_number"] == 1
+    assert json.loads(written)["branches"][0]["not_finite"] == 1
 
 
 def test_the_report_names_the_structure_and_the_system(
@@ -411,4 +412,90 @@ def test_the_rendering_reports_missing_values_of_a_branch() -> None:
     rendered = format_statistics(compute_statistics(TreeData(GateTree.HITS, columns)))
 
     # ASSERT
-    assert "not a number 1" in rendered
+    assert "not finite 1" in rendered
+
+
+def test_an_infinity_is_counted_and_kept_out_of_the_numbers() -> None:
+    """An infinity carries into every average and cannot be written to a report."""
+    # ARRANGE
+    columns = {"edep": np.array([1.0, np.inf, 2.0], dtype=np.float32)}
+
+    # ACT
+    branch = summarise(columns)["edep"]
+
+    # ASSERT
+    assert branch.non_finite_count == 1
+    assert (branch.minimum, branch.maximum, branch.mean) == (1.0, 2.0, 1.5)
+
+
+def test_an_infinity_does_not_reach_the_deposited_energy() -> None:
+    """One unusable value must not make the whole summary unwritable."""
+    # ARRANGE
+    columns = {"edep": np.array([1.0, np.inf, 2.0], dtype=np.float32)}
+
+    # ACT
+    summary = compute_statistics(TreeData(GateTree.HITS, columns)).hits_summary
+
+    # ASSERT
+    assert summary is not None
+    assert summary.total_edep == 3.0
+
+
+def test_a_report_holding_an_infinity_is_written_and_stays_valid(tmp_path: Path) -> None:
+    """A report is rendered before the file is touched, so none is left half written."""
+    # ARRANGE
+    columns = {
+        "edep": np.array([1.0, np.inf], dtype=np.float32),
+        "time": np.array([np.inf, np.inf], dtype=np.float64),
+    }
+    statistics = compute_statistics(TreeData(GateTree.HITS, columns))
+    output_file = tmp_path / "hits.stats.json"
+
+    # ACT
+    write_statistics(statistics, output_file)
+
+    # ASSERT
+    report = json.loads(output_file.read_text(encoding="utf-8"))
+    assert report["branches"][0]["not_finite"] == 1
+    assert report["hits"]["time_min"] is None
+
+
+def test_a_report_that_cannot_be_rendered_leaves_no_file(tmp_path: Path) -> None:
+    """Half a report is worse than none: it parses as nothing."""
+    # ARRANGE
+    columns = {"eventID": np.array([1], dtype=np.int32)}
+    statistics = compute_statistics(TreeData(GateTree.HITS, columns))
+    broken = replace(statistics, entry_count=float("inf"))
+    output_file = tmp_path / "hits.stats.json"
+
+    # ACT / ASSERT
+    with pytest.raises(ExportError, match="could not be rendered"):
+        write_statistics(broken, output_file)
+    assert not output_file.exists()
+
+
+def test_an_array_of_floating_point_values_is_reported_as_such() -> None:
+    """The kind of a branch says what it holds, arrays included."""
+    # ARRANGE
+    columns = {"positions": np.zeros((3, 2), dtype=np.float32)}
+
+    # ACT
+    branch = summarise(columns)["positions"]
+
+    # ASSERT
+    assert branch.kind is BranchKind.FLOAT_ARRAY
+    assert branch.dtype == "float32[2]"
+
+
+def test_a_branch_of_flags_is_reported_as_whole_numbers() -> None:
+    """A boolean column has a range and no missing value, like an integer one."""
+    # ARRANGE
+    columns = {"flag": np.array([True, False, True])}
+
+    # ACT
+    branch = summarise(columns)["flag"]
+
+    # ASSERT
+    assert branch.kind is BranchKind.INTEGER
+    assert branch.non_finite_count is None
+    assert branch.unique_count == 2

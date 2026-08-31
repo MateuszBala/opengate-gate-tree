@@ -78,7 +78,10 @@ data = read_hits_trees(Path("simulation.root"), add_source_branch=False)
 ```
 
 Written to a file and read back, that column is reported as one the structure
-does not describe, which is a warning rather than an error.
+does not describe, which is a warning rather than an error. Reading such a file
+through `read_hits_trees` again needs `add_source_branch=False`: recording
+where the rows came from a second time would overwrite the column that already
+says it.
 
 ## What Merging Does Not Do
 

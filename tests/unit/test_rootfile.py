@@ -811,3 +811,51 @@ def test_reading_hits_of_a_named_tree_that_is_absent_is_reported(
     with RootFile(hits_variant_files["multi-run"]) as root_file:
         with pytest.raises(TreeNotFoundError, match="Hits_run7"):
             root_file.read_hits(tree_names=["Hits", "Hits_run7"])
+
+
+def test_an_unrelated_tree_carrying_a_marker_branch_is_not_taken_for_hits(
+    make_hits_root_file: Callable[..., Path],
+) -> None:
+    """A file can hold other trees, and some of them name a branch like a marker."""
+    # ARRANGE
+    path = make_hits_root_file({"Hits": NO_SYSTEM_BRANCHES, "DoseByRegion": ["volumeID", "edep"]})
+
+    # ACT
+    with RootFile(path) as root_file:
+        names = root_file.hits_tree_names()
+        data = root_file.read_hits()
+
+    # ASSERT
+    assert names == ("Hits",)
+    assert set(data[SOURCE_TREE_BRANCH]) == {"Hits"}
+
+
+def test_reading_hits_of_an_unrecognised_tree_reports_the_structure(
+    make_hits_root_file: Callable[..., Path],
+) -> None:
+    """A file whose "Hits" tree is not a known structure says exactly that.
+
+    The name resolution finds the tree, so the failure has to come from the
+    structure rather than from there being nothing to merge.
+    """
+    # ARRANGE
+    path = hits_file(make_hits_root_file, ["eventID", "edep"])
+
+    # ACT / ASSERT
+    with RootFile(path) as root_file, pytest.raises(UnknownHitsVariantError):
+        root_file.read_hits()
+
+
+def test_reading_hits_of_an_unrecognised_tree_is_possible_without_validation(
+    make_hits_root_file: Callable[..., Path],
+) -> None:
+    """The escape hatch has to work while merging, as it does while reading."""
+    # ARRANGE
+    path = hits_file(make_hits_root_file, ["eventID", "edep"])
+
+    # ACT
+    with RootFile(path) as root_file:
+        data = root_file.read_hits(validate=False)
+
+    # ASSERT
+    assert data.branch_names == ("eventID", "edep", SOURCE_TREE_BRANCH)

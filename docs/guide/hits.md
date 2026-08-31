@@ -94,6 +94,13 @@ refused rather than read as a system-less structure. `gantryID` alone starts
 four of the schemes, and reading such a file as "no system" would settle a
 question that stayed open.
 
+For the same reason, the `GateToTree` output is supported for a simulation
+using a system of at least two levels. Its identifier block is what says which
+scheme the file follows, so a block of one level is ambiguous and a block of
+none — a `GateToTree` output of a simulation attaching hits outside any system
+— cannot be told from a file that lost those branches. No reference file holds
+such an output, so it is refused rather than guessed at.
+
 ## What Validation Checks
 
 | Difference | Result |

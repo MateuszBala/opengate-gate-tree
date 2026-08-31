@@ -65,8 +65,9 @@ TOP_VALUE_COUNT: Final[int] = 5
 # NumPy data type kinds holding text.
 TEXT_DTYPE_KINDS: Final[frozenset[str]] = frozenset({"O", "U", "S"})
 
-# NumPy data type kinds holding whole numbers.
-INTEGER_DTYPE_KINDS: Final[frozenset[str]] = frozenset({"i", "u"})
+# NumPy data type kinds holding whole numbers. Booleans are whole numbers as
+# far as a summary is concerned: they have a range and no missing value.
+INTEGER_DTYPE_KINDS: Final[frozenset[str]] = frozenset({"i", "u", "b"})
 
 
 @dataclass(frozen=True)
@@ -83,11 +84,14 @@ class BranchStatistics:
         Kind of value the branch holds.
     entries : int
         Number of entries of the branch.
-    nan_count : int | None
-        Number of values that are not a number, for a floating point branch.
+    non_finite_count : int | None
+        Number of values that are not a finite number, for a floating point
+        branch. Both "not a number" and the infinities are counted: neither
+        can be written to a report, and an infinity would carry into the mean
+        and turn the spread into "not a number".
     minimum, maximum, mean, std : float | None
-        Range and spread of a numeric branch, ignoring values that are not a
-        number. ``None`` for a text branch, and for a numeric one holding no
+        Range and spread of a numeric branch, ignoring values that are not
+        finite. ``None`` for a text branch, and for a numeric one holding no
         usable value.
     unique_count : int | None
         Number of distinct values, for a text or whole number branch.
@@ -99,7 +103,7 @@ class BranchStatistics:
     dtype: str
     kind: BranchKind
     entries: int
-    nan_count: int | None = None
+    non_finite_count: int | None = None
     minimum: float | None = None
     maximum: float | None = None
     mean: float | None = None
@@ -124,7 +128,7 @@ class HitsSummary:
     track_count : int | None
         Number of distinct tracks.
     total_edep : float | None
-        Sum of the deposited energy.
+        Sum of the deposited energy, over the values that are finite.
     time_min, time_max : float | None
         Range of the times.
     source_trees : tuple[str, ...]
@@ -261,16 +265,17 @@ def _branch_statistics(name: str, column: npt.NDArray[Any]) -> BranchStatistics:
         )
 
     is_integer = column.dtype.kind in INTEGER_DTYPE_KINDS
-    kind = BranchKind.INTEGER if is_integer else BranchKind.FLOAT
+    is_array = column.ndim > 1
+    kind = _numeric_kind(is_integer, is_array)
     dtype = str(column.dtype.name)
-    if column.ndim > 1:
-        kind = BranchKind.INTEGER_ARRAY if is_integer else BranchKind.FLOAT
+    if is_array:
         dtype = f"{dtype}{''.join(f'[{width}]' for width in column.shape[1:])}"
 
     flattened = column.reshape(-1)
-    nan_count = None if is_integer else int(np.count_nonzero(np.isnan(flattened)))
-    usable = flattened if is_integer else flattened[~np.isnan(flattened)]
-    unique_count = len(np.unique(flattened)) if is_integer and column.ndim == 1 else None
+    finite = np.isfinite(flattened) if not is_integer else None
+    non_finite_count = None if finite is None else int(np.count_nonzero(~finite))
+    usable = flattened if finite is None else flattened[finite]
+    unique_count = len(np.unique(flattened)) if is_integer and not is_array else None
 
     if usable.size == 0:
         return BranchStatistics(
@@ -278,7 +283,7 @@ def _branch_statistics(name: str, column: npt.NDArray[Any]) -> BranchStatistics:
             dtype=dtype,
             kind=kind,
             entries=entries,
-            nan_count=nan_count,
+            non_finite_count=non_finite_count,
             unique_count=unique_count,
         )
 
@@ -287,13 +292,20 @@ def _branch_statistics(name: str, column: npt.NDArray[Any]) -> BranchStatistics:
         dtype=dtype,
         kind=kind,
         entries=entries,
-        nan_count=nan_count,
+        non_finite_count=non_finite_count,
         minimum=float(np.min(usable)),
         maximum=float(np.max(usable)),
         mean=float(np.mean(usable)),
         std=float(np.std(usable)),
         unique_count=unique_count,
     )
+
+
+def _numeric_kind(is_integer: bool, is_array: bool) -> BranchKind:
+    """Return the kind of a numeric branch."""
+    if is_integer:
+        return BranchKind.INTEGER_ARRAY if is_array else BranchKind.INTEGER
+    return BranchKind.FLOAT_ARRAY if is_array else BranchKind.FLOAT
 
 
 def _most_common(counts: Counter[str]) -> tuple[tuple[str, int], ...]:
@@ -313,14 +325,15 @@ def _hits_summary(data: TreeData) -> HitsSummary:
     else:
         key = ()
 
+    time_min, time_max = _range(columns, TIME_BRANCH)
     return HitsSummary(
         event_key=key,
         event_count=event_count,
         run_count=_distinct_count(columns, RUN_BRANCH),
         track_count=_distinct_count(columns, TRACK_BRANCH),
         total_edep=_total(columns, ENERGY_BRANCH),
-        time_min=_extreme(columns, TIME_BRANCH, np.min),
-        time_max=_extreme(columns, TIME_BRANCH, np.max),
+        time_min=time_min,
+        time_max=time_max,
         source_trees=_source_trees(columns),
     )
 
@@ -333,25 +346,33 @@ def _distinct_count(columns: Mapping[str, npt.NDArray[Any]], name: str) -> int |
 
 
 def _total(columns: Mapping[str, npt.NDArray[Any]], name: str) -> float | None:
-    """Return the sum of a branch, when it is present."""
-    if name not in columns:
-        return None
-    return float(np.nansum(columns[name]))
+    """Return the sum of a branch, when it is present.
 
-
-def _extreme(
-    columns: Mapping[str, npt.NDArray[Any]],
-    name: str,
-    pick: Any,
-) -> float | None:
-    """Return an end of the range of a branch, when it holds usable values."""
+    Values that are not finite are left out, the same way they are left out of
+    a range: a single infinity would otherwise carry into the total and make
+    the report unwritable.
+    """
     if name not in columns:
         return None
     values = columns[name]
-    usable = values[~np.isnan(values)] if values.dtype.kind == "f" else values
+    usable = values[np.isfinite(values)] if values.dtype.kind == "f" else values
     if usable.size == 0:
         return None
-    return float(pick(usable))
+    return float(np.sum(usable))
+
+
+def _range(
+    columns: Mapping[str, npt.NDArray[Any]],
+    name: str,
+) -> tuple[float | None, float | None]:
+    """Return both ends of the range of a branch, when it holds usable values."""
+    if name not in columns:
+        return None, None
+    values = columns[name]
+    usable = values[np.isfinite(values)] if values.dtype.kind == "f" else values
+    if usable.size == 0:
+        return None, None
+    return float(np.min(usable)), float(np.max(usable))
 
 
 def _source_trees(columns: Mapping[str, npt.NDArray[Any]]) -> tuple[str, ...]:
@@ -373,8 +394,8 @@ def _branch_to_dict(branch: BranchStatistics) -> dict[str, Any]:
         "mean": branch.mean,
         "std": branch.std,
     }
-    if branch.nan_count is not None:
-        report["not_a_number"] = branch.nan_count
+    if branch.non_finite_count is not None:
+        report["not_finite"] = branch.non_finite_count
     if branch.unique_count is not None:
         report["distinct_values"] = branch.unique_count
     if branch.top_values:
@@ -446,8 +467,8 @@ def _branch_line(branch: BranchStatistics) -> str:
         f"min {branch.minimum:.6g}, max {branch.maximum:.6g}, "
         f"mean {branch.mean:.6g}, std {branch.std:.6g}"
     )
-    if branch.nan_count:
-        body += f", not a number {branch.nan_count}"
+    if branch.non_finite_count:
+        body += f", not finite {branch.non_finite_count}"
     if branch.unique_count is not None:
         body += f", {branch.unique_count} distinct"
     return f"{head}: {body}"

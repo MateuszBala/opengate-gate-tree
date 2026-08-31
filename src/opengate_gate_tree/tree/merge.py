@@ -57,8 +57,10 @@ def merge_tree_data(
         column is recorded, one name per part.
     add_source_branch : bool
         Whether to record where each row came from, in a column named
-        ``sourceTreeName``. Turn it off only when the result has to match the
-        branches of the structure exactly.
+        ``sourceTreeName``. Turn it off when the result has to match the
+        branches of the structure exactly, and when merging data that already
+        carries the column, such as a merged dataset written out and read
+        back.
 
     Returns
     -------
@@ -70,8 +72,9 @@ def merge_tree_data(
     ValueError
         If no part was given, or the names do not account for every part.
     TreeMergeError
-        If the parts describe different trees, hold different branches, or
-        store a branch with a different type or width.
+        If the parts describe different trees, hold different branches, store
+        a branch with a different type or width, or already carry the source
+        column while it is being recorded.
     """
     if not parts:
         raise ValueError("At least one tree is needed to merge.")
@@ -86,7 +89,7 @@ def merge_tree_data(
                 f"and {len(source_names)} name(s)."
             )
 
-    _validate_parts(parts)
+    _validate_parts(parts, add_source_branch)
 
     columns: dict[str, npt.NDArray[Any]] = {
         name: _concatenate([part[name] for part in parts]) for name in parts[0].branch_names
@@ -97,10 +100,10 @@ def merge_tree_data(
     return TreeData(parts[0].tree, columns)
 
 
-def _validate_parts(parts: Sequence[TreeData]) -> None:
+def _validate_parts(parts: Sequence[TreeData], add_source_branch: bool) -> None:
     """Check that the parts can be placed one after another."""
     first = parts[0]
-    if SOURCE_TREE_BRANCH in first.branch_names:
+    if add_source_branch and SOURCE_TREE_BRANCH in first.branch_names:
         raise TreeMergeError(
             f"The trees already hold a '{SOURCE_TREE_BRANCH}' branch, so recording where their "
             f"rows came from would overwrite it."

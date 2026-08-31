@@ -32,7 +32,7 @@ file. A report, when one is asked for, sits next to the data as
 Code using the package builds the same names without repeating the rule:
 
 ```python
-from opengate_gate_tree import GateTree, build_output_file_path
+from opengate_gate_tree import GateTree, OutputFileFormat, build_output_file_path
 
 path = build_output_file_path(Path("out"), "patient_01", GateTree.HITS, OutputFileFormat.CSV)
 ```
@@ -64,9 +64,11 @@ from opengate_gate_tree import GateTree, read_tree
 subset = read_tree(Path("out/patient_01.hits.root"), GateTree.HITS, validate=False)
 ```
 
-The same applies to a merged dataset written out and read back, except there
-the added `sourceTreeName` column only produces a warning, and the file reads
-without any option.
+A merged dataset written out and read back is a different case: the added
+`sourceTreeName` column is reported as one the structure does not describe,
+which is a warning, so `read_tree` reads the file as it is. Reading it through
+`read_hits_trees` needs `add_source_branch=False`, because recording where the
+rows came from would otherwise overwrite the column that already says it.
 
 The output file holds the extracted tree only. Histograms stored next to the
 trees in the input file are not copied over.

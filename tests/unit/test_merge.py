@@ -278,3 +278,16 @@ def test_names_are_not_needed_without_the_source_column() -> None:
 
     # ASSERT
     assert merged.entry_count == 2
+
+
+def test_data_already_recording_its_source_merges_without_the_column() -> None:
+    """A merged dataset read back can be merged again, without the column."""
+    # ARRANGE
+    merged = merge_tree_data([hits_part([0]), hits_part([1])], TREE_NAMES)
+
+    # ACT
+    again = merge_tree_data([merged, merged], add_source_branch=False)
+
+    # ASSERT
+    assert again.entry_count == 4
+    assert list(again[SOURCE_TREE_BRANCH]) == ["Hits_DET_INNER", "Hits_DET_OUTER"] * 2

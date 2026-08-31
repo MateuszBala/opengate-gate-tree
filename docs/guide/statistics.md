@@ -50,36 +50,40 @@ name and the identifier scheme to the summary.
 ```json
 {
   "tree": "Hits",
-  "entries": 4441,
+  "entries": 1500,
   "structure": {
-    "variant": "System",
-    "reference": "A2",
+    "variant": "No system",
+    "reference": "A1",
     "tree_name": "Hits",
-    "branches": 46,
-    "system_scheme": ["cylindricalPET", "OPET"],
-    "system_depth": 6
+    "branches": 40
   },
   "hits": {
     "event_key": ["runID", "eventID"],
-    "events": 1980,
-    "runs": 1,
+    "events": 458,
+    "runs": 3,
     "tracks": 2,
-    "total_edep": 120.374,
+    "total_edep": 467.565,
     "time_min": 1.59e-06,
-    "time_max": 0.00208,
-    "source_trees": ["Hits", "Hits_run1"]
+    "time_max": 0.0417,
+    "source_trees": ["Hits", "Hits_run1", "Hits_run2"]
   },
   "branches": [
-    {"name": "edep", "type": "float32", "kind": "float", "entries": 4441,
-     "minimum": 0.0, "maximum": 0.511, "mean": 0.271, "std": 0.18,
-     "not_a_number": 0},
-    {"name": "processName", "type": "text", "kind": "text", "entries": 4441,
+    {"name": "edep", "type": "float32", "kind": "float", "entries": 1500,
+     "minimum": 0.0006, "maximum": 0.511, "mean": 0.3117, "std": 0.1706,
+     "not_finite": 0},
+    {"name": "processName", "type": "text", "kind": "text", "entries": 1500,
      "minimum": null, "maximum": null, "mean": null, "std": null,
      "distinct_values": 2,
-     "most_frequent": [{"value": "Compton", "count": 2401}]}
+     "most_frequent": [{"value": "PhotoElectric", "count": 915},
+                       {"value": "Compton", "count": 585}]}
   ]
 }
 ```
+
+The numbers come from the file the package is tested against, read with
+`read_hits_trees`: three runs merged into one dataset. Its 1500 entries carry
+only 154 distinct event identifiers, and 458 distinct pairs of a run and an
+event — which is what `events` counts.
 
 The format is JSON because a report is meant to feed whatever comes next as
 much as to be read: one run compared against another, a table of process
@@ -90,9 +94,10 @@ Three details are worth knowing:
 - **events are counted by run and event identifier together**, and `event_key`
   names the branches that were used. A selection without `runID` counts by the
   event identifier alone and says so. See [Event Identifiers](events.md);
-- **values that are not a number are counted, not averaged.** JSON has no way
-  to write `NaN`, so they appear as `not_a_number`, and a branch holding
-  nothing else reports `null` for its range;
+- **values that are not finite are counted, not averaged.** JSON can write
+  neither `NaN` nor an infinity, so both are counted as `not_finite` and left
+  out of the range, the mean and the deposited energy; a branch holding
+  nothing else reports `null`;
 - **the physics part is filled in from the branches that were extracted.** A
   selection without `edep` reports `null` for the deposited energy rather than
   failing.

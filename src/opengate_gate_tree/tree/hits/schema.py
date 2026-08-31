@@ -52,12 +52,19 @@ from opengate_gate_tree.tree.hits.variant import (
 
 
 class BranchKind(Enum):
-    """Kind of value a branch holds."""
+    """Kind of value a branch holds.
+
+    The array kinds stand for a fixed-width array branch, one row of values
+    per entry. No structure of the "Hits" tree holds an array of floating
+    point values, but the kinds are also used to describe data the package did
+    not read from a GATE file.
+    """
 
     INTEGER = "integer"
     FLOAT = "float"
     TEXT = "text"
     INTEGER_ARRAY = "integer array"
+    FLOAT_ARRAY = "float array"
 
 
 @dataclass(frozen=True)

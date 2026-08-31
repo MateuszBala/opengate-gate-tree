@@ -27,6 +27,10 @@ detect_hits_variant(branch_names, tree_name) -> HitsTreeDetection
 find_hits_variant(branch_names) -> HitsTreeDetection | None
     Recognise the structure of a tree, answering ``None`` when it is not one
     of the supported ones.
+find_complete_hits_variant(branch_names) -> HitsTreeDetection | None
+    Recognise a tree that holds every branch of its structure.
+expected_branches_of(detection) -> tuple[BranchSpec, ...]
+    Branches the recognised structure describes.
 summarise_hits_tree(detection) -> str
     One line stating what a tree was recognised as.
 describe_hits_tree(detection, dtypes, entry_count) -> str
@@ -39,6 +43,7 @@ from typing import Final
 
 from opengate_gate_tree.errors import UnknownHitsVariantError
 from opengate_gate_tree.tree.hits.schema import (
+    BranchSpec,
     expected_branches,
     supported_variants,
     takes_system_depth,
@@ -224,6 +229,55 @@ def summarise_hits_tree(detection: HitsTreeDetection) -> str:
     return ", ".join(parts)
 
 
+def find_complete_hits_variant(branch_names: Sequence[str]) -> HitsTreeDetection | None:
+    """Recognise a tree that holds every branch of the structure it matches.
+
+    Recognition on its own is lenient by design: a marker branch is enough, so
+    that a tree which almost matches a structure can be told what is wrong with
+    it. That is the wrong rule for deciding **which** tree of a file holds the
+    hits, where a single branch named like a marker would be enough to drag an
+    unrelated tree in. Here the branches of the structure have to be there.
+
+    Branches beyond the structure are allowed, as everywhere else: a GATE build
+    adding one still writes hits.
+
+    Parameters
+    ----------
+    branch_names : Sequence[str]
+        Branch names of the tree.
+
+    Returns
+    -------
+    HitsTreeDetection | None
+        Structure of the tree, or ``None`` when the tree is not a supported
+        structure or does not hold all of it.
+    """
+    detection = find_hits_variant(branch_names)
+    if detection is None:
+        return None
+    available = set(branch_names)
+    if any(spec.name not in available for spec in expected_branches_of(detection)):
+        return None
+    return detection
+
+
+def expected_branches_of(detection: HitsTreeDetection) -> tuple[BranchSpec, ...]:
+    """Return the branches the recognised structure describes.
+
+    Parameters
+    ----------
+    detection : HitsTreeDetection
+        Structure recognised in a tree.
+
+    Returns
+    -------
+    tuple[BranchSpec, ...]
+        Branches of the structure, in the order GATE writes them.
+    """
+    depth = detection.system_depth if takes_system_depth(detection.variant) else None
+    return expected_branches(detection.variant, detection.system, depth)
+
+
 def describe_hits_tree(
     detection: HitsTreeDetection,
     dtypes: Mapping[str, str] | None = None,
@@ -299,9 +353,7 @@ def _described_branches(
     """Return the branches to describe, with the type of each of them."""
     if dtypes is not None:
         return list(dtypes.items())
-    depth = detection.system_depth if takes_system_depth(detection.variant) else None
-    specs = expected_branches(detection.variant, detection.system, depth)
-    return [(spec.name, spec.dtype) for spec in specs]
+    return [(spec.name, spec.dtype) for spec in expected_branches_of(detection)]
 
 
 def _unsupported_message(layout: str, tree_name: str | None) -> str:

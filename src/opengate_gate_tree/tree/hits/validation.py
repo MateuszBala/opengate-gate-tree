@@ -24,12 +24,12 @@ from collections.abc import Mapping, Sequence
 
 from opengate_gate_tree.errors import HitsTreeValidationError
 from opengate_gate_tree.logger import log
-from opengate_gate_tree.tree.hits.detection import HitsTreeDetection, detect_hits_variant
-from opengate_gate_tree.tree.hits.schema import (
-    expected_branches,
-    takes_system_depth,
-    variant_reference,
+from opengate_gate_tree.tree.hits.detection import (
+    HitsTreeDetection,
+    detect_hits_variant,
+    expected_branches_of,
 )
+from opengate_gate_tree.tree.hits.schema import variant_reference
 
 
 def validate_hits_tree(
@@ -65,11 +65,7 @@ def validate_hits_tree(
     if detection is None:
         detection = detect_hits_variant(branch_names)
 
-    depth = detection.system_depth if takes_system_depth(detection.variant) else None
-    expected = {
-        spec.name: spec.dtype
-        for spec in expected_branches(detection.variant, detection.system, depth)
-    }
+    expected = {spec.name: spec.dtype for spec in expected_branches_of(detection)}
 
     present = set(branch_names)
     missing = [name for name in expected if name not in present]
