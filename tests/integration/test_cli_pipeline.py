@@ -1,7 +1,10 @@
 """End-to-end tests running the command line against a real GATE file."""
 
+import json
+import logging
 import subprocess
 import sys
+from collections.abc import Callable
 from pathlib import Path
 
 import h5py
@@ -31,6 +34,7 @@ def run_cli(
     *,
     title: str = "patient_01",
     branches: list[str] | None = None,
+    extra: list[str] | None = None,
 ) -> int:
     """Run the command line once and return its exit code."""
     arguments = [
@@ -47,6 +51,8 @@ def run_cli(
     ]
     if branches is not None:
         arguments += ["--branches-to-extract", *branches]
+    if extra is not None:
+        arguments += extra
     return cli.main(arguments)
 
 
@@ -65,7 +71,7 @@ def test_pipeline_writes_every_entry_for_each_format(
     exit_code = run_cli(gate_hits_file, output_dir, output_file_format)
 
     # ASSERT
-    output_file = output_dir / f"patient_01.{EXTENSIONS[output_file_format]}"
+    output_file = output_dir / f"patient_01.hits.{EXTENSIONS[output_file_format]}"
     assert exit_code == 0
     assert output_file.is_file()
 
@@ -95,11 +101,14 @@ def test_pipeline_honours_a_branch_selection(
     exit_code = run_cli(gate_hits_file, output_dir, output_file_format, branches=requested)
 
     # ASSERT
-    output_file = output_dir / f"patient_01.{EXTENSIONS[output_file_format]}"
+    output_file = output_dir / f"patient_01.hits.{EXTENSIONS[output_file_format]}"
     assert exit_code == 0
 
     if output_file_format is OutputFileFormat.ROOT:
-        assert list(read_tree(output_file, GateTree.HITS).branch_names) == requested
+        # A file holding a selection is no longer a whole hits structure, so
+        # it is read back without the structure check.
+        restored_names = read_tree(output_file, GateTree.HITS, validate=False).branch_names
+        assert list(restored_names) == requested
     elif output_file_format is OutputFileFormat.HDF5:
         with h5py.File(output_file) as written:
             assert list(written["Hits"]) == requested
@@ -128,11 +137,11 @@ def test_pipeline_handles_the_array_branch(
     )
 
     # ASSERT
-    output_file = output_dir / f"patient_01.{EXTENSIONS[output_file_format]}"
+    output_file = output_dir / f"patient_01.hits.{EXTENSIONS[output_file_format]}"
     assert exit_code == 0
 
     if output_file_format is OutputFileFormat.ROOT:
-        restored = read_tree(output_file, GateTree.HITS)
+        restored = read_tree(output_file, GateTree.HITS, validate=False)
         assert restored["volumeID"].shape == (gate_hits_layout.entries, width)
     elif output_file_format is OutputFileFormat.HDF5:
         with h5py.File(output_file) as written:
@@ -156,7 +165,7 @@ def test_pipeline_preserves_values_through_root(
 
     # ASSERT
     assert exit_code == 0
-    restored = read_tree(output_dir / "patient_01.root", GateTree.HITS)
+    restored = read_tree(output_dir / "patient_01.hits.root", GateTree.HITS)
     assert restored.branch_names == source.branch_names
     for name in source.branch_names:
         if source.dtypes[name].kind == "O":
@@ -177,7 +186,7 @@ def test_pipeline_writes_a_ttree_not_an_rntuple(
     run_cli(gate_hits_file, output_dir, OutputFileFormat.ROOT)
 
     # ASSERT
-    with uproot.open(output_dir / "patient_01.root") as written:
+    with uproot.open(output_dir / "patient_01.hits.root") as written:
         assert list(written.classnames().values()) == ["TTree"]
 
 
@@ -195,7 +204,7 @@ def test_pipeline_does_not_copy_histograms(
     run_cli(gate_hits_file, output_dir, OutputFileFormat.ROOT)
 
     # ASSERT
-    with uproot.open(output_dir / "patient_01.root") as written:
+    with uproot.open(output_dir / "patient_01.hits.root") as written:
         assert list(written.keys(cycle=False)) == ["Hits"]
 
 
@@ -212,7 +221,7 @@ def test_pipeline_creates_a_missing_output_directory(
 
     # ASSERT
     assert exit_code == 0
-    assert (output_dir / "patient_01.csv").is_file()
+    assert (output_dir / "patient_01.hits.csv").is_file()
 
 
 def test_pipeline_overwrites_an_existing_output_file(
@@ -222,7 +231,7 @@ def test_pipeline_overwrites_an_existing_output_file(
     """Running twice should replace the previous output without complaint."""
     # ARRANGE
     output_dir = tmp_path / "output"
-    output_file = output_dir / "patient_01.csv"
+    output_file = output_dir / "patient_01.hits.csv"
     run_cli(gate_hits_file, output_dir, OutputFileFormat.CSV, branches=["eventID"])
     first_size = output_file.stat().st_size
 
@@ -342,3 +351,165 @@ def test_pipeline_reports_an_unknown_branch(
     assert exit_code == 1
     assert "notInTheTree" in caplog.text
     assert not output_dir.exists()
+
+
+def test_pipeline_finds_hits_stored_under_another_name(
+    hits_variant_files: dict[str, Path],
+    tmp_path: Path,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A GateToTree file names its tree "tree", and a run should still work."""
+    # ARRANGE
+    output_dir = tmp_path / "out"
+
+    # ACT
+    with caplog.at_level(logging.INFO):
+        exit_code = run_cli(hits_variant_files["b1"], output_dir, OutputFileFormat.CSV)
+
+    # ASSERT
+    assert exit_code == 0
+    assert (output_dir / "patient_01.hits.csv").is_file()
+    assert "GateToTree common output (B1)" in caplog.text
+
+
+def test_pipeline_reads_the_named_tree(
+    hits_variant_files: dict[str, Path],
+    tmp_path: Path,
+) -> None:
+    """Naming the tree is how one run of a simulation is extracted."""
+    # ARRANGE
+    output_dir = tmp_path / "out"
+
+    # ACT
+    exit_code = run_cli(
+        hits_variant_files["multi-run"],
+        output_dir,
+        OutputFileFormat.CSV,
+        extra=["--input-tree-name", "Hits_run1"],
+    )
+
+    # ASSERT
+    assert exit_code == 0
+    written = pd.read_csv(output_dir / "patient_01.hits.csv")
+    assert set(written["runID"]) == {1}
+
+
+def test_pipeline_merges_every_tree_of_hits(
+    hits_variant_files: dict[str, Path],
+    tmp_path: Path,
+) -> None:
+    """One run of the command line can take a whole split simulation."""
+    # ARRANGE
+    output_dir = tmp_path / "out"
+
+    # ACT
+    exit_code = run_cli(
+        hits_variant_files["multi-run"],
+        output_dir,
+        OutputFileFormat.CSV,
+        extra=["--merge-hits-trees"],
+    )
+
+    # ASSERT
+    assert exit_code == 0
+    written = pd.read_csv(output_dir / "patient_01.hits.csv")
+    assert len(written) == 1500
+    assert sorted(set(written["sourceTreeName"])) == ["Hits", "Hits_run1", "Hits_run2"]
+
+
+def test_pipeline_reports_a_file_split_between_detectors(
+    hits_variant_files: dict[str, Path],
+    tmp_path: Path,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Choosing a detector is the user's call, and the run says how to make it."""
+    # ARRANGE
+    output_dir = tmp_path / "out"
+
+    # ACT
+    with caplog.at_level(logging.ERROR):
+        exit_code = run_cli(hits_variant_files["multi-sd"], output_dir, OutputFileFormat.CSV)
+
+    # ASSERT
+    assert exit_code == 1
+    assert "--input-tree-name" in caplog.text
+    assert "--merge-hits-trees" in caplog.text
+
+
+def test_pipeline_writes_a_report_next_to_the_data(
+    hits_variant_files: dict[str, Path],
+    tmp_path: Path,
+) -> None:
+    """A report describes the run that produced the file beside it."""
+    # ARRANGE
+    output_dir = tmp_path / "out"
+
+    # ACT
+    exit_code = run_cli(
+        hits_variant_files["a2"],
+        output_dir,
+        OutputFileFormat.CSV,
+        extra=["--statistics"],
+    )
+
+    # ASSERT
+    assert exit_code == 0
+    report = json.loads((output_dir / "patient_01.hits.stats.json").read_text(encoding="utf-8"))
+    assert report["entries"] == 500
+    assert report["structure"]["reference"] == "A2"
+    assert report["hits"]["event_key"] == ["runID", "eventID"]
+
+
+def test_pipeline_writes_no_report_unless_it_is_asked_for(
+    hits_variant_files: dict[str, Path],
+    tmp_path: Path,
+) -> None:
+    """A run that was not asked for a report leaves one file behind, not two."""
+    # ARRANGE
+    output_dir = tmp_path / "out"
+
+    # ACT
+    exit_code = run_cli(hits_variant_files["a1"], output_dir, OutputFileFormat.CSV)
+
+    # ASSERT
+    assert exit_code == 0
+    assert not (output_dir / "patient_01.hits.stats.json").exists()
+
+
+def test_pipeline_refuses_a_structure_it_does_not_know(
+    make_hits_root_file: Callable[..., Path],
+    tmp_path: Path,
+) -> None:
+    """A file that is not a hits file should be reported, not half converted."""
+    # ARRANGE
+    input_file = make_hits_root_file({"Hits": ["eventID", "edep"]})
+    output_dir = tmp_path / "out"
+
+    # ACT
+    exit_code = run_cli(input_file, output_dir, OutputFileFormat.CSV)
+
+    # ASSERT
+    assert exit_code == 1
+    assert not (output_dir / "patient_01.hits.csv").exists()
+
+
+def test_pipeline_extracts_an_unknown_structure_when_told_to(
+    make_hits_root_file: Callable[..., Path],
+    tmp_path: Path,
+) -> None:
+    """A build the package does not know must not stop a user from extracting."""
+    # ARRANGE
+    input_file = make_hits_root_file({"Hits": ["eventID", "edep"]})
+    output_dir = tmp_path / "out"
+
+    # ACT
+    exit_code = run_cli(
+        input_file,
+        output_dir,
+        OutputFileFormat.CSV,
+        extra=["--skip-hits-validation"],
+    )
+
+    # ASSERT
+    assert exit_code == 0
+    assert list(pd.read_csv(output_dir / "patient_01.hits.csv").columns) == ["eventID", "edep"]

@@ -15,10 +15,16 @@ find_tree_name(available: Sequence[str], tree: GateTree) -> str | None
     Look up the key of a tree without raising.
 resolve_tree_name(available: Sequence[str], tree: GateTree, source: Path | None) -> str
     Look up the key of a tree, reporting the available trees when absent.
+resolve_requested_tree_name(available: Sequence[str], name: str, source: Path | None) -> str
+    Look up a tree the caller named.
+find_hits_tree_names(branches_by_tree: Mapping[str, Sequence[str]]) -> tuple[str, ...]
+    Names of the trees whose branches form a supported "Hits" structure.
 validate_branches_present(available: Sequence[str], requested: Sequence[str]) -> None
     Check that every requested branch exists in the tree.
 validate_branch_interpretations(interpretations: Mapping[str, Any]) -> None
     Check that every branch uses a supported type.
+branch_type_name(interpretation: Any) -> str
+    Name the type a branch is stored with.
 """
 
 from collections.abc import Mapping, Sequence
@@ -35,9 +41,13 @@ from opengate_gate_tree.errors import (
     UnsupportedBranchTypeError,
 )
 from opengate_gate_tree.tree.gatetree import GateTree
+from opengate_gate_tree.tree.hits.detection import find_complete_hits_variant
 
 # File extension expected for GATE output files.
 ROOT_FILE_SUFFIX: Final[str] = ".root"
+
+# Reported for a branch whose type the package cannot represent.
+UNSUPPORTED_TYPE_NAME: Final[str] = "unsupported"
 
 
 def validate_root_file_path(path: Path) -> None:
@@ -125,6 +135,66 @@ def resolve_tree_name(
     return resolved
 
 
+def resolve_requested_tree_name(
+    available: Sequence[str],
+    name: str,
+    source: Path | None = None,
+) -> str:
+    """Return the key of a tree the caller named.
+
+    Parameters
+    ----------
+    available : Sequence[str]
+        Names of the trees present in the file.
+    name : str
+        Name the caller asked for.
+    source : Path | None
+        File the names came from, named in the error message when given.
+
+    Returns
+    -------
+    str
+        The name, once it is known to be present.
+
+    Raises
+    ------
+    TreeNotFoundError
+        If no tree of that name is present.
+    """
+    if name in available:
+        return name
+    location = f" in file: {source}" if source is not None else " in the file"
+    raise TreeNotFoundError(
+        f"Tree '{name}' is not present{location}. Trees available in the file: {list(available)}."
+    )
+
+
+def find_hits_tree_names(branches_by_tree: Mapping[str, Sequence[str]]) -> tuple[str, ...]:
+    """Return the names of the trees holding a supported "Hits" structure.
+
+    Parameters
+    ----------
+    branches_by_tree : Mapping[str, Sequence[str]]
+        Tree names mapped to their branch names.
+
+    A tree counts as holding hits when it holds every branch of a supported
+    structure. Matching a marker branch is not enough here: deciding which tree
+    of a file to read is not the place for the leniency that makes a diagnosis
+    useful.
+
+    Returns
+    -------
+    tuple[str, ...]
+        Names of the trees whose branches form a structure the package
+        supports, in the order they were given.
+    """
+    return tuple(
+        name
+        for name, branches in branches_by_tree.items()
+        if find_complete_hits_variant(branches) is not None
+    )
+
+
 def validate_branches_present(available: Sequence[str], requested: Sequence[str]) -> None:
     """Check that every requested branch exists in the tree.
 
@@ -180,3 +250,33 @@ def validate_branch_interpretations(interpretations: Mapping[str, Any]) -> None:
             f"Branches use types that are not supported: {unsupported}. "
             f"Only scalar, fixed-width array and text branches can be extracted."
         )
+
+
+def branch_type_name(interpretation: Any) -> str:
+    """Return the name of the type a branch is stored with.
+
+    The names are the ones the branch schemas use, so that what a file holds
+    can be compared with what a structure describes.
+
+    Parameters
+    ----------
+    interpretation : Any
+        Interpretation of the branch, as reported by uproot.
+
+    Returns
+    -------
+    str
+        ``"text"`` for a text branch, the name of the scalar type for a
+        numeric one, ``"<type>[<width>]"`` for a fixed-width array branch, and
+        ``"unsupported"`` for a type the package cannot represent.
+    """
+    if isinstance(interpretation, AsStrings):
+        return "text"
+    if isinstance(interpretation, AsDtype):
+        dtype = interpretation.to_dtype
+        scalar = dtype.base.newbyteorder("=")
+        if dtype.shape:
+            widths = "".join(f"[{width}]" for width in dtype.shape)
+            return f"{scalar.name}{widths}"
+        return str(scalar.name)
+    return UNSUPPORTED_TYPE_NAME

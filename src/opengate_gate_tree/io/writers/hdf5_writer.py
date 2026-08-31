@@ -17,6 +17,7 @@ Hdf5TreeWriter
 """
 
 from pathlib import Path
+from typing import Final
 
 import h5py
 
@@ -27,8 +28,19 @@ from opengate_gate_tree.io.writers.base import (
     as_text_list,
     is_text_column,
     prepare_output_directory,
+    reject_branch_names,
 )
 from opengate_gate_tree.tree.treedata import TreeData
+
+# Characters h5py reads as a path inside the file rather than as part of a name.
+FORBIDDEN_NAME_CHARACTERS: Final[str] = "/"
+
+# What h5py does with such a name, reported to the caller.
+FORBIDDEN_REASON: Final[str] = (
+    "A slash makes h5py create a nested group instead of a dataset, which writes a file whose "
+    "layout is not the one the data describes. GateToTree gives branches such names when a "
+    "simulation uses more than one system."
+)
 
 
 class Hdf5TreeWriter:
@@ -54,8 +66,9 @@ class Hdf5TreeWriter:
         Raises
         ------
         ExportError
-            If the file cannot be written.
+            If a branch name holds a slash, or the file cannot be written.
         """
+        reject_branch_names(data, FORBIDDEN_NAME_CHARACTERS, self.file_format, FORBIDDEN_REASON)
         prepare_output_directory(path)
         try:
             with h5py.File(path, "w") as output_file:

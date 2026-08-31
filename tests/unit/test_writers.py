@@ -194,8 +194,10 @@ def test_root_round_trip_preserves_a_byte_string_column(tmp_path: Path) -> None:
     path = tmp_path / "hits.root"
 
     # ACT
+    # The file holds what the writer was given, not a hits structure, so it is
+    # read back without the structure check.
     write_tree(data, path, OutputFileFormat.ROOT)
-    restored = read_tree(path, GateTree.HITS)
+    restored = read_tree(path, GateTree.HITS, validate=False)
 
     # ASSERT
     assert list(restored["processName"]) == ["Compton", "PhotoElectric"]
@@ -209,8 +211,10 @@ def test_root_round_trip_preserves_a_unicode_text_column(tmp_path: Path) -> None
     path = tmp_path / "hits.root"
 
     # ACT
+    # The file holds what the writer was given, not a hits structure, so it is
+    # read back without the structure check.
     write_tree(data, path, OutputFileFormat.ROOT)
-    restored = read_tree(path, GateTree.HITS)
+    restored = read_tree(path, GateTree.HITS, validate=False)
 
     # ASSERT
     assert list(restored["processName"]) == list(names)
@@ -380,8 +384,10 @@ def test_root_round_trip_preserves_every_branch_kind(tmp_path: Path) -> None:
     path = tmp_path / "hits.root"
 
     # ACT
+    # The file holds what the writer was given, not a hits structure, so it is
+    # read back without the structure check.
     write_tree(data, path, OutputFileFormat.ROOT)
-    restored = read_tree(path, GateTree.HITS)
+    restored = read_tree(path, GateTree.HITS, validate=False)
 
     # ASSERT
     assert restored.branch_names == data.branch_names
@@ -458,3 +464,65 @@ def test_gate_data_survives_a_write_for_every_format(
             assert output_file["Hits"].attrs["entries"] == gate_hits_layout.entries
     else:
         assert len(pd.read_csv(path)) == gate_hits_layout.entries
+
+
+def test_root_refuses_branch_names_holding_brackets(tmp_path: Path) -> None:
+    """uproot reads a bracket as an array dimension and writes an unreadable file.
+
+    The GateToTree layout names ten branches volumeID[0] to volumeID[9]. Writing
+    them produces a file whose volumeID[2] and beyond cannot be read back at
+    all, so the writer refuses instead of leaving that to be discovered later.
+    """
+    # ARRANGE
+    columns = {f"volumeID[{index}]": np.arange(3, dtype=np.int32) for index in range(3)}
+    data = TreeData(GateTree.HITS, columns)
+    path = tmp_path / "hits.root"
+
+    # ACT / ASSERT
+    with pytest.raises(ExportError, match=r"volumeID\[0\]"):
+        write_tree(data, path, OutputFileFormat.ROOT)
+    assert not path.exists()
+
+
+def test_hdf5_refuses_branch_names_holding_slashes(tmp_path: Path) -> None:
+    """A slash makes h5py nest a group, writing another layout than the data has."""
+    # ARRANGE
+    data = TreeData(
+        GateTree.HITS,
+        {"cylindricalPET/gantryID": np.arange(3, dtype=np.int32)},
+    )
+    path = tmp_path / "hits.hdf5"
+
+    # ACT / ASSERT
+    with pytest.raises(ExportError, match="cylindricalPET/gantryID"):
+        write_tree(data, path, OutputFileFormat.HDF5)
+    assert not path.exists()
+
+
+def test_hdf5_writes_branch_names_holding_brackets(tmp_path: Path) -> None:
+    """What ROOT cannot carry, HDF5 can: the GateToTree layout has a way out."""
+    # ARRANGE
+    columns = {f"volumeID[{index}]": np.arange(3, dtype=np.int32) + index for index in range(3)}
+    data = TreeData(GateTree.HITS, columns)
+    path = tmp_path / "hits.hdf5"
+
+    # ACT
+    write_tree(data, path, OutputFileFormat.HDF5)
+
+    # ASSERT
+    with h5py.File(path) as written:
+        assert list(written["Hits"]) == list(columns)
+        assert written["Hits"]["volumeID[2]"][:].tolist() == [2, 3, 4]
+
+
+def test_csv_writes_branch_names_holding_brackets(tmp_path: Path) -> None:
+    """A CSV header carries any name, so the layout reaches a spreadsheet too."""
+    # ARRANGE
+    data = TreeData(GateTree.HITS, {"volumeID[0]": np.arange(2, dtype=np.int32)})
+    path = tmp_path / "hits.csv"
+
+    # ACT
+    write_tree(data, path, OutputFileFormat.CSV)
+
+    # ASSERT
+    assert list(pd.read_csv(path).columns) == ["volumeID[0]"]

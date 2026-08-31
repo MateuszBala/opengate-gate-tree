@@ -30,7 +30,11 @@ matter for the analysis, and writes them in one of three formats:
 guide/quickstart
 guide/library
 guide/loading
+guide/hits
+guide/events
+guide/merging
 guide/representations
+guide/statistics
 guide/export
 guide/cli
 ```

@@ -23,3 +23,33 @@ The trees GATE writes and the in-memory representation of their data.
 .. automodule:: opengate_gate_tree.tree.branch
    :members:
 ```
+
+## Hits tree structures
+
+```{eval-rst}
+.. automodule:: opengate_gate_tree.tree.hits.variant
+   :members:
+
+.. automodule:: opengate_gate_tree.tree.hits.schema
+   :members:
+
+.. automodule:: opengate_gate_tree.tree.hits.detection
+   :members:
+
+.. automodule:: opengate_gate_tree.tree.hits.validation
+   :members:
+```
+
+## Merging
+
+```{eval-rst}
+.. automodule:: opengate_gate_tree.tree.merge
+   :members:
+```
+
+## Statistics
+
+```{eval-rst}
+.. automodule:: opengate_gate_tree.tree.statistics
+   :members:
+```

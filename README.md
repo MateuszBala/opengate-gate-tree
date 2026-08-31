@@ -54,10 +54,14 @@ The CLI accepts the following options:
 | --- | --- | --- | --- | --- |
 | `--input-gate-root-file` | path | yes | file with `.root` extension | Path to the GATE ROOT input file. |
 | `--output-dir` | path | yes | existing directory or new path | Directory where output file will be saved. If it does not exist, it is created automatically. |
-| `--output-file-title` | string | yes | non-empty string | Base name of the output file (without extension). |
+| `--output-file-title` | string | yes | file name without directories | Title of the output file. The file is named `<title>.<tree>.<format>`, for example `patient_01.hits.csv`. |
 | `--gate-tree` | enum-like string | yes | `Hits`, `Singles`, `Coincidences` | Name of the tree to process from the input ROOT file. |
 | `--output-file-format` | enum-like string | yes | `root`, `hdf5`, `csv` | Output file format. |
 | `--branches-to-extract` | list of strings | no | branch names valid for selected tree | Space-separated list of branches to extract. |
+| `--input-tree-name` | string | no | name of a tree in the input file | Tree to read, when it is not named after the selected tree or when the file holds several trees of hits. |
+| `--merge-hits-trees` | flag | no | — | Read every tree of hits in the input file as a single dataset. Only for `--gate-tree Hits`, and not together with `--input-tree-name`. |
+| `--statistics` | flag | no | — | Write a report describing the extracted data next to the output file, as `<title>.<tree>.stats.json`. |
+| `--skip-hits-validation` | flag | no | — | Extract the branches without recognising and checking the structure of the "Hits" tree. |
 
 Validation behavior:
 
@@ -69,6 +73,25 @@ Validation behavior:
   lists the trees the file actually holds
 - branch names are validated against the branches present in the input file
 - branches whose length varies per entry are reported as unsupported
+- the structure of the "Hits" tree is recognised and checked before anything is
+  read; a file from a GATE build the package does not know is still extracted
+  with `--skip-hits-validation`
+- hits stored under another name are found by their structure, so the
+  `GateToTree` output, whose tree is called `tree`, needs no extra option
+- a file holding hits in several trees, one per run or one per sensitive
+  detector, reports them and is read either one tree at a time
+  (`--input-tree-name`) or as one dataset (`--merge-hits-trees`)
+
+The structures the "Hits" tree can have, how the package tells them apart and
+what it checks are described in the
+[guide](https://opengate-gate-tree.readthedocs.io/en/latest/guide/hits.html),
+which also lists the branches of every supported structure.
+
+The output file is named after the title, the tree it holds and the format it
+is written in: a run extracting the hits into `csv` under the title
+`patient_01` writes `patient_01.hits.csv`. The tree is part of the name because
+one input file holds several trees, and extracting two of them should not land
+on the same file.
 
 The output file holds the extracted tree only. Histograms stored next to the
 trees in a GATE file are not copied over.
@@ -76,6 +99,14 @@ trees in a GATE file are not copied over.
 Fixed-width array branches, such as `volumeID`, keep their shape in the `root`
 and `hdf5` output. CSV has no cell for an array, so they are written there as
 one column per component, named `volumeID_0` to `volumeID_9`.
+
+Two branch names cannot be carried by every format, and are refused rather than
+written as something else. A name holding a bracket, such as the `volumeID[0]`
+of the `GateToTree` output, cannot go into a `root` file: uproot reads the
+bracket as an array dimension and writes a file that cannot be read back. A
+name holding a slash cannot go into an `hdf5` file, where it would create a
+nested group instead of a dataset. Both layouts reach the other formats
+unchanged.
 
 Examples:
 
@@ -149,6 +180,47 @@ with RootFile(Path("simulation.root")) as root_file:
     hits = root_file.read(GateTree.HITS, ["eventID", "edep"])
 ```
 
+### Reading A Split File And Summarising It
+
+GATE can write the hits of one simulation into several trees, one per run or
+one per sensitive detector. They are read as a single dataset, with a column
+recording which tree every row came from:
+
+```python
+from opengate_gate_tree import (
+    SOURCE_TREE_BRANCH,
+    compute_statistics,
+    format_statistics,
+    read_hits_trees,
+    write_statistics,
+)
+
+data = read_hits_trees(Path("simulation.root"))
+print(set(data[SOURCE_TREE_BRANCH]))
+```
+
+Identifiers stay as GATE wrote them, so an event is told apart by its run and
+its event identifier together: `eventID` repeats between runs, and repeats for
+one decay recorded in two detectors.
+
+A summary of what was extracted can be printed, saved, or both:
+
+```python
+statistics = compute_statistics(data)
+print(format_statistics(statistics))
+write_statistics(statistics, Path("out/hits.stats.json"))
+```
+
+The structure of a tree can also be asked about on its own:
+
+```python
+from opengate_gate_tree import RootFile, describe_hits_tree
+
+with RootFile(Path("simulation.root")) as root_file:
+    detection = root_file.detect_hits_tree()
+    print(describe_hits_tree(detection))
+```
+
 Failures while reading or writing files are reported through a subclass of
 `GateTreeError`, so one `except` clause covers them. Malformed arguments, such as
 an empty branch name, raise `ValueError` instead:
@@ -186,6 +258,7 @@ Available capabilities:
 
 - 0.1.0: project structure initialized and minimal buildable package code added.
 - 0.2.0: GATE ROOT files can be loaded and validated, trees and branches extracted into a NumPy-backed representation with a pandas view, and written to ROOT, HDF5 or CSV. Usable both as a command-line tool and as a library, with user documentation on ReadTheDocs.
+- 0.3.0: the structure of the "Hits" tree is recognised and validated against the schema of the variant it holds, hits stored under another name are found by their structure, a file split into one tree per run or per sensitive detector is read as one dataset, statistics are computed and saved beside the data, and output files are named after the tree they hold.
 
 
 
