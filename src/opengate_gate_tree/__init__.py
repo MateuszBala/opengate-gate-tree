@@ -31,6 +31,11 @@ each row came from.
 :func:`compute_statistics` summarises what was extracted, and
 :func:`write_statistics` saves that summary next to the data.
 
+The branches a ``PositroniumSource`` writes carry integers whose meaning is
+described by :class:`SourceType`, :class:`DecayType` and :class:`GammaType`.
+Their members are those integers, so a column compares against them as it was
+read.
+
 Failures while reading or writing files are reported through a subclass of
 :class:`GateTreeError`, so a single ``except`` clause covers them. Malformed
 arguments, such as an empty branch name or inconsistent columns, raise
@@ -86,6 +91,16 @@ from opengate_gate_tree.tree.hits.detection import (  # noqa: E402
     detect_hits_variant,
     summarise_hits_tree,
 )
+from opengate_gate_tree.tree.hits.positronium import (  # noqa: E402
+    DECAY_INDEX_BRANCH,
+    NOT_A_POSITRONIUM_SOURCE,
+    POSITRONIUM_BRANCHES,
+    DecayType,
+    GammaType,
+    SourceType,
+    is_positronium_source,
+    positronium_enum,
+)
 from opengate_gate_tree.tree.hits.schema import (  # noqa: E402
     BranchKind,
     BranchSpec,
@@ -120,7 +135,10 @@ __all__ = [
     "BranchNotFoundError",
     "BranchSpec",
     "BranchStatistics",
+    "DECAY_INDEX_BRANCH",
+    "DecayType",
     "ExportError",
+    "GammaType",
     "GateSystemType",
     "GateTree",
     "GateTreeError",
@@ -128,10 +146,13 @@ __all__ = [
     "HitsTreeDetection",
     "HitsTreeValidationError",
     "HitsTreeVariant",
+    "NOT_A_POSITRONIUM_SOURCE",
     "OutputFileFormat",
+    "POSITRONIUM_BRANCHES",
     "RootFile",
     "RootFileError",
     "SOURCE_TREE_BRANCH",
+    "SourceType",
     "TreeData",
     "TreeMergeError",
     "TreeNotFoundError",
@@ -147,9 +168,11 @@ __all__ = [
     "detect_hits_variant",
     "expected_branches",
     "format_statistics",
+    "is_positronium_source",
     "merge_tree_data",
     "parse_gate_tree",
     "parse_output_file_format",
+    "positronium_enum",
     "read_hits_trees",
     "read_tree",
     "statistics_to_dict",
