@@ -27,7 +27,8 @@ from opengate_gate_tree.tree.gatetree import GateTree
 A1_CAVITY_RADIUS = 200.0  # setRmin 0.2 m
 A1_SHELL_RADIUS = 500.0  # setRmax 0.5 m
 #
-# a2-system: a cylindricalPET scanner, and the crystal a hit happens in.
+# a2-system: a scanner built as GATE's "cylindricalPET", and the crystal a
+# hit happens in.
 A2_BORE_RADIUS = 409.0  # setRmin 409.0 mm
 A2_SCANNER_RADIUS = 500.0  # setRmax 500.0 mm
 A2_SCANNER_LENGTH = 1060.0  # setHeight 1060 mm
@@ -457,6 +458,22 @@ def test_a_shape_centred_on_one_sector_holds_the_hits_of_that_sector(
         (lambda: is_in_sphere(POINTS, "origin", 1.0), "takes numbers"),  # type: ignore[arg-type]
         (lambda: is_in_box(POINTS, (0, 0, 0), (2, "wide", 2)), "takes numbers"),  # type: ignore[arg-type]
         (lambda: is_in_sphere(POINTS, (None, 0, 0), 1.0), "takes numbers"),  # type: ignore[arg-type]
+        (
+            lambda: is_in_cylinder(POINTS, (0, 0), 5.0, z_range=(float("nan"), 1.0)),
+            "finite",
+        ),
+        (
+            lambda: is_in_cylinder(POINTS, (0, 0), 5.0, z_range=(float("-inf"), float("inf"))),
+            "finite",
+        ),
+        (
+            lambda: is_in_cylinder(POINTS, (0, 0), 5.0, z_range=(1.0,)),  # type: ignore[arg-type]
+            "two ends",
+        ),
+        (
+            lambda: is_in_cylinder(POINTS, (0, 0), 5.0, z_range="middle"),  # type: ignore[arg-type]
+            "two ends of the window",
+        ),
     ],
     ids=[
         "nan-radius",
@@ -470,6 +487,10 @@ def test_a_shape_centred_on_one_sector_holds_the_hits_of_that_sector(
         "centre-as-text",
         "one-side-as-text",
         "one-coordinate-as-nothing",
+        "nan-axial-end",
+        "infinite-axial-window",
+        "one-axial-end",
+        "axial-window-as-text",
     ],
 )
 def test_a_shape_that_describes_no_place_is_refused(

@@ -19,8 +19,8 @@ energies = in_the_scanner["edep"][prompt]
 ## What Is Added, And What Is Not
 
 Everything here works on a `pandas.Series` or a `pandas.DataFrame`, and pandas
-already answers most questions about a column. Comparing, `isin`, `between`,
-combining masks with `&` and `|` — none of that is restated:
+already answers most questions about a column. Comparing, `isin`, combining
+masks with `&` and `|` — none of that is restated:
 
 ```python
 frame[frame["PDGEncoding"] == 22]        # gammas
@@ -31,6 +31,12 @@ A filter earns its place by naming something the **data** means: a closed
 range, a shape in the geometry of the scanner, the identity of an event, the
 meaning of a code GATE wrote. Anything a line of pandas already says is left to
 pandas.
+
+The range is the one place where a call of pandas is wrapped rather than left
+alone: `is_in_range` is `Series.between` under another name. It is here because
+it comes in a pair with `in_range`, like every other filter, and because the
+shapes are built out of it — a box is three ranges, and the ends of a cylinder
+are a fourth.
 
 ## Every Filter Comes In Two
 

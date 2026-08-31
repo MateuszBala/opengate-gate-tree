@@ -307,10 +307,11 @@ def is_in_cylinder(
     Raises
     ------
     ValueError
-        If the centre does not give one value per plane column, a radius is
-        negative, any of them is not a finite number, or the inner radius is
-        larger than the outer one - which is a ring that could hold nothing,
-        and reads more like two arguments swapped than like a question.
+        If the centre does not give one value per plane column, the axial
+        window is not two ends, a radius is negative, any of them is not a
+        finite number, or the inner radius is larger than the outer one -
+        which is a ring that could hold nothing, and reads more like two
+        arguments swapped than like a question.
     KeyError
         If the frame holds no column of one of those names.
     """
@@ -332,7 +333,8 @@ def is_in_cylinder(
     # answers a square root of a column with something typed as anything.
     inside = pd.Series((distance >= inner_radius) & (distance <= radius), index=frame.index)
     if z_range is not None:
-        inside &= is_in_range(along, z_range[0], z_range[1])
+        low, high = _ends(z_range, "z_range")
+        inside &= is_in_range(along, low, high)
     return inside
 
 
@@ -393,6 +395,16 @@ def _positive_radius(radius: float, name: str) -> None:
     """Refuse a radius that is not a distance."""
     if _finite(radius, name) < 0:
         raise ValueError(f"The '{name}' of a shape cannot be negative, got {radius}.")
+
+
+def _ends(window: object, name: str) -> tuple[float, float]:
+    """Return the two ends of a window along an axis, refusing anything else."""
+    if isinstance(window, str | bytes) or not isinstance(window, Collection):
+        raise ValueError(f"'{name}' takes the two ends of the window, got {window!r}.")
+    if len(window) != 2:
+        raise ValueError(f"'{name}' takes two ends, got {len(window)}.")
+    low, high = (_finite(value, name) for value in window)
+    return low, high
 
 
 def _finite(value: object, name: str) -> float:
