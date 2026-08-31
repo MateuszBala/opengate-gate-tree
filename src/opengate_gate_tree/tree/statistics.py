@@ -40,6 +40,7 @@ import numpy.typing as npt
 
 from opengate_gate_tree.tree.gatetree import GateTree
 from opengate_gate_tree.tree.hits.detection import HitsTreeDetection, summarise_hits_tree
+from opengate_gate_tree.tree.hits.positronium import POSITRONIUM_BRANCHES
 from opengate_gate_tree.tree.hits.schema import BranchKind, variant_reference
 from opengate_gate_tree.tree.hits.variant import SYSTEM_ALIASES
 from opengate_gate_tree.tree.merge import SOURCE_TREE_BRANCH
@@ -97,7 +98,10 @@ class BranchStatistics:
     unique_count : int | None
         Number of distinct values, for a text or whole number branch.
     top_values : tuple[tuple[str, int], ...]
-        Most frequent values of a text branch, with their counts.
+        Most frequent values, with their counts, for a branch whose values
+        can be named: a text branch, and a branch of the PositroniumSource
+        whose numbers stand for something. A value the package cannot name is
+        reported as the number it is.
     """
 
     name: str
@@ -281,6 +285,7 @@ def _branch_statistics(name: str, column: npt.NDArray[Any]) -> BranchStatistics:
     non_finite_count = None if finite is None else int(np.count_nonzero(~finite))
     usable = flattened if finite is None else flattened[finite]
     unique_count = len(np.unique(flattened)) if is_integer and not is_array else None
+    top_values = _named_values(name, flattened) if is_integer and not is_array else ()
 
     if usable.size == 0:
         return BranchStatistics(
@@ -290,6 +295,7 @@ def _branch_statistics(name: str, column: npt.NDArray[Any]) -> BranchStatistics:
             entries=entries,
             non_finite_count=non_finite_count,
             unique_count=unique_count,
+            top_values=top_values,
         )
 
     return BranchStatistics(
@@ -298,6 +304,7 @@ def _branch_statistics(name: str, column: npt.NDArray[Any]) -> BranchStatistics:
         kind=kind,
         entries=entries,
         non_finite_count=non_finite_count,
+        top_values=top_values,
         minimum=float(np.min(usable)),
         maximum=float(np.max(usable)),
         mean=float(np.mean(usable)),
@@ -311,6 +318,23 @@ def _numeric_kind(is_integer: bool, is_array: bool) -> BranchKind:
     if is_integer:
         return BranchKind.INTEGER_ARRAY if is_array else BranchKind.INTEGER
     return BranchKind.FLOAT_ARRAY if is_array else BranchKind.FLOAT
+
+
+def _named_values(name: str, column: npt.NDArray[Any]) -> tuple[tuple[str, int], ...]:
+    """Return the most frequent values of a branch whose numbers have names.
+
+    The three branches a PositroniumSource fills carry numbers that stand for
+    something, and a report saying ``2`` where the package knows it means
+    ``ANNIHILATION`` would keep that to itself. A value with no name is
+    reported as the number it is: the report says what the file holds, and
+    naming it something else would not make it true.
+    """
+    enum_class = POSITRONIUM_BRANCHES.get(name)
+    if enum_class is None:
+        return ()
+    known = {int(member): member.name for member in enum_class}
+    counts = Counter(known.get(int(value), str(int(value))) for value in column)
+    return _most_common(counts)
 
 
 def _most_common(counts: Counter[str]) -> tuple[tuple[str, int], ...]:
@@ -494,4 +518,7 @@ def _branch_line(branch: BranchStatistics) -> str:
         body += f", not finite {branch.non_finite_count}"
     if branch.unique_count is not None:
         body += f", {branch.unique_count} distinct"
+    if branch.top_values:
+        frequent = ", ".join(f"{value} ({count})" for value, count in branch.top_values)
+        body += f", most frequent {frequent}"
     return f"{head}: {body}"
