@@ -84,6 +84,7 @@ from opengate_gate_tree.tree.hits.detection import (  # noqa: E402
     HitsTreeDetection,
     describe_hits_tree,
     detect_hits_variant,
+    summarise_hits_tree,
 )
 from opengate_gate_tree.tree.hits.schema import (  # noqa: E402
     BranchKind,
@@ -152,6 +153,7 @@ __all__ = [
     "read_hits_trees",
     "read_tree",
     "statistics_to_dict",
+    "summarise_hits_tree",
     "supported_variants",
     "validate_hits_tree",
     "variant_reference",

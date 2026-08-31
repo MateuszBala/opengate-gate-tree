@@ -38,7 +38,7 @@ import numpy as np
 import numpy.typing as npt
 
 from opengate_gate_tree.tree.gatetree import GateTree
-from opengate_gate_tree.tree.hits.detection import HitsTreeDetection
+from opengate_gate_tree.tree.hits.detection import HitsTreeDetection, summarise_hits_tree
 from opengate_gate_tree.tree.hits.schema import BranchKind, variant_reference
 from opengate_gate_tree.tree.hits.variant import SYSTEM_ALIASES
 from opengate_gate_tree.tree.merge import SOURCE_TREE_BRANCH
@@ -237,7 +237,7 @@ def format_statistics(statistics: TreeStatistics) -> str:
     """
     lines = [f"Tree: {statistics.tree.value}", f"Entries: {statistics.entry_count}"]
     if statistics.detection is not None:
-        lines.insert(1, _detection_line(statistics.detection))
+        lines.insert(1, summarise_hits_tree(statistics.detection))
     if statistics.hits_summary is not None:
         lines.extend(_summary_lines(statistics.hits_summary))
 
@@ -413,16 +413,6 @@ def _summary_to_dict(summary: HitsSummary) -> dict[str, Any]:
     if summary.source_trees:
         report["source_trees"] = list(summary.source_trees)
     return report
-
-
-def _detection_line(detection: HitsTreeDetection) -> str:
-    """Return the line naming the structure of the tree."""
-    parts = [f"Structure: {detection.variant.value} ({variant_reference(detection.variant)})"]
-    if detection.tree_name is not None:
-        parts.append(f"stored as '{detection.tree_name}'")
-    if detection.system is not None:
-        parts.append(f"system {' / '.join(SYSTEM_ALIASES[detection.system])}")
-    return ", ".join(parts)
 
 
 def _summary_lines(summary: HitsSummary) -> list[str]:

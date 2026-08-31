@@ -58,6 +58,10 @@ The CLI accepts the following options:
 | `--gate-tree` | enum-like string | yes | `Hits`, `Singles`, `Coincidences` | Name of the tree to process from the input ROOT file. |
 | `--output-file-format` | enum-like string | yes | `root`, `hdf5`, `csv` | Output file format. |
 | `--branches-to-extract` | list of strings | no | branch names valid for selected tree | Space-separated list of branches to extract. |
+| `--input-tree-name` | string | no | name of a tree in the input file | Tree to read, when it is not named after the selected tree or when the file holds several trees of hits. |
+| `--merge-hits-trees` | flag | no | — | Read every tree of hits in the input file as a single dataset. Only for `--gate-tree Hits`, and not together with `--input-tree-name`. |
+| `--statistics` | flag | no | — | Write a report describing the extracted data next to the output file, as `<title>.<tree>.stats.json`. |
+| `--skip-hits-validation` | flag | no | — | Extract the branches without recognising and checking the structure of the "Hits" tree. |
 
 Validation behavior:
 
@@ -69,6 +73,14 @@ Validation behavior:
   lists the trees the file actually holds
 - branch names are validated against the branches present in the input file
 - branches whose length varies per entry are reported as unsupported
+- the structure of the "Hits" tree is recognised and checked before anything is
+  read; a file from a GATE build the package does not know is still extracted
+  with `--skip-hits-validation`
+- hits stored under another name are found by their structure, so the
+  `GateToTree` output, whose tree is called `tree`, needs no extra option
+- a file holding hits in several trees, one per run or one per sensitive
+  detector, reports them and is read either one tree at a time
+  (`--input-tree-name`) or as one dataset (`--merge-hits-trees`)
 
 The output file is named after the title, the tree it holds and the format it
 is written in: a run extracting the hits into `csv` under the title
@@ -161,6 +173,47 @@ from opengate_gate_tree import RootFile
 with RootFile(Path("simulation.root")) as root_file:
     print(root_file.tree_names)
     hits = root_file.read(GateTree.HITS, ["eventID", "edep"])
+```
+
+### Reading A Split File And Summarising It
+
+GATE can write the hits of one simulation into several trees, one per run or
+one per sensitive detector. They are read as a single dataset, with a column
+recording which tree every row came from:
+
+```python
+from opengate_gate_tree import (
+    SOURCE_TREE_BRANCH,
+    compute_statistics,
+    format_statistics,
+    read_hits_trees,
+    write_statistics,
+)
+
+data = read_hits_trees(Path("simulation.root"))
+print(set(data[SOURCE_TREE_BRANCH]))
+```
+
+Identifiers stay as GATE wrote them, so an event is told apart by its run and
+its event identifier together: `eventID` repeats between runs, and repeats for
+one decay recorded in two detectors.
+
+A summary of what was extracted can be printed, saved, or both:
+
+```python
+statistics = compute_statistics(data)
+print(format_statistics(statistics))
+write_statistics(statistics, Path("out/hits.stats.json"))
+```
+
+The structure of a tree can also be asked about on its own:
+
+```python
+from opengate_gate_tree import RootFile, describe_hits_tree
+
+with RootFile(Path("simulation.root")) as root_file:
+    detection = root_file.detect_hits_tree()
+    print(describe_hits_tree(detection))
 ```
 
 Failures while reading or writing files are reported through a subclass of

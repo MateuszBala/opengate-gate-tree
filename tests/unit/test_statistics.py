@@ -231,7 +231,7 @@ def test_the_recognised_structure_is_reported_with_the_numbers(
 
     # ASSERT
     assert statistics.detection is detection
-    assert "Structure: No system (A1)" in rendered
+    assert "Hits tree variant: No system (A1)" in rendered
     assert "Entries: 500" in rendered
 
 

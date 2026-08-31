@@ -27,8 +27,10 @@ detect_hits_variant(branch_names, tree_name) -> HitsTreeDetection
 find_hits_variant(branch_names) -> HitsTreeDetection | None
     Recognise the structure of a tree, answering ``None`` when it is not one
     of the supported ones.
+summarise_hits_tree(detection) -> str
+    One line stating what a tree was recognised as.
 describe_hits_tree(detection, dtypes, entry_count) -> str
-    Human readable description of a recognised tree.
+    Human readable description of a recognised tree, branch by branch.
 """
 
 from collections.abc import Mapping, Sequence
@@ -193,6 +195,33 @@ def find_hits_variant(branch_names: Sequence[str]) -> HitsTreeDetection | None:
         return detect_hits_variant(branch_names)
     except UnknownHitsVariantError:
         return None
+
+
+def summarise_hits_tree(detection: HitsTreeDetection) -> str:
+    """Return one line stating what a tree was recognised as.
+
+    Used where the structure is worth reporting but the branches are not, such
+    as the log of a run.
+
+    Parameters
+    ----------
+    detection : HitsTreeDetection
+        Structure recognised in the tree.
+
+    Returns
+    -------
+    str
+        Single line naming the variant, the tree and the identifier scheme.
+    """
+    parts = [
+        f"Hits tree variant: {detection.variant.value} ({variant_reference(detection.variant)})"
+    ]
+    if detection.tree_name is not None:
+        parts.append(f"stored as '{detection.tree_name}'")
+    if detection.system is not None:
+        parts.append(f"system {' / '.join(SYSTEM_ALIASES[detection.system])}")
+    parts.append(f"{detection.branch_count} branches")
+    return ", ".join(parts)
 
 
 def describe_hits_tree(

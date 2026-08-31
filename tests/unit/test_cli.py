@@ -223,3 +223,103 @@ def test_main_returns_error_when_run_raises_package_error(
     # ASSERT
     assert exit_code == 1
     assert expected_message in caplog.text
+
+
+def test_the_options_reach_the_run_configuration(tmp_path: Path) -> None:
+    """Every flag has to arrive where the run reads it from."""
+    # ARRANGE
+    parser = cli.build_parser()
+
+    # ACT
+    arguments = parser.parse_args(
+        [
+            "--input-tree-name",
+            "Hits_run1",
+            "--merge-hits-trees",
+            "--statistics",
+            "--skip-hits-validation",
+        ]
+    )
+
+    # ASSERT
+    assert arguments.input_tree_name == "Hits_run1"
+    assert arguments.merge_hits_trees is True
+    assert arguments.statistics is True
+    assert arguments.skip_hits_validation is True
+
+
+def test_the_flags_are_off_unless_they_are_given() -> None:
+    """A run without flags behaves the way it did before they existed."""
+    # ARRANGE
+    parser = cli.build_parser()
+
+    # ACT
+    arguments = parser.parse_args([])
+
+    # ASSERT
+    assert arguments.input_tree_name is None
+    assert arguments.merge_hits_trees is False
+    assert arguments.statistics is False
+    assert arguments.skip_hits_validation is False
+
+
+def test_naming_a_tree_and_merging_them_all_contradict_each_other(
+    hits_variant_files: dict[str, Path],
+    tmp_path: Path,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Reading one tree and reading all of them are two different runs."""
+    # ARRANGE
+    arguments = [
+        "--input-gate-root-file",
+        str(hits_variant_files["multi-run"]),
+        "--output-dir",
+        str(tmp_path / "out"),
+        "--output-file-title",
+        "run_01",
+        "--gate-tree",
+        "Hits",
+        "--output-file-format",
+        "csv",
+        "--input-tree-name",
+        "Hits_run1",
+        "--merge-hits-trees",
+    ]
+
+    # ACT
+    with caplog.at_level("ERROR"):
+        exit_code = cli.main(arguments)
+
+    # ASSERT
+    assert exit_code == 1
+    assert "--input-tree-name" in caplog.text
+
+
+def test_merging_is_refused_for_another_tree(
+    gate_hits_file: Path,
+    tmp_path: Path,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Only the structure of hits is described, so only hits can be merged."""
+    # ARRANGE
+    arguments = [
+        "--input-gate-root-file",
+        str(gate_hits_file),
+        "--output-dir",
+        str(tmp_path / "out"),
+        "--output-file-title",
+        "run_01",
+        "--gate-tree",
+        "Singles",
+        "--output-file-format",
+        "csv",
+        "--merge-hits-trees",
+    ]
+
+    # ACT
+    with caplog.at_level("ERROR"):
+        exit_code = cli.main(arguments)
+
+    # ASSERT
+    assert exit_code == 1
+    assert "Merging is available" in caplog.text

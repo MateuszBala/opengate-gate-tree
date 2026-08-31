@@ -1,7 +1,10 @@
 """End-to-end tests running the command line against a real GATE file."""
 
+import json
+import logging
 import subprocess
 import sys
+from collections.abc import Callable
 from pathlib import Path
 
 import h5py
@@ -31,6 +34,7 @@ def run_cli(
     *,
     title: str = "patient_01",
     branches: list[str] | None = None,
+    extra: list[str] | None = None,
 ) -> int:
     """Run the command line once and return its exit code."""
     arguments = [
@@ -47,6 +51,8 @@ def run_cli(
     ]
     if branches is not None:
         arguments += ["--branches-to-extract", *branches]
+    if extra is not None:
+        arguments += extra
     return cli.main(arguments)
 
 
@@ -345,3 +351,165 @@ def test_pipeline_reports_an_unknown_branch(
     assert exit_code == 1
     assert "notInTheTree" in caplog.text
     assert not output_dir.exists()
+
+
+def test_pipeline_finds_hits_stored_under_another_name(
+    hits_variant_files: dict[str, Path],
+    tmp_path: Path,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A GateToTree file names its tree "tree", and a run should still work."""
+    # ARRANGE
+    output_dir = tmp_path / "out"
+
+    # ACT
+    with caplog.at_level(logging.INFO):
+        exit_code = run_cli(hits_variant_files["b1"], output_dir, OutputFileFormat.CSV)
+
+    # ASSERT
+    assert exit_code == 0
+    assert (output_dir / "patient_01.hits.csv").is_file()
+    assert "GateToTree common output (B1)" in caplog.text
+
+
+def test_pipeline_reads_the_named_tree(
+    hits_variant_files: dict[str, Path],
+    tmp_path: Path,
+) -> None:
+    """Naming the tree is how one run of a simulation is extracted."""
+    # ARRANGE
+    output_dir = tmp_path / "out"
+
+    # ACT
+    exit_code = run_cli(
+        hits_variant_files["multi-run"],
+        output_dir,
+        OutputFileFormat.CSV,
+        extra=["--input-tree-name", "Hits_run1"],
+    )
+
+    # ASSERT
+    assert exit_code == 0
+    written = pd.read_csv(output_dir / "patient_01.hits.csv")
+    assert set(written["runID"]) == {1}
+
+
+def test_pipeline_merges_every_tree_of_hits(
+    hits_variant_files: dict[str, Path],
+    tmp_path: Path,
+) -> None:
+    """One run of the command line can take a whole split simulation."""
+    # ARRANGE
+    output_dir = tmp_path / "out"
+
+    # ACT
+    exit_code = run_cli(
+        hits_variant_files["multi-run"],
+        output_dir,
+        OutputFileFormat.CSV,
+        extra=["--merge-hits-trees"],
+    )
+
+    # ASSERT
+    assert exit_code == 0
+    written = pd.read_csv(output_dir / "patient_01.hits.csv")
+    assert len(written) == 1500
+    assert sorted(set(written["sourceTreeName"])) == ["Hits", "Hits_run1", "Hits_run2"]
+
+
+def test_pipeline_reports_a_file_split_between_detectors(
+    hits_variant_files: dict[str, Path],
+    tmp_path: Path,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Choosing a detector is the user's call, and the run says how to make it."""
+    # ARRANGE
+    output_dir = tmp_path / "out"
+
+    # ACT
+    with caplog.at_level(logging.ERROR):
+        exit_code = run_cli(hits_variant_files["multi-sd"], output_dir, OutputFileFormat.CSV)
+
+    # ASSERT
+    assert exit_code == 1
+    assert "--input-tree-name" in caplog.text
+    assert "--merge-hits-trees" in caplog.text
+
+
+def test_pipeline_writes_a_report_next_to_the_data(
+    hits_variant_files: dict[str, Path],
+    tmp_path: Path,
+) -> None:
+    """A report describes the run that produced the file beside it."""
+    # ARRANGE
+    output_dir = tmp_path / "out"
+
+    # ACT
+    exit_code = run_cli(
+        hits_variant_files["a2"],
+        output_dir,
+        OutputFileFormat.CSV,
+        extra=["--statistics"],
+    )
+
+    # ASSERT
+    assert exit_code == 0
+    report = json.loads((output_dir / "patient_01.hits.stats.json").read_text(encoding="utf-8"))
+    assert report["entries"] == 500
+    assert report["structure"]["reference"] == "A2"
+    assert report["hits"]["event_key"] == ["runID", "eventID"]
+
+
+def test_pipeline_writes_no_report_unless_it_is_asked_for(
+    hits_variant_files: dict[str, Path],
+    tmp_path: Path,
+) -> None:
+    """A run that was not asked for a report leaves one file behind, not two."""
+    # ARRANGE
+    output_dir = tmp_path / "out"
+
+    # ACT
+    exit_code = run_cli(hits_variant_files["a1"], output_dir, OutputFileFormat.CSV)
+
+    # ASSERT
+    assert exit_code == 0
+    assert not (output_dir / "patient_01.hits.stats.json").exists()
+
+
+def test_pipeline_refuses_a_structure_it_does_not_know(
+    make_hits_root_file: Callable[..., Path],
+    tmp_path: Path,
+) -> None:
+    """A file that is not a hits file should be reported, not half converted."""
+    # ARRANGE
+    input_file = make_hits_root_file({"Hits": ["eventID", "edep"]})
+    output_dir = tmp_path / "out"
+
+    # ACT
+    exit_code = run_cli(input_file, output_dir, OutputFileFormat.CSV)
+
+    # ASSERT
+    assert exit_code == 1
+    assert not (output_dir / "patient_01.hits.csv").exists()
+
+
+def test_pipeline_extracts_an_unknown_structure_when_told_to(
+    make_hits_root_file: Callable[..., Path],
+    tmp_path: Path,
+) -> None:
+    """A build the package does not know must not stop a user from extracting."""
+    # ARRANGE
+    input_file = make_hits_root_file({"Hits": ["eventID", "edep"]})
+    output_dir = tmp_path / "out"
+
+    # ACT
+    exit_code = run_cli(
+        input_file,
+        output_dir,
+        OutputFileFormat.CSV,
+        extra=["--skip-hits-validation"],
+    )
+
+    # ASSERT
+    assert exit_code == 0
+    assert list(pd.read_csv(output_dir / "patient_01.hits.csv").columns) == ["eventID", "edep"]

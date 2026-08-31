@@ -56,6 +56,7 @@ EXPECTED_EXPORTS = {
     "read_hits_trees",
     "read_tree",
     "statistics_to_dict",
+    "summarise_hits_tree",
     "supported_variants",
     "validate_hits_tree",
     "variant_reference",
