@@ -96,7 +96,10 @@ from opengate_gate_tree.io.writers import write_tree  # noqa: E402
 from opengate_gate_tree.logging_setup import LOGGER_NAME  # noqa: E402
 from opengate_gate_tree.tree.accessors import ACCESSOR_NAME  # noqa: E402
 from opengate_gate_tree.tree.filters import (  # noqa: E402
+    EVENT_COLUMN,
     POSITION_COLUMNS,
+    RUN_COLUMN,
+    InclusiveSide,
     by_event,
     by_run,
     has_decay_metadata,
@@ -176,6 +179,7 @@ __all__ = [
     "BranchStatistics",
     "DECAY_INDEX_BRANCH",
     "DecayType",
+    "EVENT_COLUMN",
     "ExportError",
     "GammaType",
     "GateSystemType",
@@ -185,10 +189,12 @@ __all__ = [
     "HitsTreeDetection",
     "HitsTreeValidationError",
     "HitsTreeVariant",
+    "InclusiveSide",
     "NO_POSITRONIUM_METADATA",
     "OutputFileFormat",
     "POSITION_COLUMNS",
     "POSITRONIUM_BRANCHES",
+    "RUN_COLUMN",
     "RootFile",
     "RootFileError",
     "SOURCE_TREE_BRANCH",
