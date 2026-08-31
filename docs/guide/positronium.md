@@ -159,8 +159,9 @@ of the three branches:
 A value the package cannot name is reported as the number it is: the report
 says what the file holds. These three branches report every value that has a
 name, so a number nothing names cannot be crowded out by the members that do;
-the numbers without names are capped, and `distinct_values` says how many the
-column really held. `decayIndex` keeps its
+the numbers without names are capped. How many values the column really held
+is the count beside them — `3 distinct` in the line above, `distinct_values`
+in the saved report. `decayIndex` keeps its
 numbers, for the reason above.
 
 ## In A Written File

@@ -14,8 +14,8 @@ a simulation really wrote.
 | `ops-prompt.root` | oPs with a prompt gamma | 3 | 2 | 2, 3 | 0 |
 | `pps-direct.root` | half pPs, half direct annihilation | 2, 4 | 1 | 2 | 0, 1 |
 | `ops-direct.root` | half oPs, half direct annihilation | 3, 4 | 1 | 2 | 0, 1 |
-| `back-to-back.root` | back-to-back 511 keV, no positronium | 0 | 0 | 0 | −1 |
-| `all-variants.root` | all seven channels, one seventh each | 0, 2, 3, 4 | 0, 1, 2 | 0, 2, 3 | −1, 0, 1 |
+| `back-to-back.root` | back-to-back 511 keV, no positronium | 0 | 0 | 0 | -1 |
+| `all-variants.root` | all seven channels, one seventh each | 0, 2, 3, 4 | 0, 1, 2 | 0, 2, 3 | -1, 0, 1 |
 
 Every file holds the "Hits" tree of the A1 structure: 40 branches, no system. The branch list is
 the one of `../hits-variants/a1-no-system.root`, so the files also exercise the variant detection

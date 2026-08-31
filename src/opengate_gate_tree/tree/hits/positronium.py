@@ -50,7 +50,6 @@ has_positronium_metadata(decay_index) -> numpy.ndarray
     Which rows carry the decay metadata of a PositroniumSource.
 """
 
-from collections import Counter
 from collections.abc import Mapping
 from enum import IntEnum
 from types import MappingProxyType
@@ -241,13 +240,22 @@ def decode_positronium_column(branch: str, column: npt.ArrayLike) -> npt.NDArray
     """
     enum_class = _described_enum(branch)
     known: dict[int, IntEnum] = {int(member): member for member in enum_class}
-    values = [int(value) for value in _whole_number_column(branch, column)]
+    values = _whole_number_column(branch, column)
 
-    unknown = Counter(value for value in values if value not in known)
+    # The work is done on the distinct values rather than on the rows: a
+    # branch holds a handful of them, and a file of ten million rows should
+    # not cost ten million dictionary lookups.
+    distinct, inverse, counts = np.unique(values, return_inverse=True, return_counts=True)
+    members = np.empty(len(distinct), dtype=object)
+    members[:] = [known.get(int(value)) for value in distinct]
+
+    unknown = [
+        (int(value), int(count))
+        for value, count, member in zip(distinct, counts, members, strict=True)
+        if member is None
+    ]
     if unknown:
-        reported = ", ".join(
-            f"{value} ({count} row(s))" for value, count in sorted(unknown.items())
-        )
+        reported = ", ".join(f"{value} ({count} row(s))" for value, count in unknown)
         log().warning(
             "Branch '%s' holds %d value(s) this version does not describe: %s. "
             "They are read as nothing at all.",
@@ -256,8 +264,7 @@ def decode_positronium_column(branch: str, column: npt.ArrayLike) -> npt.NDArray
             reported,
         )
 
-    decoded = np.empty(len(values), dtype=object)
-    decoded[:] = [known.get(value) for value in values]
+    decoded: npt.NDArray[Any] = members[inverse]
     return decoded
 
 

@@ -342,12 +342,13 @@ def _named_values(name: str, column: npt.NDArray[Any]) -> tuple[tuple[str, int],
     values, counts = np.unique(column, return_counts=True)
     named: list[tuple[str, int]] = []
     unnamed: list[tuple[str, int]] = []
-    for value, count in zip(values, counts, strict=True):
-        label = known.get(int(value))
+    for raw_value, raw_count in zip(values, counts, strict=True):
+        value, count = int(raw_value), int(raw_count)
+        label = known.get(value)
         if label is None:
-            unnamed.append((str(int(value)), int(count)))
+            unnamed.append((str(value), count))
         else:
-            named.append((label, int(count)))
+            named.append((label, count))
 
     # Every member the column holds is reported, however rare: with five
     # members in a class, a top-five listing could push out the one value the
