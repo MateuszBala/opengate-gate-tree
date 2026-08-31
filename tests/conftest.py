@@ -10,6 +10,10 @@ Two sources of test data are used together:
 The files in ``fixtures/hits-variants`` add one output per structure the "Hits"
 tree can have. Their provenance and the reason one of them is not trimmed are
 described in the README next to them.
+
+The files in ``fixtures/positronium`` add one output per way a
+``PositroniumSource`` can be configured, for the branches that describe what a
+gamma came from.
 """
 
 from collections.abc import Callable, Mapping, Sequence
@@ -32,6 +36,9 @@ GATE_HITS_FIXTURE = FIXTURES_DIR / "data-only-hits-tree-small-size.root"
 
 # One simulation output per structure the "Hits" tree can have.
 HITS_VARIANTS_DIR = FIXTURES_DIR / "hits-variants"
+
+# One simulation output per way a PositroniumSource can be configured.
+POSITRONIUM_DIR = FIXTURES_DIR / "positronium"
 
 TreeColumns = Mapping[str, npt.NDArray[Any]]
 
@@ -168,6 +175,78 @@ def expected_hits_branch_type(name: str) -> str:
     return "int32"
 
 
+@dataclass(frozen=True)
+class PositroniumLayout:
+    """Measured properties of one PositroniumSource fixture.
+
+    Attributes
+    ----------
+    key : str
+        Short name the tests refer to the fixture by.
+    file_name : str
+        Name of the file in ``fixtures/positronium``.
+    scene : str
+        How the source was configured.
+    source_types, decay_types, gamma_types, decay_indices : tuple[int, ...]
+        Distinct values the file holds in each of the four branches, sorted.
+    """
+
+    key: str
+    file_name: str
+    scene: str
+    source_types: tuple[int, ...]
+    decay_types: tuple[int, ...]
+    gamma_types: tuple[int, ...]
+    decay_indices: tuple[int, ...]
+
+    @property
+    def path(self) -> Path:
+        """Path of the fixture file."""
+        return POSITRONIUM_DIR / self.file_name
+
+
+# Values of the four branches of every PositroniumSource fixture, measured on
+# the simulation outputs they were cut from. Cutting to 500 entries kept the
+# whole set of values in every file; see the README next to them.
+POSITRONIUM_LAYOUTS: tuple[PositroniumLayout, ...] = (
+    PositroniumLayout("pps", "pps.root", "pPs, two gammas", (2,), (1,), (2,), (0,)),
+    PositroniumLayout("ops", "ops.root", "oPs, three gammas", (3,), (1,), (2,), (0,)),
+    PositroniumLayout(
+        "pps-prompt", "pps-prompt.root", "pPs with a prompt gamma", (2,), (2,), (2, 3), (0,)
+    ),
+    PositroniumLayout(
+        "ops-prompt", "ops-prompt.root", "oPs with a prompt gamma", (3,), (2,), (2, 3), (0,)
+    ),
+    PositroniumLayout(
+        "pps-direct", "pps-direct.root", "half pPs, half direct", (2, 4), (1,), (2,), (0, 1)
+    ),
+    PositroniumLayout(
+        "ops-direct", "ops-direct.root", "half oPs, half direct", (3, 4), (1,), (2,), (0, 1)
+    ),
+    PositroniumLayout(
+        "back-to-back", "back-to-back.root", "back-to-back, no positronium", (0,), (0,), (0,), (-1,)
+    ),
+    PositroniumLayout(
+        "all-variants",
+        "all-variants.root",
+        "all seven channels",
+        (0, 2, 3, 4),
+        (0, 1, 2),
+        (0, 2, 3),
+        (-1, 0, 1),
+    ),
+)
+
+# Branches a PositroniumSource fills, mapped to the layout field holding their
+# measured values.
+POSITRONIUM_BRANCH_FIELDS: Mapping[str, str] = {
+    "sourceType": "source_types",
+    "decayType": "decay_types",
+    "gammaType": "gamma_types",
+    "decayIndex": "decay_indices",
+}
+
+
 def branch_type_name(interpretation: Any) -> str:
     """Return a short name for the type an uproot interpretation reads.
 
@@ -228,6 +307,18 @@ def hits_variant_layouts() -> Mapping[str, HitsVariantLayout]:
 def hits_variant_files() -> Mapping[str, Path]:
     """Return the paths of the variant fixtures, keyed by their short name."""
     return {layout.key: layout.path for layout in HITS_VARIANT_LAYOUTS}
+
+
+@pytest.fixture(scope="session")
+def positronium_layouts() -> Mapping[str, PositroniumLayout]:
+    """Return the PositroniumSource fixtures, keyed by their short name."""
+    return {layout.key: layout for layout in POSITRONIUM_LAYOUTS}
+
+
+@pytest.fixture(scope="session")
+def positronium_files() -> Mapping[str, Path]:
+    """Return the paths of the PositroniumSource fixtures, keyed by short name."""
+    return {layout.key: layout.path for layout in POSITRONIUM_LAYOUTS}
 
 
 @pytest.fixture
