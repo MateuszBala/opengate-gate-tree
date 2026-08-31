@@ -31,6 +31,13 @@ each row came from.
 :func:`compute_statistics` summarises what was extracted, and
 :func:`write_statistics` saves that summary next to the data.
 
+Filters and selectors work on the pandas view of the data, both as functions
+and through the ``gate`` namespace this package registers on a column and on a
+frame::
+
+    prompt = frame["gammaType"].gate.select_by_gamma_type(GammaType.PROMPT)
+    in_the_ring = frame.gate.in_cylinder((0, 0), radius=500.0, inner_radius=409.0)
+
 The branches a ``PositroniumSource`` writes carry integers whose meaning is
 described by :class:`SourceType`, :class:`DecayType` and :class:`GammaType`.
 Their members are those integers, so a column compares against them as it was
@@ -87,6 +94,7 @@ from opengate_gate_tree.io.rootfile import RootFile  # noqa: E402
 from opengate_gate_tree.io.statistics import write_statistics  # noqa: E402
 from opengate_gate_tree.io.writers import write_tree  # noqa: E402
 from opengate_gate_tree.logging_setup import LOGGER_NAME  # noqa: E402
+from opengate_gate_tree.tree.accessors import ACCESSOR_NAME  # noqa: E402
 from opengate_gate_tree.tree.filters import (  # noqa: E402
     POSITION_COLUMNS,
     by_event,
@@ -160,6 +168,7 @@ from opengate_gate_tree.tree.treedata import TreeData  # noqa: E402
 logging.getLogger(LOGGER_NAME).addHandler(logging.NullHandler())
 
 __all__ = [
+    "ACCESSOR_NAME",
     "AmbiguousTreeError",
     "BranchKind",
     "BranchNotFoundError",

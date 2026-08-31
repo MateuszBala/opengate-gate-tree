@@ -18,6 +18,7 @@ from opengate_gate_tree.logging_setup import LOGGER_NAME
 
 # Names the package promises to export.
 EXPECTED_EXPORTS = {
+    "ACCESSOR_NAME",
     "AmbiguousTreeError",
     "BranchKind",
     "BranchNotFoundError",
