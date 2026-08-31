@@ -87,7 +87,17 @@ from opengate_gate_tree.io.rootfile import RootFile  # noqa: E402
 from opengate_gate_tree.io.statistics import write_statistics  # noqa: E402
 from opengate_gate_tree.io.writers import write_tree  # noqa: E402
 from opengate_gate_tree.logging_setup import LOGGER_NAME  # noqa: E402
-from opengate_gate_tree.tree.filters import in_range, is_in_range  # noqa: E402
+from opengate_gate_tree.tree.filters import (  # noqa: E402
+    POSITION_COLUMNS,
+    in_box,
+    in_cylinder,
+    in_range,
+    in_sphere,
+    is_in_box,
+    is_in_cylinder,
+    is_in_range,
+    is_in_sphere,
+)
 from opengate_gate_tree.tree.gatetree import GateTree, parse_gate_tree  # noqa: E402
 from opengate_gate_tree.tree.hits.detection import (  # noqa: E402
     HitsTreeDetection,
@@ -154,6 +164,7 @@ __all__ = [
     "HitsTreeVariant",
     "NO_POSITRONIUM_METADATA",
     "OutputFileFormat",
+    "POSITION_COLUMNS",
     "POSITRONIUM_BRANCHES",
     "RootFile",
     "RootFileError",
@@ -177,8 +188,14 @@ __all__ = [
     "expected_branches",
     "format_statistics",
     "has_positronium_metadata",
+    "in_box",
+    "in_cylinder",
     "in_range",
+    "in_sphere",
+    "is_in_box",
+    "is_in_cylinder",
     "is_in_range",
+    "is_in_sphere",
     "merge_tree_data",
     "parse_gate_tree",
     "parse_output_file_format",
