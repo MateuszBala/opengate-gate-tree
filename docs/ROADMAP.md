@@ -64,25 +64,30 @@ Basic support for the "Hits" tree:
 
 ## Version 0.4.0 (status: planned)
 
-Add a set of basic filters and selectors for data from the "Hits" tree.
+Add support for representing PositroniumSource data in the "Hits" tree:
+
+- casting the `gammaType`, `sourceType` and `decayType` branches to enum representations
+- telling data written by a PositroniumSource apart from data written by another source
 
 ### Definition of Done (DoD)
 
-- each branch provides a set of filters and selectors in a pandas-style API: `Series.functionA.functionB... -> Series`
+- each of the three branches has its own representation as an enum class, whose values are the integers GATE writes, so that a column can be compared against them as it was read
+- a value outside an enum is reported rather than silently read as another one
+- the `decayIndex` branch tells a row written by a PositroniumSource from one written by another source
 - all tests pass
 - user documentation (ReadTheDocs) clearly and comprehensively covers the added representations and features
 
 ## Version 0.5.0 (status: planned)
 
-Add support for representing PositroniuSource data in the "Hits" tree:
+Add a set of basic filters and selectors for data from the "Hits" tree:
 
-- casting `gammaType`, `sourceType`, and `decayType` branches to enum representations
-- filters and selectors for PositroniuSource data
+- filters and selectors for every branch
+- filters and selectors for the PositroniumSource branches, built on their enum representations
 
 ### Definition of Done (DoD)
 
-- each of the three branches has its own representation as an enum class
-- each of the three branches provides a set of filters and selectors in a pandas-style API: `Series.functionA.functionB... -> Series`
+- each branch provides a set of filters and selectors in a pandas-style API: `Series.functionA.functionB... -> Series`
+- the three PositroniumSource branches provide filters and selectors of their own
 - all tests pass
 - user documentation (ReadTheDocs) clearly and comprehensively covers the added representations and features
 
