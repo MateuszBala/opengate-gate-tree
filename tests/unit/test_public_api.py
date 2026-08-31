@@ -59,6 +59,8 @@ EXPECTED_EXPORTS = {
     "expected_branches",
     "format_statistics",
     "has_positronium_metadata",
+    "in_range",
+    "is_in_range",
     "merge_tree_data",
     "parse_gate_tree",
     "parse_output_file_format",

@@ -87,6 +87,7 @@ from opengate_gate_tree.io.rootfile import RootFile  # noqa: E402
 from opengate_gate_tree.io.statistics import write_statistics  # noqa: E402
 from opengate_gate_tree.io.writers import write_tree  # noqa: E402
 from opengate_gate_tree.logging_setup import LOGGER_NAME  # noqa: E402
+from opengate_gate_tree.tree.filters import in_range, is_in_range  # noqa: E402
 from opengate_gate_tree.tree.gatetree import GateTree, parse_gate_tree  # noqa: E402
 from opengate_gate_tree.tree.hits.detection import (  # noqa: E402
     HitsTreeDetection,
@@ -176,6 +177,8 @@ __all__ = [
     "expected_branches",
     "format_statistics",
     "has_positronium_metadata",
+    "in_range",
+    "is_in_range",
     "merge_tree_data",
     "parse_gate_tree",
     "parse_output_file_format",
