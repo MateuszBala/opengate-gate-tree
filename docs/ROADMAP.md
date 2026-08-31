@@ -77,7 +77,7 @@ Add support for representing PositroniumSource data in the "Hits" tree:
 - all tests pass
 - user documentation (ReadTheDocs) clearly and comprehensively covers the added representations and features
 
-## Version 0.5.0 (status: planned)
+## Version 0.5.0 (status: completed)
 
 Add a set of basic filters and selectors for data from the "Hits" tree:
 

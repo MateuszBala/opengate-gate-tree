@@ -301,6 +301,7 @@ Available capabilities:
 - 0.2.0: GATE ROOT files can be loaded and validated, trees and branches extracted into a NumPy-backed representation with a pandas view, and written to ROOT, HDF5 or CSV. Usable both as a command-line tool and as a library, with user documentation on ReadTheDocs.
 - 0.3.0: the structure of the "Hits" tree is recognised and validated against the schema of the variant it holds, hits stored under another name are found by their structure, a file split into one tree per run or per sensitive detector is read as one dataset, statistics are computed and saved beside the data, and output files are named after the tree they hold.
 - 0.4.0: the branches a PositroniumSource writes are described by enum classes whose members are the integers GATE wrote, so a column compares against them as it was read; their values can be read as names, rows carrying the decay metadata of such a source are told from the rest, and a statistics report names those values instead of printing numbers.
+- 0.5.0: rows of a "Hits" tree are picked out by what the data means - a closed range, a box, a sphere or a ring in the geometry of the detector, the run and event a hit belongs to, the decay metadata it carries, and the meaning of the codes a PositroniumSource wrote - as functions and as a `gate` namespace on a pandas column and frame, each filter answering either with a mask that combines with others or with the rows themselves.
 
 
 
