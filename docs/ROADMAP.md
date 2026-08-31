@@ -122,26 +122,12 @@ Add physical unit converters and vector functionality:
 
 ## Version 0.7.0 (status: planned)
 
-Add a representation of the "Hits" tree using the Event, Track, and Hit concepts:
-
-- introduction of Event, Track, and Hit classes
-- a new output file structure
-- a set of filters and selectors
-
-### Definition of Done (DoD)
-
-- the "Hits" tree can be represented as a list of Event objects
-- a flexible set of filters and selectors is available for Event, Track, and Hit classes
-- all tests pass
-- user documentation (ReadTheDocs) clearly and comprehensively covers the added representations and features
-
-## Version 0.8.0 (status: planned)
-
 Add a set of smearing functions for the "Hits" tree and the Event-Track-Hit representation:
 
 - position smearing
 - time smearing
 - energy smearing
+
 
 ### Definition of Done (DoD)
 
@@ -149,7 +135,7 @@ Add a set of smearing functions for the "Hits" tree and the Event-Track-Hit repr
 - all tests pass
 - user documentation (ReadTheDocs) clearly and comprehensively covers the added representations and features
 
-## Version 0.9.0 (status: planned)
+## Version 0.8.0 (status: planned)
 
 Add functionality for merging hits from the "Hits" tree and the Event-Track-Hit representation.
 
@@ -160,7 +146,7 @@ Add functionality for merging hits from the "Hits" tree and the Event-Track-Hit 
 - all tests pass
 - user documentation (ReadTheDocs) clearly and comprehensively covers the added representations and features
 
-## Version 0.10.0 (status: planned)
+## Version 0.9.0 (status: planned)
 
 Optimization of "Hits" tree handling.
 
@@ -168,6 +154,21 @@ Optimization of "Hits" tree handling.
 
 - reduced CPU time and RAM usage
 - faster data processing
+- all tests pass
+- user documentation (ReadTheDocs) clearly and comprehensively covers the added representations and features
+
+## Version 0.10.0 (status: planned)
+
+Add a representation of the "Hits" tree using the Event, Track, and Hit concepts:
+
+- introduction of Event, Track, and Hit classes
+- a new output file structure
+- a set of filters and selectors
+
+### Definition of Done (DoD)
+
+- the "Hits" tree can be represented as a list of Event objects
+- a flexible set of filters and selectors is available for Event, Track, and Hit classes
 - all tests pass
 - user documentation (ReadTheDocs) clearly and comprehensively covers the added representations and features
 

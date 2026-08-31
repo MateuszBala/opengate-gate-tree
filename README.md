@@ -1,7 +1,7 @@
 # opengate-gate-tree
 
 [![CI](https://github.com/MateuszBala/opengate-gate-tree/actions/workflows/ci.yaml/badge.svg)](https://github.com/MateuszBala/opengate-gate-tree/actions/workflows/ci.yaml)
-[![Version](https://img.shields.io/badge/version-0.4.0-informational)](https://github.com/MateuszBala/opengate-gate-tree/releases)
+[![Version](https://img.shields.io/badge/version-0.5.0-informational)](https://github.com/MateuszBala/opengate-gate-tree/releases)
 [![Standard Python](https://img.shields.io/badge/Python-3.12-blue?logo=python&logoColor=white)]()
 [![Standard Python](https://img.shields.io/badge/Python-3.13-blue?logo=python&logoColor=white)]()
 [![Standard Python](https://img.shields.io/badge/Python-3.14-blue?logo=python&logoColor=white)]()
@@ -293,7 +293,7 @@ The package ships a `py.typed` marker, so type checkers see its annotations.
 This section is append-only.
 Add a capability entry only when its roadmap stage status changes from `planned` to `completed`.
 
-Current development stage: version-0.4.0
+Current development stage: version-0.5.0
 
 Available capabilities:
 
