@@ -54,6 +54,7 @@ EXPECTED_EXPORTS = {
     "TreeStatistics",
     "UnknownHitsVariantError",
     "UnsupportedBranchTypeError",
+    "VectorView",
     "__version__",
     "as_vectors",
     "build_output_file_name",

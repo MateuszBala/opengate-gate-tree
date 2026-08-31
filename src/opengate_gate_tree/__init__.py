@@ -52,7 +52,13 @@ arguments, such as an empty branch name or inconsistent columns, raise
 ``ValueError`` instead, and are not caught by that clause.
 
 Three columns of a frame are a column of vectors, and
-:func:`as_vectors` reads them as one. :func:`normalize`, :func:`dot` and
+:meth:`VectorView.from_frame` reads them as one, keeping the rows they came
+from::
+
+    direction = frame.gate.position() - frame.gate.source_position()
+    forward = direction.unit().dot(frame.gate.momentum_direction())
+
+:func:`as_vectors` does the same for an array. :func:`normalize`, :func:`dot` and
 :func:`cross` work on whole columns at once; a vector of no length has no
 direction, so such a row is answered with ``nan`` and reported, rather than
 refusing the column it sits in.
@@ -101,6 +107,7 @@ from opengate_gate_tree.geometry.vectors import (  # noqa: E402
     norm,
     normalize,
 )
+from opengate_gate_tree.geometry.vectorview import VectorView  # noqa: E402
 from opengate_gate_tree.io.fileformat import (  # noqa: E402
     OutputFileFormat,
     parse_output_file_format,
@@ -247,6 +254,7 @@ __all__ = [
     "TreeStatistics",
     "UnknownHitsVariantError",
     "UnsupportedBranchTypeError",
+    "VectorView",
     "__version__",
     "as_vectors",
     "build_output_file_name",
