@@ -58,7 +58,12 @@ from::
     direction = frame.gate.position() - frame.gate.source_position()
     forward = direction.unit().dot(frame.gate.momentum_direction())
 
-:func:`as_vectors` does the same for an array. :func:`normalize`, :func:`dot` and
+:func:`as_vectors` does the same for an array.
+
+A vector is taken apart along a direction with :func:`parallel_component` and
+:func:`perpendicular_component`, and read in spherical components with
+:func:`spherical_components`: a radius, a polar angle from ``z`` in
+``[0, pi]``, and an azimuth in ``[0, 2*pi)``. :func:`normalize`, :func:`dot` and
 :func:`cross` work on whole columns at once; a vector of no length has no
 direction, so such a row is answered with ``nan`` and reported, rather than
 refusing the column it sits in.
@@ -98,6 +103,11 @@ from opengate_gate_tree.errors import (  # noqa: E402
     UnknownHitsVariantError,
     UnsupportedBranchTypeError,
 )
+from opengate_gate_tree.geometry.components import (  # noqa: E402
+    parallel_component,
+    perpendicular_component,
+    spherical_components,
+)
 from opengate_gate_tree.geometry.vectors import (  # noqa: E402
     as_vectors,
     clip_cosine,
@@ -106,6 +116,7 @@ from opengate_gate_tree.geometry.vectors import (  # noqa: E402
     ensure_vectors,
     norm,
     normalize,
+    wrap_to_two_pi,
 )
 from opengate_gate_tree.geometry.vectorview import VectorView  # noqa: E402
 from opengate_gate_tree.io.fileformat import (  # noqa: E402
@@ -304,8 +315,10 @@ __all__ = [
     "normalize",
     "ns_to_ms",
     "ns_to_s",
+    "parallel_component",
     "parse_gate_tree",
     "parse_output_file_format",
+    "perpendicular_component",
     "positronium_enum",
     "rad_to_deg",
     "read_hits_trees",
@@ -316,12 +329,14 @@ __all__ = [
     "select_by_gamma_type",
     "select_by_process",
     "select_by_source_type",
+    "spherical_components",
     "statistics_to_dict",
     "summarise_hits_tree",
     "supported_variants",
     "validate_hits_tree",
     "variant_reference",
     "with_decay_metadata",
+    "wrap_to_two_pi",
     "write_statistics",
     "write_tree",
 ]

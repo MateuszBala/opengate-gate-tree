@@ -30,6 +30,11 @@ import numpy as np
 import pandas as pd
 from numpy.typing import ArrayLike
 
+from opengate_gate_tree.geometry.components import (
+    parallel_component,
+    perpendicular_component,
+    spherical_components,
+)
 from opengate_gate_tree.geometry.vectors import (
     VECTOR_DIMENSION,
     as_vectors,
@@ -47,6 +52,10 @@ GENERIC_NAMES: Final[tuple[str, str, str]] = ("x", "y", "z")
 # The suffixes a triple of columns carries in a GATE tree, and the ones
 # ``to_frame`` writes back.
 COMPONENT_SUFFIXES: Final[tuple[str, str, str]] = ("X", "Y", "Z")
+
+# What the spherical components are called. The names say which angle is
+# which, where "theta" and "phi" would leave it to the reader to guess.
+SPHERICAL_COLUMNS: Final[tuple[str, str, str]] = ("radius", "polar", "azimuth")
 
 
 class VectorView:
@@ -249,6 +258,70 @@ class VectorView:
         """
         return self._combined(cross(self._array, self._matching(other)), GENERIC_NAMES)
 
+    def parallel_to(self, axis: "VectorView | ArrayLike") -> "VectorView":
+        """Return the part of every vector that lies along an axis.
+
+        Parameters
+        ----------
+        axis : VectorView | array_like
+            The direction to read along: another view of the same rows, one
+            vector for the whole column, or one per row.
+
+        Returns
+        -------
+        VectorView
+            The part along the axis, describing the same rows.
+
+        Raises
+        ------
+        ValueError
+            If a view of other rows, or an axis of another length, is given.
+        """
+        return self._combined(parallel_component(self._array, self._axis(axis)), self._names)
+
+    def perpendicular_to(self, axis: "VectorView | ArrayLike") -> "VectorView":
+        """Return the part of every vector that is left across an axis.
+
+        Together with :meth:`parallel_to` this adds back up to the vectors it
+        was taken from.
+
+        Parameters
+        ----------
+        axis : VectorView | array_like
+            The direction to read across: another view of the same rows, one
+            vector for the whole column, or one per row.
+
+        Returns
+        -------
+        VectorView
+            The part across the axis, describing the same rows.
+
+        Raises
+        ------
+        ValueError
+            If a view of other rows, or an axis of another length, is given.
+        """
+        return self._combined(perpendicular_component(self._array, self._axis(axis)), self._names)
+
+    def spherical(self) -> pd.DataFrame:
+        """Return the radius, polar angle and azimuth of every vector.
+
+        The polar angle is measured from the ``z`` axis and the azimuth runs
+        in ``[0, 2*pi)``; see
+        :func:`~opengate_gate_tree.geometry.components.spherical_components`.
+
+        Returns
+        -------
+        pandas.DataFrame
+            Columns ``radius``, ``polar`` and ``azimuth``, with the index of
+            the rows. Angles are in radians, as everywhere in this package.
+        """
+        radius, polar, azimuth = spherical_components(self._array)
+        return pd.DataFrame(
+            dict(zip(SPHERICAL_COLUMNS, (radius, polar, azimuth), strict=True)),
+            index=self._index,
+        )
+
     def to_frame(self, prefix: str | None = None) -> pd.DataFrame:
         """Return the vectors as three columns of a frame.
 
@@ -273,6 +346,12 @@ class VectorView:
     def _combined(self, values: np.ndarray, names: tuple[str, str, str]) -> "VectorView":
         """Return another view of the same rows."""
         return VectorView(values, self._index, names)
+
+    def _axis(self, axis: "VectorView | ArrayLike") -> ArrayLike:
+        """Return an axis, holding a view of other rows to the usual rule."""
+        if isinstance(axis, VectorView):
+            return self._matching(axis)
+        return axis
 
     def _matching(self, other: "VectorView") -> np.ndarray:
         """Return the vectors of another view, refusing one about other rows."""

@@ -89,7 +89,7 @@ def test_a_vector_of_no_length_has_no_direction(caplog: pytest.LogCaptureFixture
     assert np.isnan(unit[0]).all()
     assert unit[1].tolist() == [0.6, 0.8, 0.0]
     assert np.isnan(unit[2]).all()
-    assert "2 of 3 direction(s) have no length" in caplog.text
+    assert "2 of 3 direction values have no length" in caplog.text
 
 
 def test_a_column_of_directions_is_reported_once(caplog: pytest.LogCaptureFixture) -> None:

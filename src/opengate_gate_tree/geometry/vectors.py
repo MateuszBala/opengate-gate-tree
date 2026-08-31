@@ -32,6 +32,8 @@ cross(left, right) -> numpy.ndarray
     Vector product, row by row.
 clip_cosine(values) -> numpy.ndarray
     Cosines pulled back into the domain of ``arccos``.
+wrap_to_two_pi(angles) -> numpy.ndarray
+    Angles moved into ``[0, 2*pi)``.
 """
 
 from typing import Final
@@ -53,6 +55,9 @@ VECTOR_DIMENSION: Final[int] = 3
 # it often enough that every angle has to be pulled back in first.
 COS_MIN: Final[float] = -1.0
 COS_MAX: Final[float] = 1.0
+
+# A full turn, which is what an angle short of one is measured against.
+TWO_PI: Final[float] = 2.0 * np.pi
 
 
 def as_vectors(values: ArrayLike) -> np.ndarray:
@@ -243,6 +248,28 @@ def clip_cosine(values: ArrayLike) -> np.ndarray:
     return clipped
 
 
+def wrap_to_two_pi(angles: ArrayLike) -> np.ndarray:
+    """Return angles moved into ``[0, 2*pi)``.
+
+    ``arctan2`` answers in ``(-pi, pi]``, which splits a half turn either side
+    of zero and makes a histogram of azimuths read as two halves. Adding a full
+    turn to the negative ones puts them in the range an analysis expects.
+
+    Parameters
+    ----------
+    angles : array_like
+        Angles in radians, usually straight from ``arctan2``.
+
+    Returns
+    -------
+    numpy.ndarray
+        The same angles, in ``[0, 2*pi)``.
+    """
+    values = np.asarray(angles, dtype=np.float64)
+    wrapped: np.ndarray = np.where(values < 0.0, values + TWO_PI, values)
+    return wrapped
+
+
 def _paired(left: ArrayLike, right: ArrayLike) -> tuple[np.ndarray, np.ndarray]:
     """Return two columns of vectors, refusing a pair that cannot be zipped."""
     first = as_vectors(left)
@@ -260,7 +287,7 @@ def _report_undirected(undirected: np.ndarray, name: str) -> None:
     count = int(np.count_nonzero(undirected))
     if count:
         log().warning(
-            "%d of %d %s(s) have no length, so they have no direction. "
+            "%d of %d %s values have no length, so they have no direction. "
             "Those rows are read as nothing at all.",
             count,
             len(undirected),
