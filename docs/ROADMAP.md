@@ -77,7 +77,7 @@ Add support for representing PositroniumSource data in the "Hits" tree:
 - all tests pass
 - user documentation (ReadTheDocs) clearly and comprehensively covers the added representations and features
 
-## Version 0.5.0 (status: planned)
+## Version 0.5.0 (status: completed)
 
 Add a set of basic filters and selectors for data from the "Hits" tree:
 
@@ -90,6 +90,19 @@ Add a set of basic filters and selectors for data from the "Hits" tree:
 - the three PositroniumSource branches provide filters and selectors of their own
 - all tests pass
 - user documentation (ReadTheDocs) clearly and comprehensively covers the added representations and features
+
+### What this stage delivered
+
+The chained API is registered on `pandas.Series` and `pandas.DataFrame`, so it
+answers about every branch: a range on any column, the shapes on any triple of
+position columns, the run and event a row belongs to, and the branches whose
+values stand for something. A branch that a comparison already answers about -
+`trackID`, `parentID`, `PDGEncoding` - keeps that comparison; the package adds
+a name only where the data means something pandas has no word for.
+
+Selecting by the detector identifier hierarchy, which is what `volumeID`
+holds, is deliberately not here: it belongs with the geometry of version 1.1.0,
+where a detector is described rather than guessed at from identifiers.
 
 ## Version 0.6.0 (status: planned)
 

@@ -221,6 +221,28 @@ with RootFile(Path("simulation.root")) as root_file:
     print(describe_hits_tree(detection))
 ```
 
+### Picking Out Rows
+
+The pandas view is where an analysis picks rows out of a tree. Importing the
+package registers a `gate` namespace on `pandas.Series` and on
+`pandas.DataFrame`, and every filter is a function too:
+
+```python
+frame = data.to_dataframe()
+
+in_the_ring = frame.gate.in_cylinder((0, 0), radius=500.0, inner_radius=409.0)
+energies = in_the_ring.gate.by_run(0)["edep"].gate.in_range(0.2, 0.511)
+```
+
+Each filter comes in two: `is_*` and `has_*` answer with a boolean column,
+which combines with `&` and `|`, while the other name of the pair answers with
+the rows themselves, which chains. Shapes are described by where they sit and
+how big they are, `by_run` and `by_event` name rows by the identifiers GATE
+wrote, and the selectors take the meaning of a code rather than its number.
+What pandas already says — comparing, `isin`, combining masks — is left to
+pandas. See the
+[guide](https://opengate-gate-tree.readthedocs.io/en/latest/guide/filtering.html).
+
 ### Reading What A Gamma Was
 
 The branches a `PositroniumSource` writes hold integers saying what each gamma
@@ -279,6 +301,7 @@ Available capabilities:
 - 0.2.0: GATE ROOT files can be loaded and validated, trees and branches extracted into a NumPy-backed representation with a pandas view, and written to ROOT, HDF5 or CSV. Usable both as a command-line tool and as a library, with user documentation on ReadTheDocs.
 - 0.3.0: the structure of the "Hits" tree is recognised and validated against the schema of the variant it holds, hits stored under another name are found by their structure, a file split into one tree per run or per sensitive detector is read as one dataset, statistics are computed and saved beside the data, and output files are named after the tree they hold.
 - 0.4.0: the branches a PositroniumSource writes are described by enum classes whose members are the integers GATE wrote, so a column compares against them as it was read; their values can be read as names, rows carrying the decay metadata of such a source are told from the rest, and a statistics report names those values instead of printing numbers.
+- 0.5.0: rows of a "Hits" tree are picked out by what the data means - a closed range, a box, a sphere or a ring in the geometry of the detector, the run and event a hit belongs to, the decay metadata it carries, and the meaning of the codes a PositroniumSource wrote - as functions and as a `gate` namespace on a pandas column and frame, each filter answering either with a mask that combines with others or with the rows themselves.
 
 
 

@@ -77,6 +77,33 @@ classes here derive from `enum.IntEnum`, and why they are worth importing
 instead of retyping.
 ```
 
+## Selecting By What A Gamma Was
+
+A comparison covers one member; the selectors take as many as the question
+needs, and each one takes the members of its own class:
+
+```python
+frame = data.to_dataframe()
+
+annihilation = frame["gammaType"].gate.is_gamma_type(GammaType.ANNIHILATION)
+from_positronium = frame["sourceType"].gate.is_source_type(
+    SourceType.PARA_POSITRONIUM, SourceType.ORTHO_POSITRONIUM
+)
+rows = frame[annihilation & from_positronium]
+```
+
+Each selector is asked about one column and answers about it: `is_*` gives the
+mask that selects rows, and `select_by_*` gives the values of the column
+itself, which is what a count is made from:
+
+```python
+frame["decayType"].gate.select_by_decay_type(DecayType.DEEXCITATION).size
+```
+
+Passing a member of another class raises `ValueError`. The classes share their
+numbers, so it would otherwise select by a value meaning something else. See
+[Filtering And Selecting](filtering.md).
+
 ## Reading Values As Names
 
 For a table meant for people, or a summary, the values can be read as names:

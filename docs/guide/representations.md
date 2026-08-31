@@ -130,3 +130,17 @@ prompt = data["gammaType"] == GammaType.PROMPT
 
 Nothing is converted, and nothing is copied: the comparison runs on the column
 as it was read. See [PositroniumSource Data](positronium.md).
+
+## Picking Out Rows
+
+Importing the package registers a `gate` namespace on `pandas.Series` and on
+`pandas.DataFrame`, so a selection reads as a question about the data:
+
+```python
+frame.gate.by_event(1, 5)                        # frame in, frame out
+frame["edep"].gate.in_range(0.2, 0.511)          # column in, column out
+```
+
+The frame stays a plain `pandas.DataFrame` throughout — the namespace is added
+to the class, not to the object — and `TreeData.from_dataframe` reads a
+selection back. See [Filtering And Selecting](filtering.md).
