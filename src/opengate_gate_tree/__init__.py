@@ -19,7 +19,8 @@ Use :class:`RootFile` directly when several trees are read from one file, so
 that the file is opened once.
 
 The structure of the "Hits" tree depends on the simulation that wrote it.
-:class:`HitsTreeVariant` names the structures the package supports and
+:class:`HitsTreeVariant` names the structures the package supports,
+:func:`detect_hits_variant` recognises the one a tree has, and
 :func:`expected_branches` states which branches each of them holds.
 
 Failures while reading or writing files are reported through a subclass of
@@ -50,6 +51,7 @@ from opengate_gate_tree.errors import (  # noqa: E402
     GateTreeError,
     RootFileError,
     TreeNotFoundError,
+    UnknownHitsVariantError,
     UnsupportedBranchTypeError,
 )
 from opengate_gate_tree.io.fileformat import (  # noqa: E402
@@ -61,6 +63,11 @@ from opengate_gate_tree.io.rootfile import RootFile  # noqa: E402
 from opengate_gate_tree.io.writers import write_tree  # noqa: E402
 from opengate_gate_tree.logging_setup import LOGGER_NAME  # noqa: E402
 from opengate_gate_tree.tree.gatetree import GateTree, parse_gate_tree  # noqa: E402
+from opengate_gate_tree.tree.hits.detection import (  # noqa: E402
+    HitsTreeDetection,
+    describe_hits_tree,
+    detect_hits_variant,
+)
 from opengate_gate_tree.tree.hits.schema import (  # noqa: E402
     BranchKind,
     BranchSpec,
@@ -87,14 +94,18 @@ __all__ = [
     "GateSystemType",
     "GateTree",
     "GateTreeError",
+    "HitsTreeDetection",
     "HitsTreeVariant",
     "OutputFileFormat",
     "RootFile",
     "RootFileError",
     "TreeData",
     "TreeNotFoundError",
+    "UnknownHitsVariantError",
     "UnsupportedBranchTypeError",
     "__version__",
+    "describe_hits_tree",
+    "detect_hits_variant",
     "expected_branches",
     "parse_gate_tree",
     "parse_output_file_format",

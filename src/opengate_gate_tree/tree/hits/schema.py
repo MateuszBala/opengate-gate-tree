@@ -30,6 +30,8 @@ expected_branches(variant, system, system_depth) -> tuple[BranchSpec, ...]
     Branches a variant holds, in file order.
 supported_variants() -> tuple[HitsTreeVariant, ...]
     Variants the package supports.
+takes_system_depth(variant) -> bool
+    Whether the number of identifier branches follows the depth of the system.
 uses_system(variant) -> bool
     Whether a variant carries system identifier branches.
 variant_reference(variant) -> str
@@ -368,6 +370,26 @@ def uses_system(variant: HitsTreeVariant) -> bool:
     return SYSTEM_ID_PLACEHOLDER in VARIANT_BRANCHES[variant]
 
 
+def takes_system_depth(variant: HitsTreeVariant) -> bool:
+    """Return whether the identifier block is as deep as the system.
+
+    The classic ROOT output always writes six identifier branches, filling
+    the levels the system does not reach with placeholder names, while the
+    ``GateToTree`` output writes one per level of the system.
+
+    Parameters
+    ----------
+    variant : HitsTreeVariant
+        Variant to check.
+
+    Returns
+    -------
+    bool
+        ``True`` when the length of the identifier block is not fixed.
+    """
+    return variant is HitsTreeVariant.TREE_COMMON
+
+
 def expected_branches(
     variant: HitsTreeVariant,
     system: GateSystemType | None = None,
@@ -418,7 +440,7 @@ def expected_branches(
         )
 
     identifiers = SYSTEM_ID_BRANCHES[system]
-    if variant is HitsTreeVariant.TREE_COMMON:
+    if takes_system_depth(variant):
         depth = len(identifiers) if system_depth is None else system_depth
         if not 1 <= depth <= len(identifiers):
             raise ValueError(

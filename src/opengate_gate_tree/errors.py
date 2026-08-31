@@ -20,6 +20,9 @@ BranchNotFoundError
     One or more requested branches are not present in the tree.
 UnsupportedBranchTypeError
     A branch uses a type that the package does not support.
+UnknownHitsVariantError
+    The structure of a "Hits" tree could not be recognised, or was recognised
+    as one the package does not support.
 ExportError
     The output file cannot be written.
 """
@@ -43,6 +46,15 @@ class BranchNotFoundError(GateTreeError):
 
 class UnsupportedBranchTypeError(GateTreeError):
     """Raised when a branch uses a type that the package does not support."""
+
+
+class UnknownHitsVariantError(GateTreeError):
+    """Raised when the structure of a "Hits" tree is not a supported one.
+
+    Covers both a tree whose branches match none of the known structures and
+    one recognised as a structure the package does not support, such as the
+    output of the Compton camera actor.
+    """
 
 
 class ExportError(GateTreeError):

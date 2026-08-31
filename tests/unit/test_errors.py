@@ -8,6 +8,7 @@ from opengate_gate_tree.errors import (
     GateTreeError,
     RootFileError,
     TreeNotFoundError,
+    UnknownHitsVariantError,
     UnsupportedBranchTypeError,
 )
 
@@ -16,6 +17,7 @@ PACKAGE_ERRORS: list[type[GateTreeError]] = [
     TreeNotFoundError,
     BranchNotFoundError,
     UnsupportedBranchTypeError,
+    UnknownHitsVariantError,
     ExportError,
 ]
 
