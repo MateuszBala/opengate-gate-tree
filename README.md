@@ -221,6 +221,28 @@ with RootFile(Path("simulation.root")) as root_file:
     print(describe_hits_tree(detection))
 ```
 
+### Picking Out Rows
+
+The pandas view is where an analysis picks rows out of a tree. Importing the
+package registers a `gate` namespace on `pandas.Series` and on
+`pandas.DataFrame`, and every filter is a function too:
+
+```python
+frame = data.to_dataframe()
+
+in_the_ring = frame.gate.in_cylinder((0, 0), radius=500.0, inner_radius=409.0)
+energies = in_the_ring.gate.by_run(0)["edep"].gate.in_range(0.2, 0.511)
+```
+
+Each filter comes in two: `is_*` and `has_*` answer with a boolean column,
+which combines with `&` and `|`, while the other name of the pair answers with
+the rows themselves, which chains. Shapes are described by where they sit and
+how big they are, `by_run` and `by_event` name rows by the identifiers GATE
+wrote, and the selectors take the meaning of a code rather than its number.
+What pandas already says — comparing, `isin`, combining masks — is left to
+pandas. See the
+[guide](https://opengate-gate-tree.readthedocs.io/en/latest/guide/filtering.html).
+
 ### Reading What A Gamma Was
 
 The branches a `PositroniumSource` writes hold integers saying what each gamma

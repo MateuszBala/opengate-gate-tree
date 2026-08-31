@@ -1,4 +1,4 @@
-"""Filters and selectors for the data of a "Hits" tree.
+r"""Filters and selectors for the data of a "Hits" tree.
 
 The functions here work on the pandas view of extracted data. They come in
 pairs, and the pair is the same everywhere:
@@ -45,17 +45,17 @@ has_decay_metadata(frame) -> pandas.Series
     Which rows carry the decay metadata of a PositroniumSource.
 with_decay_metadata(frame) -> pandas.DataFrame
     The rows that carry it.
-is_source_type(values, *types) -> pandas.Series
+is_source_type(values, \*types) -> pandas.Series
     Which values name one of the given source types.
-select_by_source_type(values, *types) -> pandas.Series
+select_by_source_type(values, \*types) -> pandas.Series
     The values that name one of them.
-is_decay_type(values, *types), select_by_decay_type(values, *types)
+is_decay_type(values, \*types), select_by_decay_type(values, \*types)
     The same for the decay channel.
-is_gamma_type(values, *types), select_by_gamma_type(values, *types)
+is_gamma_type(values, \*types), select_by_gamma_type(values, \*types)
     The same for the kind of gamma.
-is_process(values, *names) -> pandas.Series
+is_process(values, \*names) -> pandas.Series
     Which values name one of the given processes.
-select_by_process(values, *names) -> pandas.Series
+select_by_process(values, \*names) -> pandas.Series
     The values that name one of them.
 """
 

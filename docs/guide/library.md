@@ -159,6 +159,28 @@ Four more errors join the hierarchy in this version:
 recognised as, `AmbiguousTreeError` when several trees hold hits and none was
 named, and `TreeMergeError` when trees cannot be read as one dataset.
 
+## Filtering And Selecting
+
+The pandas view is where rows are picked out of a tree. The package names the
+questions pandas has no name for, as functions and as a `gate` namespace
+registered on a column and on a frame when the package is imported:
+
+```python
+frame = data.to_dataframe()
+
+in_the_ring = frame.gate.in_cylinder((0, 0), radius=500.0, inner_radius=409.0)
+energies = in_the_ring["edep"].gate.in_range(0.2, 0.511)
+```
+
+Every filter exists twice: `is_*` and `has_*` answer with a boolean column,
+which combines with `&` and `|`, and the other name of the pair answers with
+the rows themselves, which chains. Shapes (`in_box`, `in_sphere`,
+`in_cylinder`) are described by where they sit and how big they are, `by_run`
+and `by_event` name rows by the identifiers GATE wrote, and
+`select_by_source_type`, `select_by_decay_type`, `select_by_gamma_type` and
+`select_by_process` take the meaning of a code rather than its number. See
+[Filtering And Selecting](filtering.md).
+
 ## PositroniumSource Branches
 
 `SourceType`, `DecayType` and `GammaType` name the values of the three
