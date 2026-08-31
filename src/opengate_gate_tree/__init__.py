@@ -18,6 +18,10 @@ Reading a tree and writing it in another format:
 Use :class:`RootFile` directly when several trees are read from one file, so
 that the file is opened once.
 
+The structure of the "Hits" tree depends on the simulation that wrote it.
+:class:`HitsTreeVariant` names the structures the package supports and
+:func:`expected_branches` states which branches each of them holds.
+
 Failures while reading or writing files are reported through a subclass of
 :class:`GateTreeError`, so a single ``except`` clause covers them. Malformed
 arguments, such as an empty branch name or inconsistent columns, raise
@@ -57,6 +61,17 @@ from opengate_gate_tree.io.rootfile import RootFile  # noqa: E402
 from opengate_gate_tree.io.writers import write_tree  # noqa: E402
 from opengate_gate_tree.logging_setup import LOGGER_NAME  # noqa: E402
 from opengate_gate_tree.tree.gatetree import GateTree, parse_gate_tree  # noqa: E402
+from opengate_gate_tree.tree.hits.schema import (  # noqa: E402
+    BranchKind,
+    BranchSpec,
+    expected_branches,
+    supported_variants,
+    variant_reference,
+)
+from opengate_gate_tree.tree.hits.variant import (  # noqa: E402
+    GateSystemType,
+    HitsTreeVariant,
+)
 from opengate_gate_tree.tree.treedata import TreeData  # noqa: E402
 
 # Keep the package quiet when the application using it has not configured
@@ -65,10 +80,14 @@ from opengate_gate_tree.tree.treedata import TreeData  # noqa: E402
 logging.getLogger(LOGGER_NAME).addHandler(logging.NullHandler())
 
 __all__ = [
+    "BranchKind",
     "BranchNotFoundError",
+    "BranchSpec",
     "ExportError",
+    "GateSystemType",
     "GateTree",
     "GateTreeError",
+    "HitsTreeVariant",
     "OutputFileFormat",
     "RootFile",
     "RootFileError",
@@ -76,8 +95,11 @@ __all__ = [
     "TreeNotFoundError",
     "UnsupportedBranchTypeError",
     "__version__",
+    "expected_branches",
     "parse_gate_tree",
     "parse_output_file_format",
     "read_tree",
+    "supported_variants",
+    "variant_reference",
     "write_tree",
 ]

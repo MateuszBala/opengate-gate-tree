@@ -18,10 +18,14 @@ from opengate_gate_tree.logging_setup import LOGGER_NAME
 
 # Names the package promises to export.
 EXPECTED_EXPORTS = {
+    "BranchKind",
     "BranchNotFoundError",
+    "BranchSpec",
     "ExportError",
+    "GateSystemType",
     "GateTree",
     "GateTreeError",
+    "HitsTreeVariant",
     "OutputFileFormat",
     "RootFile",
     "RootFileError",
@@ -29,9 +33,12 @@ EXPECTED_EXPORTS = {
     "TreeNotFoundError",
     "UnsupportedBranchTypeError",
     "__version__",
+    "expected_branches",
     "parse_gate_tree",
     "parse_output_file_format",
     "read_tree",
+    "supported_variants",
+    "variant_reference",
     "write_tree",
 }
 
