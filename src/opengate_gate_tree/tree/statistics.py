@@ -101,8 +101,9 @@ class BranchStatistics:
     top_values : tuple[tuple[str, int], ...]
         Most frequent values, with their counts, for a branch whose values
         can be named: a text branch, and a branch of the PositroniumSource
-        whose numbers stand for something. A value the package cannot name is
-        reported as the number it is.
+        whose numbers stand for something. There, every value with a name is
+        reported and the ones without are capped, so ``unique_count`` is what
+        says how many the column really held.
     """
 
     name: str
@@ -339,14 +340,23 @@ def _named_values(name: str, column: npt.NDArray[Any]) -> tuple[tuple[str, int],
         return ()
     known = {int(member): member.name for member in enum_class}
     values, counts = np.unique(column, return_counts=True)
-    named = [
-        (known.get(int(value), str(int(value))), int(count))
-        for value, count in zip(values, counts, strict=True)
-    ]
-    # Every value is reported, not the most frequent five: the branch has a
-    # handful of them by construction, and a value the package cannot name is
-    # exactly the one worth seeing, however rare it is.
-    return tuple(sorted(named, key=lambda item: (-item[1], item[0])))
+    named: list[tuple[str, int]] = []
+    unnamed: list[tuple[str, int]] = []
+    for value, count in zip(values, counts, strict=True):
+        label = known.get(int(value))
+        if label is None:
+            unnamed.append((str(int(value)), int(count)))
+        else:
+            named.append((label, int(count)))
+
+    # Every member the column holds is reported, however rare: with five
+    # members in a class, a top-five listing could push out the one value the
+    # package could not name, which is the one worth seeing. Values with no
+    # name are capped all the same, because a file the package does not
+    # understand at all could hold any number of them; how many were left out
+    # follows from the count of distinct values reported beside them.
+    kept = named + sorted(unnamed, key=lambda item: (-item[1], item[0]))[:TOP_VALUE_COUNT]
+    return tuple(sorted(kept, key=lambda item: (-item[1], item[0])))
 
 
 def _most_common(counts: Counter[str]) -> tuple[tuple[str, int], ...]:

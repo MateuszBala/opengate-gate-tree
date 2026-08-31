@@ -18,7 +18,7 @@ from opengate_gate_tree import (
     OutputFileFormat,
     SourceType,
     decode_positronium_column,
-    is_positronium_source,
+    has_positronium_metadata,
     read_tree,
     write_tree,
 )
@@ -81,7 +81,7 @@ def test_rows_of_another_source_are_dropped_before_an_analysis(
     )
 
     # ACT
-    from_positronium = is_positronium_source(data[DECAY_INDEX_BRANCH])
+    from_positronium = has_positronium_metadata(data[DECAY_INDEX_BRANCH])
     sources = set(data["sourceType"][from_positronium].tolist())
     others = set(data["sourceType"][~from_positronium].tolist())
 

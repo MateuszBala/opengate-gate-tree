@@ -13,14 +13,14 @@ from opengate_gate_tree.io.reader import read_tree
 from opengate_gate_tree.tree.gatetree import GateTree
 from opengate_gate_tree.tree.hits.positronium import (
     DECAY_INDEX_BRANCH,
-    NOT_A_POSITRONIUM_SOURCE,
+    NO_POSITRONIUM_METADATA,
     POSITRONIUM_BRANCHES,
     DecayType,
     GammaType,
     SourceType,
     decode_positronium_column,
     decode_positronium_value,
-    is_positronium_source,
+    has_positronium_metadata,
     positronium_enum,
 )
 from opengate_gate_tree.tree.hits.schema import expected_branches
@@ -176,11 +176,11 @@ def test_rows_of_a_source_that_is_not_positronium_are_told_apart(
     data = read_tree(positronium_files["back-to-back"], GateTree.HITS, [DECAY_INDEX_BRANCH])
 
     # ACT
-    from_positronium = is_positronium_source(data[DECAY_INDEX_BRANCH])
+    from_positronium = has_positronium_metadata(data[DECAY_INDEX_BRANCH])
 
     # ASSERT
     assert not from_positronium.any()
-    assert set(data[DECAY_INDEX_BRANCH].tolist()) == {NOT_A_POSITRONIUM_SOURCE}
+    assert set(data[DECAY_INDEX_BRANCH].tolist()) == {NO_POSITRONIUM_METADATA}
 
 
 def test_rows_of_a_positronium_source_are_recognised(
@@ -191,7 +191,7 @@ def test_rows_of_a_positronium_source_are_recognised(
     data = read_tree(positronium_files["pps"], GateTree.HITS, [DECAY_INDEX_BRANCH])
 
     # ACT
-    from_positronium = is_positronium_source(data[DECAY_INDEX_BRANCH])
+    from_positronium = has_positronium_metadata(data[DECAY_INDEX_BRANCH])
 
     # ASSERT
     assert from_positronium.all()
@@ -206,7 +206,7 @@ def test_a_mixed_file_is_split_between_the_two(
     column = data[DECAY_INDEX_BRANCH]
 
     # ACT
-    from_positronium = is_positronium_source(column)
+    from_positronium = has_positronium_metadata(column)
 
     # ASSERT
     assert from_positronium.sum() == np.count_nonzero(column >= 0)
@@ -219,7 +219,7 @@ def test_the_mask_answers_for_an_empty_column() -> None:
     column = np.array([], dtype=np.int32)
 
     # ACT
-    from_positronium = is_positronium_source(column)
+    from_positronium = has_positronium_metadata(column)
 
     # ASSERT
     assert from_positronium.dtype == np.bool_
@@ -349,7 +349,7 @@ def test_a_column_given_as_a_list_is_read_row_by_row() -> None:
     values = [-1, 0, 1]
 
     # ACT
-    from_positronium = is_positronium_source(values)
+    from_positronium = has_positronium_metadata(values)
 
     # ASSERT
     assert list(from_positronium) == [False, True, True]
@@ -361,8 +361,9 @@ def test_a_column_given_as_a_list_is_read_row_by_row() -> None:
         (np.zeros((3, 2), dtype=np.int32), "two-dimensional"),
         (np.array(["a", "b"]), "text"),
         (np.array([1.5, 2.5]), "floating point"),
+        (np.array([False, True]), "boolean"),
     ],
-    ids=["two-dimensional", "text", "floating-point"],
+    ids=["two-dimensional", "text", "floating-point", "boolean"],
 )
 def test_asking_about_something_that_is_not_a_column_is_refused(
     column: np.ndarray,
@@ -373,14 +374,16 @@ def test_asking_about_something_that_is_not_a_column_is_refused(
     Comparing a value that is not a column of whole numbers answers with a
     single truth value, and a selection made with it keeps every row while
     changing its shape - the quiet kind of wrong this package is built to
-    avoid.
+    avoid. A boolean column is refused for a nearer reason: it is what a
+    comparison produces, so passing one is passing a mask where a column
+    belongs.
     """
     # ARRANGE
     # No additional setup required.
 
     # ACT / ASSERT
     with pytest.raises(ValueError, match="one-dimensional column of whole numbers"):
-        is_positronium_source(column)
+        has_positronium_metadata(column)
 
 
 def test_reading_a_column_of_another_type_is_refused() -> None:
@@ -422,3 +425,14 @@ def test_the_values_no_scene_holds_are_read_all_the_same() -> None:
     assert list(gamma) == [GammaType.SINGLE]
     assert decode_positronium_value("sourceType", 1) is SourceType.SINGLE_GAMMA_EMITTER
     assert decode_positronium_value("gammaType", 1) is GammaType.SINGLE
+
+
+def test_reading_a_mask_instead_of_a_column_is_refused() -> None:
+    """A mask is what a comparison gives back, not something to read values from."""
+    # ARRANGE
+    column = np.array([0, 2, 3], dtype=np.int32)
+    mask = column == GammaType.ANNIHILATION
+
+    # ACT / ASSERT
+    with pytest.raises(ValueError, match="whole numbers"):
+        decode_positronium_column("gammaType", mask)

@@ -635,3 +635,17 @@ def test_a_value_with_no_name_is_reported_however_rare_it_is() -> None:
     # ASSERT
     assert branch.top_values[-1] == ("9", 1)
     assert len(branch.top_values) == 6
+
+
+def test_values_with_no_name_are_capped_while_named_ones_are_kept() -> None:
+    """A file the package does not understand could hold any number of values."""
+    # ARRANGE
+    column = np.concatenate([np.zeros(10, dtype=np.int32), np.arange(100, 900, dtype=np.int32)])
+
+    # ACT
+    branch = summarise({"sourceType": column})["sourceType"]
+
+    # ASSERT
+    assert ("NOT_DEFINED", 10) in branch.top_values
+    assert len(branch.top_values) == 6
+    assert branch.unique_count == 801

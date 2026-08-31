@@ -228,14 +228,15 @@ was and where it came from. The package names those values, and the names are
 the integers themselves, so a column compares against them as it was read:
 
 ```python
-from opengate_gate_tree import GammaType, SourceType, is_positronium_source
+from opengate_gate_tree import GammaType, SourceType, has_positronium_metadata
 
 prompt = data["gammaType"] == GammaType.PROMPT
-from_positronium = is_positronium_source(data["decayIndex"])
+from_positronium = has_positronium_metadata(data["decayIndex"])
 ```
 
-An enum written by hand would not work here and would not say so, because its
-members would not be integers. See the
+A plain `enum.Enum` written for the same purpose would not work here and would
+not say so: its members are not integers, so the comparison yields a mask of
+`False` rather than an error. See the
 [guide](https://opengate-gate-tree.readthedocs.io/en/latest/guide/positronium.html)
 for the meaning of every value.
 

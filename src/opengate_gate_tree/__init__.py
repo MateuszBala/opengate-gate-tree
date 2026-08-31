@@ -36,7 +36,7 @@ described by :class:`SourceType`, :class:`DecayType` and :class:`GammaType`.
 Their members are those integers, so a column compares against them as it was
 read. :func:`decode_positronium_value` and :func:`decode_positronium_column`
 read those values as names, :func:`positronium_enum` says which class describes
-a branch, and :func:`is_positronium_source` reads the ``decayIndex`` branch to
+a branch, and :func:`has_positronium_metadata` reads the ``decayIndex`` branch to
 tell rows carrying the decay metadata of such a source from the rest.
 
 Failures while reading or writing files are reported through a subclass of
@@ -96,14 +96,14 @@ from opengate_gate_tree.tree.hits.detection import (  # noqa: E402
 )
 from opengate_gate_tree.tree.hits.positronium import (  # noqa: E402
     DECAY_INDEX_BRANCH,
-    NOT_A_POSITRONIUM_SOURCE,
+    NO_POSITRONIUM_METADATA,
     POSITRONIUM_BRANCHES,
     DecayType,
     GammaType,
     SourceType,
     decode_positronium_column,
     decode_positronium_value,
-    is_positronium_source,
+    has_positronium_metadata,
     positronium_enum,
 )
 from opengate_gate_tree.tree.hits.schema import (  # noqa: E402
@@ -151,7 +151,7 @@ __all__ = [
     "HitsTreeDetection",
     "HitsTreeValidationError",
     "HitsTreeVariant",
-    "NOT_A_POSITRONIUM_SOURCE",
+    "NO_POSITRONIUM_METADATA",
     "OutputFileFormat",
     "POSITRONIUM_BRANCHES",
     "RootFile",
@@ -175,7 +175,7 @@ __all__ = [
     "detect_hits_variant",
     "expected_branches",
     "format_statistics",
-    "is_positronium_source",
+    "has_positronium_metadata",
     "merge_tree_data",
     "parse_gate_tree",
     "parse_output_file_format",

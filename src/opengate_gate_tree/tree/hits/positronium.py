@@ -37,16 +37,16 @@ GammaType
     Kind of gamma.
 POSITRONIUM_BRANCHES
     Branches whose values these classes describe.
-DECAY_INDEX_BRANCH, NOT_A_POSITRONIUM_SOURCE
-    Branch holding the channel of the mixture, and the value it holds for a
-    gamma written by another source.
+DECAY_INDEX_BRANCH, NO_POSITRONIUM_METADATA
+    Branch holding the component of the sampled decay, and the value it holds
+    for a row that carries no decay metadata.
 positronium_enum(branch) -> type[IntEnum] | None
     Class describing the values of a branch, when one describes them.
 decode_positronium_value(branch, value) -> IntEnum
     What one value of a branch means.
 decode_positronium_column(branch, column) -> numpy.ndarray
     What every value of a column means.
-is_positronium_source(decay_index) -> numpy.ndarray
+has_positronium_metadata(decay_index) -> numpy.ndarray
     Which rows carry the decay metadata of a PositroniumSource.
 """
 
@@ -114,10 +114,13 @@ DECAY_INDEX_BRANCH: Final[str] = "decayIndex"
 # another kind of source, or one the metadata never reached. The component
 # numbers themselves depend on how the source was configured, so this is the
 # only value of the branch with a fixed meaning.
-NOT_A_POSITRONIUM_SOURCE: Final[int] = -1
+NO_POSITRONIUM_METADATA: Final[int] = -1
 
-# NumPy data type kinds a branch of whole numbers can be read from.
-WHOLE_NUMBER_DTYPE_KINDS: Final[frozenset[str]] = frozenset({"i", "u", "b"})
+# NumPy data type kinds a branch of whole numbers can be read from. Booleans
+# are left out although they are whole numbers: a column of them is not
+# something GATE writes, it is what a comparison produces, and reading a mask
+# as if it held codes would turn False and True into the first two members.
+WHOLE_NUMBER_DTYPE_KINDS: Final[frozenset[str]] = frozenset({"i", "u"})
 
 
 def positronium_enum(branch: str) -> type[IntEnum] | None:
@@ -139,19 +142,20 @@ def positronium_enum(branch: str) -> type[IntEnum] | None:
     return POSITRONIUM_BRANCHES.get(branch)
 
 
-def is_positronium_source(decay_index: npt.NDArray[Any]) -> npt.NDArray[np.bool_]:
+def has_positronium_metadata(decay_index: npt.ArrayLike) -> npt.NDArray[np.bool_]:
     """Return which rows carry the decay metadata of a PositroniumSource.
 
-    What the mask answers is narrower than it may look. It says the row was
-    given the metadata of a sampled decay component, which GATE writes for
-    every gamma of a ``PositroniumSource`` — including the ones from a direct
-    annihilation component, since the source numbers those like the rest. A
-    row without it comes from another kind of source, or from a particle the
-    metadata never reached. What a gamma itself was is said by ``sourceType``.
+    The name says what the value guarantees, which is less than "written by a
+    PositroniumSource". GATE writes a component number for every gamma such a
+    source emits — including the ones from a direct annihilation component,
+    since it numbers those like the rest — and leaves the branch at -1 for a
+    gamma of another source **or** for a particle the metadata never reached.
+    In practice the two coincide, but the branch does not say so, and what a
+    gamma itself was is said by ``sourceType``.
 
     Parameters
     ----------
-    decay_index : numpy.ndarray
+    decay_index : numpy.typing.ArrayLike
         Column of the ``decayIndex`` branch.
 
     Returns
@@ -169,7 +173,7 @@ def is_positronium_source(decay_index: npt.NDArray[Any]) -> npt.NDArray[np.bool_
         without saying so.
     """
     column = _whole_number_column(DECAY_INDEX_BRANCH, decay_index)
-    return np.asarray(column != NOT_A_POSITRONIUM_SOURCE, dtype=np.bool_)
+    return np.asarray(column != NO_POSITRONIUM_METADATA, dtype=np.bool_)
 
 
 def decode_positronium_value(branch: str, value: int) -> IntEnum:
@@ -206,7 +210,7 @@ def decode_positronium_value(branch: str, value: int) -> IntEnum:
         ) from err
 
 
-def decode_positronium_column(branch: str, column: npt.NDArray[Any]) -> npt.NDArray[Any]:
+def decode_positronium_column(branch: str, column: npt.ArrayLike) -> npt.NDArray[Any]:
     """Return what every value of a column means.
 
     A value the package does not know becomes ``None`` rather than stopping
@@ -218,7 +222,7 @@ def decode_positronium_column(branch: str, column: npt.NDArray[Any]) -> npt.NDAr
     ----------
     branch : str
         Branch name.
-    column : numpy.ndarray
+    column : numpy.typing.ArrayLike
         Column of that branch.
 
     Returns
@@ -257,7 +261,7 @@ def decode_positronium_column(branch: str, column: npt.NDArray[Any]) -> npt.NDAr
     return decoded
 
 
-def _whole_number_column(branch: str, column: npt.NDArray[Any]) -> npt.NDArray[Any]:
+def _whole_number_column(branch: str, column: npt.ArrayLike) -> npt.NDArray[Any]:
     """Return a column of whole numbers, refusing anything else.
 
     Values are read from a column, one per row. Anything that is not such a

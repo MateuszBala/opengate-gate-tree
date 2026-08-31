@@ -116,9 +116,11 @@ of entries. Anything else raises `ValueError`.
 ## Values That Stand For Something
 
 Some branches hold whole numbers that are not quantities: the four branches a
-`PositroniumSource` writes say what a gamma was and where it came from. They
-stay integer columns, and the package describes what their values mean through
-enum classes whose members are those integers:
+`PositroniumSource` writes say what a gamma was and where it came from. All
+four stay integer columns; three of them — `sourceType`, `decayType` and
+`gammaType` — have an enum class describing what their values mean, whose
+members are those integers. The fourth, `decayIndex`, holds component numbers
+whose meaning depends on how the source was configured, so it has none:
 
 ```python
 from opengate_gate_tree import GammaType

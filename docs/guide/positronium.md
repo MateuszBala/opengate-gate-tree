@@ -100,7 +100,7 @@ the one standing for "not defined" would report something the file does not
 say. A column is different: a GATE build can write one value more, and an
 analysis of the rows that are understood is still worth having.
 
-## Which Rows A PositroniumSource Wrote
+## Which Rows Carry Decay Metadata
 
 The fourth branch, `decayIndex`, holds the channel of the mixture a gamma came
 from. Channel numbers depend on the order the fractions were configured in, so
@@ -111,26 +111,26 @@ from pathlib import Path
 
 from opengate_gate_tree import (
     DECAY_INDEX_BRANCH,
-    NOT_A_POSITRONIUM_SOURCE,
+    NO_POSITRONIUM_METADATA,
     GateTree,
-    is_positronium_source,
+    has_positronium_metadata,
     read_tree,
 )
 
 data = read_tree(Path("simulation.root"), GateTree.HITS, [DECAY_INDEX_BRANCH, "sourceType"])
-carries_decay_metadata = is_positronium_source(data[DECAY_INDEX_BRANCH])
+carries_decay_metadata = has_positronium_metadata(data[DECAY_INDEX_BRANCH])
 ```
 
-`NOT_A_POSITRONIUM_SOURCE`, the value `-1`, is what GATE writes when a row
+`NO_POSITRONIUM_METADATA`, the value `-1`, is what GATE writes when a row
 carries no decay metadata at all: for a gamma from another kind of source, and
-for a particle the metadata never reached.
+for a particle the metadata never reached. The function is named after what the
+value guarantees rather than after what it usually means.
 
 ```{note}
-What the mask answers is narrower than its name suggests. It says the row was
-given the metadata of a sampled decay component, which a `PositroniumSource`
-writes for every gamma it emits — including the ones from a direct
-annihilation component, since it numbers those like the rest. What a gamma
-itself was is said by `sourceType`.
+A `PositroniumSource` writes that metadata for every gamma it emits, including
+the ones from a direct annihilation component, since it numbers those like the
+rest. So the mask holds `True` for gammas that formed no positronium. What a
+gamma itself was is said by `sourceType`.
 ```
 
 The deprecated `ExtendedVSource` never fills `decayIndex` at all, so a file
@@ -157,9 +157,10 @@ of the three branches:
 ```
 
 A value the package cannot name is reported as the number it is: the report
-says what the file holds. These three branches report every value they hold
-rather than the most frequent few, so a number nothing names cannot be crowded
-out of the report by the members that have names. `decayIndex` keeps its
+says what the file holds. These three branches report every value that has a
+name, so a number nothing names cannot be crowded out by the members that do;
+the numbers without names are capped, and `distinct_values` says how many the
+column really held. `decayIndex` keeps its
 numbers, for the reason above.
 
 ## In A Written File

@@ -165,7 +165,7 @@ named, and `TreeMergeError` when trees cannot be read as one dataset.
 branches a `PositroniumSource` fills, and their members are the integers GATE
 wrote, so a column compares against them as it was read. `decode_positronium_value` and
 `decode_positronium_column` read values as names, `positronium_enum` says which class
-describes a branch, `is_positronium_source` reads `decayIndex` to tell rows
+describes a branch, `has_positronium_metadata` reads `decayIndex` to tell rows
 carrying the decay metadata of such a source from the rest, and
 `POSITRONIUM_BRANCHES` maps each branch to the class describing it. See
 [PositroniumSource Data](positronium.md).
