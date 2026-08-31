@@ -93,6 +93,22 @@ Add a set of basic filters and selectors for data from the "Hits" tree:
 
 ## Version 0.6.0 (status: planned)
 
+Add physical unit converters and vector functionality:
+- reconstruction of polarization from hit-position vectors
+- decomposition of a vector into perpendicular and parallel components
+- calculation of spherical vector components
+- calculation of the angle between vectors
+- calculation of the angle between planes
+
+### Definition of Done (DoD)
+
+- unit converters are available for energy, length, angle, and time
+- dataframe operations can be performed on vectors as if they were vector objects
+- all tests pass
+- user documentation (ReadTheDocs) clearly and comprehensively covers the added representations and features
+
+## Version 0.7.0 (status: planned)
+
 Add a representation of the "Hits" tree using the Event, Track, and Hit concepts:
 
 - introduction of Event, Track, and Hit classes
@@ -106,7 +122,7 @@ Add a representation of the "Hits" tree using the Event, Track, and Hit concepts
 - all tests pass
 - user documentation (ReadTheDocs) clearly and comprehensively covers the added representations and features
 
-## Version 0.7.0 (status: planned)
+## Version 0.8.0 (status: planned)
 
 Add a set of smearing functions for the "Hits" tree and the Event-Track-Hit representation:
 
@@ -120,7 +136,7 @@ Add a set of smearing functions for the "Hits" tree and the Event-Track-Hit repr
 - all tests pass
 - user documentation (ReadTheDocs) clearly and comprehensively covers the added representations and features
 
-## Version 0.8.0 (status: planned)
+## Version 0.9.0 (status: planned)
 
 Add functionality for merging hits from the "Hits" tree and the Event-Track-Hit representation.
 
@@ -131,7 +147,7 @@ Add functionality for merging hits from the "Hits" tree and the Event-Track-Hit 
 - all tests pass
 - user documentation (ReadTheDocs) clearly and comprehensively covers the added representations and features
 
-## Version 0.9.0 (status: planned)
+## Version 0.10.0 (status: planned)
 
 Optimization of "Hits" tree handling.
 
@@ -142,7 +158,7 @@ Optimization of "Hits" tree handling.
 - all tests pass
 - user documentation (ReadTheDocs) clearly and comprehensively covers the added representations and features
 
-## Version 0.10.0 (status: planned)
+## Version 0.11.0 (status: planned)
 
 Basic support for the "Singles" tree:
 
@@ -157,7 +173,7 @@ Basic support for the "Singles" tree:
 - all tests pass
 - user documentation (ReadTheDocs) clearly and comprehensively covers the added representations and features
 
-## Version 0.11.0 (status: planned)
+## Version 0.12.0 (status: planned)
 
 Add a set of filters and selectors for data from the "Singles" tree.
 
@@ -167,7 +183,7 @@ Add a set of filters and selectors for data from the "Singles" tree.
 - all tests pass
 - user documentation (ReadTheDocs) clearly and comprehensively covers the added representations and features
 
-## Version 0.12.0 (status: planned)
+## Version 0.13.0 (status: planned)
 
 Add a representation of the "Singles" tree using the SinglesEvent and Single concepts:
 
@@ -182,7 +198,7 @@ Add a representation of the "Singles" tree using the SinglesEvent and Single con
 - all tests pass
 - user documentation (ReadTheDocs) clearly and comprehensively covers the added representations and features
 
-## Version 0.13.0 (status: planned)
+## Version 0.14.0 (status: planned)
 
 Optimization of "Singles" tree handling.
 
@@ -193,7 +209,7 @@ Optimization of "Singles" tree handling.
 - all tests pass
 - user documentation (ReadTheDocs) clearly and comprehensively covers the added representations and features
 
-## Version 0.14.0 (status: planned)
+## Version 0.15.0 (status: planned)
 
 Basic support for the "Coincidences" tree:
 
@@ -208,7 +224,7 @@ Basic support for the "Coincidences" tree:
 - all tests pass
 - user documentation (ReadTheDocs) clearly and comprehensively covers the added representations and features
 
-## Version 0.15.0 (status: planned)
+## Version 0.16.0 (status: planned)
 
 Add a set of filters and selectors for data from the "Coincidences" tree.
 
@@ -218,7 +234,7 @@ Add a set of filters and selectors for data from the "Coincidences" tree.
 - all tests pass
 - user documentation (ReadTheDocs) clearly and comprehensively covers the added representations and features
 
-## Version 0.16.0 (status: planned)
+## Version 0.17.0 (status: planned)
 
 Optimization of "Coincidences" tree handling.
 
@@ -266,5 +282,17 @@ Add conversion of GATE macros that define a detector into Detector definitions:
 ### Definition of Done (DoD)
 
 - full support for converting macros into package representations
+- all tests pass
+- user documentation (ReadTheDocs) is complete
+
+## Version 1.3.0 (status: planned)
+
+Add support for columns databases:
+ - ClickHouse
+ - DuckDB
+
+### Definition of Done (DoD)
+
+- full support for export to databases
 - all tests pass
 - user documentation (ReadTheDocs) is complete
