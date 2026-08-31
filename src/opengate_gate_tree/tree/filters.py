@@ -59,9 +59,11 @@ select_by_process(values, \*names) -> pandas.Series
     The values that name one of them.
 """
 
-from collections.abc import Sequence
+import math
+from collections.abc import Collection, Sequence
 from enum import IntEnum
-from typing import Final, Literal
+from numbers import Real
+from typing import Final, Literal, SupportsFloat
 
 import numpy as np
 import pandas as pd
@@ -176,7 +178,8 @@ def is_in_box(
     ------
     ValueError
         If the centre does not give one value per column, the sides do not
-        give one length per column, or a side is negative.
+        give one length per column, a side is negative, or any of them is not
+        a finite number.
     KeyError
         If the frame holds no column of one of those names.
     """
@@ -235,8 +238,8 @@ def is_in_sphere(
     Raises
     ------
     ValueError
-        If the centre does not give one value per column, or the radius is
-        negative.
+        If the centre does not give one value per column, the radius is
+        negative, or either is not a finite number.
     KeyError
         If the frame holds no column of one of those names.
     """
@@ -246,6 +249,8 @@ def is_in_sphere(
     squared = sum(
         (values - position) ** 2 for values, position in zip(coordinates, middle, strict=True)
     )
+    # The comparison already carries the index of the frame; naming it here is
+    # what tells a type checker that a column, not a number, comes out of sum().
     return pd.Series(squared <= radius**2, index=frame.index)
 
 
@@ -303,9 +308,9 @@ def is_in_cylinder(
     ------
     ValueError
         If the centre does not give one value per plane column, a radius is
-        negative, or the inner radius is larger than the outer one - which is
-        a ring that could hold nothing, and reads more like two arguments
-        swapped than like a question.
+        negative, any of them is not a finite number, or the inner radius is
+        larger than the outer one - which is a ring that could hold nothing,
+        and reads more like two arguments swapped than like a question.
     KeyError
         If the frame holds no column of one of those names.
     """
@@ -323,6 +328,8 @@ def is_in_cylinder(
         sum((values - position) ** 2 for values, position in zip(across, middle, strict=True))
     )
 
+    # As in is_in_sphere: the index is named rather than imposed, since numpy
+    # answers a square root of a column with something typed as anything.
     inside = pd.Series((distance >= inner_radius) & (distance <= radius), index=frame.index)
     if z_range is not None:
         inside &= is_in_range(along, z_range[0], z_range[1])
@@ -354,19 +361,26 @@ def _coordinates(frame: pd.DataFrame, columns: Sequence[str]) -> tuple[pd.Series
     return tuple(frame[column] for column in columns)
 
 
-def _matching(values: Sequence[float], columns: Sequence[str], name: str) -> tuple[float, ...]:
-    """Return values given per column, refusing a count that does not fit them."""
+def _matching(values: object, columns: Sequence[str], name: str) -> tuple[float, ...]:
+    """Return values given per column, refusing anything that is not one each."""
+    if isinstance(values, str | bytes):
+        raise ValueError(f"'{name}' takes numbers, one per column, got {values!r}.")
+    if not isinstance(values, Collection):
+        raise ValueError(
+            f"'{name}' takes one value per column, given together as a sequence of "
+            f"{len(columns)}, got {values!r}."
+        )
     if len(values) != len(columns):
         raise ValueError(
             f"'{name}' needs one value per column: {len(columns)} expected, {len(values)} given."
         )
-    return tuple(float(value) for value in values)
+    return tuple(_finite(value, name) for value in values)
 
 
 def _side_lengths(sides: Sequence[float] | float, columns: Sequence[str]) -> tuple[float, ...]:
     """Return the length of every side, refusing lengths that describe no box."""
-    if isinstance(sides, int | float):
-        lengths = (float(sides),) * len(columns)
+    if isinstance(sides, Real):
+        lengths = (_finite(sides, "sides"),) * len(columns)
     else:
         lengths = _matching(sides, columns, "sides")
     for length in lengths:
@@ -377,8 +391,24 @@ def _side_lengths(sides: Sequence[float] | float, columns: Sequence[str]) -> tup
 
 def _positive_radius(radius: float, name: str) -> None:
     """Refuse a radius that is not a distance."""
-    if radius < 0:
+    if _finite(radius, name) < 0:
         raise ValueError(f"The '{name}' of a shape cannot be negative, got {radius}.")
+
+
+def _finite(value: object, name: str) -> float:
+    """Return a number of a shape, refusing one that describes no place.
+
+    A shape built from a value that is not a number answers nothing at all, and
+    one built from ``nan`` answers "no rows" - which is the answer hardest to
+    tell from a real one, since every comparison against ``nan`` is false. Both
+    are refused where the other meaningless arguments are.
+    """
+    if not isinstance(value, SupportsFloat):
+        raise ValueError(f"'{name}' takes numbers, got {value!r}.")
+    number = float(value)
+    if not math.isfinite(number):
+        raise ValueError(f"'{name}' takes finite numbers, got {number}.")
+    return number
 
 
 def is_from_run(frame: pd.DataFrame, run_id: int) -> pd.Series:
@@ -472,6 +502,12 @@ def has_decay_metadata(frame: pd.DataFrame) -> pd.Series:
 
     Raises
     ------
+    ValueError
+        If ``decayIndex`` does not hold whole numbers. The branch numbers the
+        components of a source, and a column of another kind - a frame read
+        back from CSV, or one a concatenation turned into floats - cannot be
+        compared against the value standing for "no metadata" without saying
+        so.
     KeyError
         If the frame holds no ``decayIndex`` column.
     """

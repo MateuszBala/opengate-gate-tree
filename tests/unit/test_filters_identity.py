@@ -16,6 +16,7 @@ from opengate_gate_tree.tree.filters import (
     with_decay_metadata,
 )
 from opengate_gate_tree.tree.gatetree import GateTree
+from opengate_gate_tree.tree.hits.positronium import DECAY_INDEX_BRANCH
 
 # The scene behind the multi-run fixture, from its application.mac: three runs
 # of one time slice each, so run N covers the seconds [0.02 N, 0.02 (N + 1)].
@@ -205,3 +206,23 @@ def test_an_empty_frame_answers_empty(positronium_files: Mapping[str, Path]) -> 
     # ASSERT
     assert len(of_event) == 0
     assert len(with_metadata) == 0
+
+
+def test_decay_metadata_read_from_a_column_of_another_kind_is_refused(
+    positronium_files: Mapping[str, Path],
+) -> None:
+    """A frame does not have to come straight out of a file, and then it can lie.
+
+    ``decayIndex`` numbers the components of a source, so it is written as
+    whole numbers. A round trip through CSV, or a concatenation that
+    introduced a missing value, turns it into floating point ones, where the
+    value standing for "no metadata" can no longer be compared for. The filter
+    says so instead of answering.
+    """
+    # ARRANGE
+    frame = read_tree(positronium_files["pps"], GateTree.HITS).to_dataframe()
+    as_floats = frame.astype({DECAY_INDEX_BRANCH: "float64"})
+
+    # ACT / ASSERT
+    with pytest.raises(ValueError, match="whole numbers"):
+        has_decay_metadata(as_floats)

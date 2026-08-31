@@ -1,6 +1,6 @@
 """Unit tests for the shape filters."""
 
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from pathlib import Path
 
 import numpy as np
@@ -32,6 +32,7 @@ A2_BORE_RADIUS = 409.0  # setRmin 409.0 mm
 A2_SCANNER_RADIUS = 500.0  # setRmax 500.0 mm
 A2_SCANNER_LENGTH = 1060.0  # setHeight 1060 mm
 A2_CRYSTAL_SIDES = (3.2, 20.0, 3.2)  # crystal setXLength / setYLength / setZLength
+A2_SECTOR_CENTRE = (0.0, 420.0, 0.0)  # rsector setTranslation 0.0 420.0 0.0 mm
 
 # Points chosen so that each one answers a different question: the origin, a
 # point on the face of the box below, one on the sphere of radius 10, one off
@@ -369,3 +370,138 @@ def test_the_shell_holds_every_hit_and_its_cavity_holds_none(
     # ASSERT
     assert in_the_shell.all()
     assert not in_the_cavity.any()
+
+
+def test_the_walls_and_the_ends_of_a_ring_belong_to_it() -> None:
+    """Every boundary of the shape with the most of them is decided here.
+
+    A ring has four: the two walls and the two ends of its axial window. The
+    points sit exactly on each of them, and just outside each of them, so a
+    comparison that stopped including its boundary would be seen.
+    """
+    # ARRANGE
+    points = pd.DataFrame(
+        {
+            "posX": [4.0, 6.0, 5.0, 5.0, 3.999, 6.001, 5.0, 5.0],
+            "posY": [0.0] * 8,
+            "posZ": [0.0, 0.0, -1.0, 1.0, 0.0, 0.0, -1.001, 1.001],
+        }
+    )
+
+    # ACT
+    inside = is_in_cylinder(points, (0, 0), 6.0, z_range=(-1.0, 1.0), inner_radius=4.0)
+
+    # ASSERT
+    assert list(inside) == [True, True, True, True, False, False, False, False]
+
+
+def test_a_sphere_sits_where_its_centre_is() -> None:
+    """The centre is what moves the sphere, as it moves a box."""
+    # ARRANGE
+    # The third point sits at (10, 0, 0), which is where the sphere is.
+
+    # ACT
+    selected = in_sphere(POINTS, (10, 0, 0), 1.0)
+
+    # ASSERT
+    assert list(selected.index) == [2]
+
+
+def test_a_cylinder_sits_where_its_centre_is() -> None:
+    """The centre says where the axis crosses the plane of the first two columns."""
+    # ARRANGE
+    # No additional setup required.
+
+    # ACT
+    selected = in_cylinder(POINTS, (10, 0), 1.0)
+
+    # ASSERT
+    assert list(selected.index) == [2]
+
+
+def test_a_shape_centred_on_one_sector_holds_the_hits_of_that_sector(
+    hits_variant_files: Mapping[str, Path],
+) -> None:
+    """A detector is asked about part of itself, which is what a centre is for.
+
+    The first rsector of this scanner sits at 420 mm along y, according to its
+    detector macro. A sphere and a cylinder centred there hold some of the
+    hits; the same shapes at the origin hold none, since the bore is empty.
+    """
+    # ARRANGE
+    frame = read_tree(hits_variant_files["a2"], GateTree.HITS).to_dataframe()
+    across = A2_SECTOR_CENTRE[:2]
+
+    # ACT
+    near_the_sector = is_in_sphere(frame, A2_SECTOR_CENTRE, 100.0)
+    along_the_sector = is_in_cylinder(frame, across, 100.0)
+
+    # ASSERT
+    assert 0 < near_the_sector.sum() < len(frame)
+    assert 0 < along_the_sector.sum() < len(frame)
+    assert not is_in_sphere(frame, (0, 0, 0), 100.0).any()
+    assert not is_in_cylinder(frame, (0, 0), 100.0).any()
+
+
+@pytest.mark.parametrize(
+    ("call", "match"),
+    [
+        (lambda: is_in_sphere(POINTS, (0, 0, 0), float("nan")), "finite"),
+        (lambda: is_in_sphere(POINTS, (0, 0, 0), float("inf")), "finite"),
+        (lambda: is_in_cylinder(POINTS, (0, 0), 5.0, inner_radius=float("nan")), "finite"),
+        (lambda: is_in_box(POINTS, (0, 0, 0), float("nan")), "finite"),
+        (lambda: is_in_box(POINTS, (0, 0, 0), (2, float("nan"), 2)), "finite"),
+        (lambda: is_in_sphere(POINTS, (float("nan"), 0, 0), 1.0), "finite"),
+        (lambda: is_in_sphere(POINTS, 3.0, 1.0), "one value per column"),  # type: ignore[arg-type]
+        (lambda: is_in_box(POINTS, (0, 0, 0), "wide"), "takes numbers"),  # type: ignore[arg-type]
+        (lambda: is_in_sphere(POINTS, "origin", 1.0), "takes numbers"),  # type: ignore[arg-type]
+        (lambda: is_in_box(POINTS, (0, 0, 0), (2, "wide", 2)), "takes numbers"),  # type: ignore[arg-type]
+        (lambda: is_in_sphere(POINTS, (None, 0, 0), 1.0), "takes numbers"),  # type: ignore[arg-type]
+    ],
+    ids=[
+        "nan-radius",
+        "infinite-radius",
+        "nan-inner-radius",
+        "nan-cube",
+        "nan-side",
+        "nan-centre",
+        "centre-as-one-number",
+        "sides-as-text",
+        "centre-as-text",
+        "one-side-as-text",
+        "one-coordinate-as-nothing",
+    ],
+)
+def test_a_shape_that_describes_no_place_is_refused(
+    call: Callable[[], pd.Series],
+    match: str,
+) -> None:
+    """A shape built from nan answers "no rows", which is the answer hardest to check.
+
+    Every comparison against nan is false, so such a filter would remove every
+    row and look like a question that had been asked and answered. It is
+    refused where the other meaningless arguments are.
+    """
+    # ARRANGE
+    # No additional setup required.
+
+    # ACT / ASSERT
+    with pytest.raises(ValueError, match=match):
+        call()
+
+
+@pytest.mark.parametrize(
+    "side",
+    [np.float32(2.0), np.int64(2), np.float64(2.0), 2],
+    ids=["float32", "int64", "float64", "int"],
+)
+def test_a_length_read_out_of_a_column_is_a_length(side: float) -> None:
+    """A side of a detector is read from data as often as it is typed by hand."""
+    # ARRANGE
+    # No additional setup required.
+
+    # ACT
+    selected = is_in_box(POINTS, (0, 0, 0), side)
+
+    # ASSERT
+    assert list(selected) == list(is_in_box(POINTS, (0, 0, 0), 2.0))
