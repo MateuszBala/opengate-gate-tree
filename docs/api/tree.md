@@ -38,6 +38,9 @@ The trees GATE writes and the in-memory representation of their data.
 
 .. automodule:: opengate_gate_tree.tree.hits.validation
    :members:
+
+.. automodule:: opengate_gate_tree.tree.hits.positronium
+   :members:
 ```
 
 ## Merging
