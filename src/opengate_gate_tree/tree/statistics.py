@@ -1,0 +1,463 @@
+"""Summaries of the data extracted from a tree.
+
+Statistics answer what a file holds before anything is done with it: how many
+entries, how many events behind them, what range each branch covers, which
+process names appear and how often.
+
+The per-branch part is not specific to hits and stays that way: the other
+trees of a GATE file are summarised the same way once they are supported. The
+part that reads the numbers as physics is separate and is filled in only for
+hits, and only from the branches that were actually extracted.
+
+Events are counted by run and event identifier together. GATE numbers events
+within a run, so the identifier alone counts too few of them as soon as a file
+holds more than one run, and the package leaves those identifiers as they are.
+
+Public objects:
+
+BranchStatistics
+    Summary of a single branch.
+HitsSummary
+    Summary of what the hits describe, beyond their columns.
+TreeStatistics
+    Summary of an extracted tree.
+compute_statistics(data, detection) -> TreeStatistics
+    Summarise extracted data.
+format_statistics(statistics) -> str
+    Render a summary for reading.
+statistics_to_dict(statistics) -> dict
+    Render a summary for a file.
+"""
+
+from collections import Counter
+from collections.abc import Mapping
+from dataclasses import dataclass
+from typing import Any, Final
+
+import numpy as np
+import numpy.typing as npt
+
+from opengate_gate_tree.tree.gatetree import GateTree
+from opengate_gate_tree.tree.hits.detection import HitsTreeDetection
+from opengate_gate_tree.tree.hits.schema import BranchKind, variant_reference
+from opengate_gate_tree.tree.hits.variant import SYSTEM_ALIASES
+from opengate_gate_tree.tree.merge import SOURCE_TREE_BRANCH
+from opengate_gate_tree.tree.treedata import TreeData
+
+# Branch naming the run an entry belongs to.
+RUN_BRANCH: Final[str] = "runID"
+
+# Branch naming the event an entry belongs to.
+EVENT_BRANCH: Final[str] = "eventID"
+
+# Branch naming the track an entry belongs to.
+TRACK_BRANCH: Final[str] = "trackID"
+
+# Branch holding the energy deposited by an entry.
+ENERGY_BRANCH: Final[str] = "edep"
+
+# Branch holding the time of an entry.
+TIME_BRANCH: Final[str] = "time"
+
+# Number of values a text branch reports as its most frequent ones.
+TOP_VALUE_COUNT: Final[int] = 5
+
+# NumPy data type kinds holding text.
+TEXT_DTYPE_KINDS: Final[frozenset[str]] = frozenset({"O", "U", "S"})
+
+# NumPy data type kinds holding whole numbers.
+INTEGER_DTYPE_KINDS: Final[frozenset[str]] = frozenset({"i", "u"})
+
+
+@dataclass(frozen=True)
+class BranchStatistics:
+    """Summary of a single branch.
+
+    Attributes
+    ----------
+    name : str
+        Branch name.
+    dtype : str
+        Type the branch is held with.
+    kind : BranchKind
+        Kind of value the branch holds.
+    entries : int
+        Number of entries of the branch.
+    nan_count : int | None
+        Number of values that are not a number, for a floating point branch.
+    minimum, maximum, mean, std : float | None
+        Range and spread of a numeric branch, ignoring values that are not a
+        number. ``None`` for a text branch, and for a numeric one holding no
+        usable value.
+    unique_count : int | None
+        Number of distinct values, for a text or whole number branch.
+    top_values : tuple[tuple[str, int], ...]
+        Most frequent values of a text branch, with their counts.
+    """
+
+    name: str
+    dtype: str
+    kind: BranchKind
+    entries: int
+    nan_count: int | None = None
+    minimum: float | None = None
+    maximum: float | None = None
+    mean: float | None = None
+    std: float | None = None
+    unique_count: int | None = None
+    top_values: tuple[tuple[str, int], ...] = ()
+
+
+@dataclass(frozen=True)
+class HitsSummary:
+    """Summary of what the hits describe, beyond their columns.
+
+    Attributes
+    ----------
+    event_key : tuple[str, ...]
+        Branches the events were counted by. Empty when they could not be
+        counted at all.
+    event_count : int | None
+        Number of distinct events.
+    run_count : int | None
+        Number of distinct runs.
+    track_count : int | None
+        Number of distinct tracks.
+    total_edep : float | None
+        Sum of the deposited energy.
+    time_min, time_max : float | None
+        Range of the times.
+    source_trees : tuple[str, ...]
+        Trees the entries came from, for a merged dataset.
+    """
+
+    event_key: tuple[str, ...] = ()
+    event_count: int | None = None
+    run_count: int | None = None
+    track_count: int | None = None
+    total_edep: float | None = None
+    time_min: float | None = None
+    time_max: float | None = None
+    source_trees: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
+class TreeStatistics:
+    """Summary of an extracted tree.
+
+    Attributes
+    ----------
+    tree : GateTree
+        Tree the data was extracted from.
+    entry_count : int
+        Number of entries.
+    branches : tuple[BranchStatistics, ...]
+        Summary of every branch, in the order of the data.
+    detection : HitsTreeDetection | None
+        Structure the tree was recognised as, when it is known.
+    hits_summary : HitsSummary | None
+        Summary of the hits, for a "Hits" tree.
+    """
+
+    tree: GateTree
+    entry_count: int
+    branches: tuple[BranchStatistics, ...]
+    detection: HitsTreeDetection | None = None
+    hits_summary: HitsSummary | None = None
+
+
+def compute_statistics(
+    data: TreeData,
+    detection: HitsTreeDetection | None = None,
+) -> TreeStatistics:
+    """Summarise extracted data.
+
+    Parameters
+    ----------
+    data : TreeData
+        Data to summarise.
+    detection : HitsTreeDetection | None
+        Structure the tree was recognised as, reported along with the numbers.
+
+    Returns
+    -------
+    TreeStatistics
+        Summary of the data.
+    """
+    branches = tuple(_branch_statistics(name, column) for name, column in data.columns.items())
+    summary = _hits_summary(data) if data.tree is GateTree.HITS else None
+    return TreeStatistics(
+        tree=data.tree,
+        entry_count=data.entry_count,
+        branches=branches,
+        detection=detection,
+        hits_summary=summary,
+    )
+
+
+def statistics_to_dict(statistics: TreeStatistics) -> dict[str, Any]:
+    """Render a summary as plain values, ready to be written to a file.
+
+    Parameters
+    ----------
+    statistics : TreeStatistics
+        Summary to render.
+
+    Returns
+    -------
+    dict
+        Summary as dictionaries, lists, strings and numbers. Values that are
+        not a number are reported as ``null``, so that the result is valid
+        JSON.
+    """
+    report: dict[str, Any] = {
+        "tree": statistics.tree.value,
+        "entries": statistics.entry_count,
+        "branches": [_branch_to_dict(branch) for branch in statistics.branches],
+    }
+    if statistics.detection is not None:
+        report["structure"] = _detection_to_dict(statistics.detection)
+    if statistics.hits_summary is not None:
+        report["hits"] = _summary_to_dict(statistics.hits_summary)
+    return report
+
+
+def format_statistics(statistics: TreeStatistics) -> str:
+    """Render a summary for reading.
+
+    Parameters
+    ----------
+    statistics : TreeStatistics
+        Summary to render.
+
+    Returns
+    -------
+    str
+        Description spanning several lines.
+    """
+    lines = [f"Tree: {statistics.tree.value}", f"Entries: {statistics.entry_count}"]
+    if statistics.detection is not None:
+        lines.insert(1, _detection_line(statistics.detection))
+    if statistics.hits_summary is not None:
+        lines.extend(_summary_lines(statistics.hits_summary))
+
+    lines.append(f"Branches ({len(statistics.branches)}):")
+    lines.extend(f"  - {_branch_line(branch)}" for branch in statistics.branches)
+    return "\n".join(lines)
+
+
+def _branch_statistics(name: str, column: npt.NDArray[Any]) -> BranchStatistics:
+    """Summarise a single branch."""
+    entries = int(column.shape[0])
+    if column.dtype.kind in TEXT_DTYPE_KINDS:
+        counts = Counter(str(value) for value in column)
+        return BranchStatistics(
+            name=name,
+            dtype="text",
+            kind=BranchKind.TEXT,
+            entries=entries,
+            unique_count=len(counts),
+            top_values=_most_common(counts),
+        )
+
+    is_integer = column.dtype.kind in INTEGER_DTYPE_KINDS
+    kind = BranchKind.INTEGER if is_integer else BranchKind.FLOAT
+    dtype = str(column.dtype.name)
+    if column.ndim > 1:
+        kind = BranchKind.INTEGER_ARRAY if is_integer else BranchKind.FLOAT
+        dtype = f"{dtype}{''.join(f'[{width}]' for width in column.shape[1:])}"
+
+    flattened = column.reshape(-1)
+    nan_count = None if is_integer else int(np.count_nonzero(np.isnan(flattened)))
+    usable = flattened if is_integer else flattened[~np.isnan(flattened)]
+    unique_count = len(np.unique(flattened)) if is_integer and column.ndim == 1 else None
+
+    if usable.size == 0:
+        return BranchStatistics(
+            name=name,
+            dtype=dtype,
+            kind=kind,
+            entries=entries,
+            nan_count=nan_count,
+            unique_count=unique_count,
+        )
+
+    return BranchStatistics(
+        name=name,
+        dtype=dtype,
+        kind=kind,
+        entries=entries,
+        nan_count=nan_count,
+        minimum=float(np.min(usable)),
+        maximum=float(np.max(usable)),
+        mean=float(np.mean(usable)),
+        std=float(np.std(usable)),
+        unique_count=unique_count,
+    )
+
+
+def _most_common(counts: Counter[str]) -> tuple[tuple[str, int], ...]:
+    """Return the most frequent values, ties resolved by value."""
+    ordered = sorted(counts.items(), key=lambda item: (-item[1], item[0]))
+    return tuple(ordered[:TOP_VALUE_COUNT])
+
+
+def _hits_summary(data: TreeData) -> HitsSummary:
+    """Summarise what the hits describe, from the branches that are present."""
+    columns = data.columns
+    key = tuple(name for name in (RUN_BRANCH, EVENT_BRANCH) if name in columns)
+    event_count = None
+    if EVENT_BRANCH in columns:
+        stacked = np.stack([columns[name] for name in key], axis=1)
+        event_count = int(len(np.unique(stacked, axis=0)))
+    else:
+        key = ()
+
+    return HitsSummary(
+        event_key=key,
+        event_count=event_count,
+        run_count=_distinct_count(columns, RUN_BRANCH),
+        track_count=_distinct_count(columns, TRACK_BRANCH),
+        total_edep=_total(columns, ENERGY_BRANCH),
+        time_min=_extreme(columns, TIME_BRANCH, np.min),
+        time_max=_extreme(columns, TIME_BRANCH, np.max),
+        source_trees=_source_trees(columns),
+    )
+
+
+def _distinct_count(columns: Mapping[str, npt.NDArray[Any]], name: str) -> int | None:
+    """Return how many distinct values a branch holds, when it is present."""
+    if name not in columns:
+        return None
+    return int(len(np.unique(columns[name])))
+
+
+def _total(columns: Mapping[str, npt.NDArray[Any]], name: str) -> float | None:
+    """Return the sum of a branch, when it is present."""
+    if name not in columns:
+        return None
+    return float(np.nansum(columns[name]))
+
+
+def _extreme(
+    columns: Mapping[str, npt.NDArray[Any]],
+    name: str,
+    pick: Any,
+) -> float | None:
+    """Return an end of the range of a branch, when it holds usable values."""
+    if name not in columns:
+        return None
+    values = columns[name]
+    usable = values[~np.isnan(values)] if values.dtype.kind == "f" else values
+    if usable.size == 0:
+        return None
+    return float(pick(usable))
+
+
+def _source_trees(columns: Mapping[str, npt.NDArray[Any]]) -> tuple[str, ...]:
+    """Return the trees a merged dataset came from, in the order they appear."""
+    if SOURCE_TREE_BRANCH not in columns:
+        return ()
+    return tuple(dict.fromkeys(str(value) for value in columns[SOURCE_TREE_BRANCH]))
+
+
+def _branch_to_dict(branch: BranchStatistics) -> dict[str, Any]:
+    """Render the summary of a branch as plain values."""
+    report: dict[str, Any] = {
+        "name": branch.name,
+        "type": branch.dtype,
+        "kind": branch.kind.value,
+        "entries": branch.entries,
+        "minimum": branch.minimum,
+        "maximum": branch.maximum,
+        "mean": branch.mean,
+        "std": branch.std,
+    }
+    if branch.nan_count is not None:
+        report["not_a_number"] = branch.nan_count
+    if branch.unique_count is not None:
+        report["distinct_values"] = branch.unique_count
+    if branch.top_values:
+        report["most_frequent"] = [
+            {"value": value, "count": count} for value, count in branch.top_values
+        ]
+    return report
+
+
+def _detection_to_dict(detection: HitsTreeDetection) -> dict[str, Any]:
+    """Render a recognised structure as plain values."""
+    report: dict[str, Any] = {
+        "variant": detection.variant.value,
+        "reference": variant_reference(detection.variant),
+        "branches": detection.branch_count,
+    }
+    if detection.tree_name is not None:
+        report["tree_name"] = detection.tree_name
+    if detection.system is not None:
+        report["system_scheme"] = list(SYSTEM_ALIASES[detection.system])
+        report["system_depth"] = detection.system_depth
+    return report
+
+
+def _summary_to_dict(summary: HitsSummary) -> dict[str, Any]:
+    """Render the summary of the hits as plain values."""
+    report: dict[str, Any] = {
+        "event_key": list(summary.event_key),
+        "events": summary.event_count,
+        "runs": summary.run_count,
+        "tracks": summary.track_count,
+        "total_edep": summary.total_edep,
+        "time_min": summary.time_min,
+        "time_max": summary.time_max,
+    }
+    if summary.source_trees:
+        report["source_trees"] = list(summary.source_trees)
+    return report
+
+
+def _detection_line(detection: HitsTreeDetection) -> str:
+    """Return the line naming the structure of the tree."""
+    parts = [f"Structure: {detection.variant.value} ({variant_reference(detection.variant)})"]
+    if detection.tree_name is not None:
+        parts.append(f"stored as '{detection.tree_name}'")
+    if detection.system is not None:
+        parts.append(f"system {' / '.join(SYSTEM_ALIASES[detection.system])}")
+    return ", ".join(parts)
+
+
+def _summary_lines(summary: HitsSummary) -> list[str]:
+    """Return the lines describing what the hits add up to."""
+    lines: list[str] = []
+    if summary.event_count is not None:
+        counted_by = ", ".join(summary.event_key)
+        lines.append(f"Events: {summary.event_count} (counted by {counted_by})")
+    if summary.run_count is not None:
+        lines.append(f"Runs: {summary.run_count}")
+    if summary.track_count is not None:
+        lines.append(f"Tracks: {summary.track_count}")
+    if summary.total_edep is not None:
+        lines.append(f"Deposited energy: {summary.total_edep:.6g}")
+    if summary.time_min is not None and summary.time_max is not None:
+        lines.append(f"Time range: {summary.time_min:.6g} to {summary.time_max:.6g}")
+    if summary.source_trees:
+        lines.append(f"Source trees: {', '.join(summary.source_trees)}")
+    return lines
+
+
+def _branch_line(branch: BranchStatistics) -> str:
+    """Return the line describing a single branch."""
+    head = f"{branch.name} / {branch.dtype}"
+    if branch.kind is BranchKind.TEXT:
+        frequent = ", ".join(f"{value} ({count})" for value, count in branch.top_values)
+        return f"{head}: {branch.unique_count} distinct, most frequent {frequent}"
+    if branch.minimum is None:
+        return f"{head}: no usable value"
+    body = (
+        f"min {branch.minimum:.6g}, max {branch.maximum:.6g}, "
+        f"mean {branch.mean:.6g}, std {branch.std:.6g}"
+    )
+    if branch.nan_count:
+        body += f", not a number {branch.nan_count}"
+    if branch.unique_count is not None:
+        body += f", {branch.unique_count} distinct"
+    return f"{head}: {body}"

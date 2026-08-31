@@ -4,6 +4,7 @@ The first test mirrors the example in the "Library Usage" section of the
 README, so that the documented code cannot quietly stop working.
 """
 
+import json
 from pathlib import Path
 
 import h5py
@@ -17,7 +18,9 @@ from opengate_gate_tree import (
     OutputFileFormat,
     RootFile,
     TreeNotFoundError,
+    compute_statistics,
     read_tree,
+    write_statistics,
     write_tree,
 )
 
@@ -137,3 +140,26 @@ def test_a_selection_survives_the_whole_round_trip(
     # ASSERT
     assert restored.branch_names == ("edep", "eventID")
     assert restored.entry_count == data.entry_count
+
+
+def test_statistics_describe_what_was_extracted(
+    gate_hits_file: Path,
+    tmp_path: Path,
+) -> None:
+    """Summarising and saving a report is a whole task on its own."""
+    # ARRANGE
+    report_file = tmp_path / "hits.stats.json"
+
+    # ACT
+    with RootFile(gate_hits_file) as root_file:
+        detection = root_file.detect_hits_tree()
+        data = root_file.read(GateTree.HITS)
+    statistics = compute_statistics(data, detection)
+    write_statistics(statistics, report_file)
+
+    # ASSERT
+    report = json.loads(report_file.read_text(encoding="utf-8"))
+    assert report["entries"] == data.entry_count
+    assert report["structure"]["reference"] == "A1"
+    assert report["hits"]["event_key"] == ["runID", "eventID"]
+    assert len(report["branches"]) == len(data.branch_names)
