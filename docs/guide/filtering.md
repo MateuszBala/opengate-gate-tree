@@ -40,7 +40,18 @@ filter exists twice under two names:
 | Name | Answers with | What it is for |
 | --- | --- | --- |
 | `is_*`, `has_*` | a boolean column | combining conditions, indexing another column |
-| the other name | the rows themselves | chaining one selection onto the next |
+| `in_*`, `by_*`, `with_*`, `select_by_*` | what was asked about, narrowed | chaining one selection onto the next |
+
+The mask half is one word wherever it appears. The other half is named after
+how the question reads — `in_sphere`, `by_run`, `with_decay_metadata`,
+`select_by_process` — so the four prefixes are worth knowing:
+
+| Prefix | Asks about | Example |
+| --- | --- | --- |
+| `in_` | a range or a shape | `in_cylinder` |
+| `by_` | an identifier | `by_event` |
+| `with_` | metadata a row carries | `with_decay_metadata` |
+| `select_by_` | the meaning of a code | `select_by_gamma_type` |
 
 ```python
 inside = frame.gate.is_in_sphere((0, 0, 0), 500.0)     # a mask
@@ -143,9 +154,12 @@ POSITION_COLUMNS      # ('posX', 'posY', 'posZ'), the default
 frame.gate.in_sphere((0, 0, 0), 25.0, columns=("sourcePosX", "sourcePosY", "sourcePosZ"))
 ```
 
-A shape always reads three columns, and the centre gives one value per column,
-in the same order. Anything else raises `ValueError`; a column the frame does
-not hold raises `KeyError`.
+A shape always reads three columns. The centre gives one value per column it is
+centred in, in the same order — three for a box and a sphere, two for a
+cylinder, whose third column is its axis. Anything else raises `ValueError`,
+and so does a radius, a side or a coordinate that is not a finite number: a
+shape built from `nan` would answer "no rows", which is the answer hardest to
+tell from a real one. A column the frame does not hold raises `KeyError`.
 
 ## Runs And Events
 
@@ -177,6 +191,19 @@ frame["gammaType"].gate.is_gamma_type(GammaType.PROMPT, GammaType.ANNIHILATION)
 Several members can be given at once, and the answer covers all of them. Giving
 none raises `ValueError`: an empty selection is a call that means nothing.
 
+```{note}
+These four selectors are asked about **one column**, so `select_by_*` answers
+with the values of that column — a `decayType` column holding nothing but
+`DEEXCITATION`, which is what to count or to run `value_counts()` on. Rows are
+selected through the mask, which is why the chains on this page use `is_*` and
+index the frame with it:
+
+```python
+deexcitation = frame["decayType"].gate.is_decay_type(DecayType.DEEXCITATION)
+rows = frame[deexcitation]
+```
+```
+
 ```{warning}
 Each selector takes the members of its own class. The classes share their
 numbers — a source type of 2 is a para-positronium and a gamma type of 2 is an
@@ -197,6 +224,13 @@ The answer is narrower than "written by a `PositroniumSource`": such a source
 numbers every gamma it emits, including the ones from a direct annihilation
 component. What a gamma itself was is said by `sourceType`. See
 [PositroniumSource Data](positronium.md).
+
+Both read `decayIndex` as the whole numbers GATE writes there, and raise
+`ValueError` when the column holds something else. A frame does not have to
+come straight out of `to_dataframe()`: a round trip through CSV, or a
+concatenation that introduced a missing value, turns the column into floating
+point numbers, where the value standing for "no metadata" can no longer be
+compared for.
 
 ## The Process That Made A Hit
 

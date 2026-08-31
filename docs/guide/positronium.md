@@ -86,10 +86,18 @@ needs, and each one takes the members of its own class:
 frame = data.to_dataframe()
 
 annihilation = frame["gammaType"].gate.is_gamma_type(GammaType.ANNIHILATION)
-positronium = frame["sourceType"].gate.select_by_source_type(
+from_positronium = frame["sourceType"].gate.is_source_type(
     SourceType.PARA_POSITRONIUM, SourceType.ORTHO_POSITRONIUM
 )
-from_positronium_rows = frame.gate.with_decay_metadata()
+rows = frame[annihilation & from_positronium]
+```
+
+Each selector is asked about one column and answers about it: `is_*` gives the
+mask that selects rows, and `select_by_*` gives the values of the column
+itself, which is what a count is made from:
+
+```python
+frame["decayType"].gate.select_by_decay_type(DecayType.DEEXCITATION).size
 ```
 
 Passing a member of another class raises `ValueError`. The classes share their
