@@ -6,14 +6,11 @@ gamma it is, and which channel of the configured mixture it belongs to. GATE
 stores all four as integers, and their meaning is defined by the enums of
 ``GateEmittedGammaInformation.hh``:
 
-============ ============================================ =====================
-Branch       Meaning of the values                        Enum in GATE
-============ ============================================ =====================
-`sourceType` which model emitted the gamma                ``SourceKind``
-`decayType`  which decay channel it came through          ``DecayModel``
-`gammaType`  what kind of gamma it is                     ``GammaKind``
-`decayIndex` component of the sampled decay, or -1       none
-============ ============================================ =====================
+- ``sourceType`` — which model emitted the gamma (GATE: ``SourceKind``)
+- ``decayType`` — which decay channel it came through (GATE: ``DecayModel``)
+- ``gammaType`` — what kind of gamma it is (GATE: ``GammaKind``)
+- ``decayIndex`` — component of the sampled decay, or -1 when the row carries
+  no decay metadata (no enum in GATE)
 
 The classes here are named after the branches rather than after the enums of
 GATE, because a branch name is what the reader of a file works with. Each
