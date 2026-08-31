@@ -45,9 +45,22 @@ has_decay_metadata(frame) -> pandas.Series
     Which rows carry the decay metadata of a PositroniumSource.
 with_decay_metadata(frame) -> pandas.DataFrame
     The rows that carry it.
+is_source_type(values, *types) -> pandas.Series
+    Which values name one of the given source types.
+select_by_source_type(values, *types) -> pandas.Series
+    The values that name one of them.
+is_decay_type(values, *types), select_by_decay_type(values, *types)
+    The same for the decay channel.
+is_gamma_type(values, *types), select_by_gamma_type(values, *types)
+    The same for the kind of gamma.
+is_process(values, *names) -> pandas.Series
+    Which values name one of the given processes.
+select_by_process(values, *names) -> pandas.Series
+    The values that name one of them.
 """
 
 from collections.abc import Sequence
+from enum import IntEnum
 from typing import Final, Literal
 
 import numpy as np
@@ -55,6 +68,9 @@ import pandas as pd
 
 from opengate_gate_tree.tree.hits.positronium import (
     DECAY_INDEX_BRANCH,
+    DecayType,
+    GammaType,
+    SourceType,
     has_positronium_metadata,
 )
 
@@ -471,3 +487,123 @@ def with_decay_metadata(frame: pd.DataFrame) -> pd.DataFrame:
     See :func:`has_decay_metadata` for what the answer covers.
     """
     return frame[has_decay_metadata(frame)]
+
+
+def is_source_type(values: pd.Series, *types: SourceType) -> pd.Series:
+    """Return which values name one of the given source types.
+
+    Parameters
+    ----------
+    values : pandas.Series
+        Column of the ``sourceType`` branch.
+    *types : SourceType
+        One or more members to look for.
+
+    Returns
+    -------
+    pandas.Series
+        Boolean column of the same length and index as ``values``.
+
+    Raises
+    ------
+    ValueError
+        If no member was given, or one of them belongs to another class. The
+        classes share their numbers - a source type of 2 is a positronium and
+        a gamma type of 2 is an annihilation gamma - so a member of the wrong
+        class would select the right rows for the wrong reason, or the wrong
+        rows outright.
+    """
+    return _is_of_enum(values, SourceType, types)
+
+
+def select_by_source_type(values: pd.Series, *types: SourceType) -> pd.Series:
+    """Return the values that name one of the given source types.
+
+    See :func:`is_source_type` for the parameters.
+    """
+    return values[is_source_type(values, *types)]
+
+
+def is_decay_type(values: pd.Series, *types: DecayType) -> pd.Series:
+    """Return which values name one of the given decay channels.
+
+    See :func:`is_source_type`; this one reads the ``decayType`` branch.
+    """
+    return _is_of_enum(values, DecayType, types)
+
+
+def select_by_decay_type(values: pd.Series, *types: DecayType) -> pd.Series:
+    """Return the values that name one of the given decay channels."""
+    return values[is_decay_type(values, *types)]
+
+
+def is_gamma_type(values: pd.Series, *types: GammaType) -> pd.Series:
+    """Return which values name one of the given kinds of gamma.
+
+    See :func:`is_source_type`; this one reads the ``gammaType`` branch.
+    """
+    return _is_of_enum(values, GammaType, types)
+
+
+def select_by_gamma_type(values: pd.Series, *types: GammaType) -> pd.Series:
+    """Return the values that name one of the given kinds of gamma."""
+    return values[is_gamma_type(values, *types)]
+
+
+def is_process(values: pd.Series, *names: str) -> pd.Series:
+    """Return which values name one of the given processes.
+
+    Parameters
+    ----------
+    values : pandas.Series
+        Column of the ``processName`` branch.
+    *names : str
+        One or more process names, as GATE writes them.
+
+    Returns
+    -------
+    pandas.Series
+        Boolean column of the same length and index as ``values``.
+
+    Raises
+    ------
+    ValueError
+        If no name was given.
+    """
+    if not names:
+        raise ValueError("Selecting by process needs at least one name to select.")
+    return values.isin(names)
+
+
+def select_by_process(values: pd.Series, *names: str) -> pd.Series:
+    """Return the values that name one of the given processes.
+
+    See :func:`is_process` for the parameters.
+    """
+    return values[is_process(values, *names)]
+
+
+def _is_of_enum(
+    values: pd.Series,
+    enum_class: type[IntEnum],
+    members: Sequence[IntEnum],
+) -> pd.Series:
+    """Return which values are one of the given members of a class."""
+    if not members:
+        raise ValueError(f"Selecting by {enum_class.__name__} needs at least one member to select.")
+    wrong = [member for member in members if not isinstance(member, enum_class)]
+    if wrong:
+        named = ", ".join(_describe(member) for member in wrong)
+        raise ValueError(
+            f"Selecting by {enum_class.__name__} takes its own members, got {named}. "
+            f"The classes share their numbers, so another class would select by a value that "
+            f"means something else."
+        )
+    return values.isin([int(member) for member in members])
+
+
+def _describe(member: object) -> str:
+    """Return how a value is named in a message about the wrong class."""
+    if isinstance(member, IntEnum):
+        return f"{type(member).__name__}.{member.name}"
+    return repr(member)
