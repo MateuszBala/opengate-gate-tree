@@ -127,3 +127,34 @@ configure_logging()
 
 Everything else is ordinary `logging` configuration on the
 `opengate_gate_tree` logger.
+
+## Structures, Merging And Statistics
+
+The structure of a "Hits" tree is recognised on reading and can be asked about
+on its own:
+
+```python
+from opengate_gate_tree import RootFile, describe_hits_tree, summarise_hits_tree
+
+with RootFile(path) as root_file:
+    detection = root_file.detect_hits_tree()
+
+print(summarise_hits_tree(detection))   # one line
+print(describe_hits_tree(detection))    # every branch with its type
+```
+
+`HitsTreeVariant` names the structures, `expected_branches` states what each of
+them holds, and `validate_hits_tree` checks a branch list against one. See
+[The "Hits" Tree](hits.md).
+
+Hits split into several trees are read as one dataset with `read_hits_trees`,
+which records where every row came from. See [Merging Trees](merging.md).
+
+`compute_statistics`, `format_statistics` and `write_statistics` summarise what
+was extracted. See [Statistics](statistics.md).
+
+Three more errors join the hierarchy in this version:
+`UnknownHitsVariantError` when a structure is not a supported one,
+`HitsTreeValidationError` when a tree does not match the structure it was
+recognised as, `AmbiguousTreeError` when several trees hold hits and none was
+named, and `TreeMergeError` when trees cannot be read as one dataset.

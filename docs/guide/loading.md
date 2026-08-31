@@ -28,9 +28,25 @@ with RootFile(Path("simulation.root")) as root_file:
 
 ## How A Tree Is Found
 
-The requested tree is matched against the keys of the file, first exactly and
-then without regard to case. When nothing matches, the error names the trees
-the file actually holds:
+The tree to read is resolved in four steps:
+
+1. a name given by the caller is used as it is;
+2. the keys of the file are matched exactly against the requested tree;
+3. they are matched again without regard to case;
+4. for hits, the trees are examined and one holding them is used.
+
+The last step is what makes the `GateToTree` output readable: it calls its tree
+`tree`, and nothing in the file is named `Hits`. It also covers a file that
+stores hits per sensitive detector, where no tree carries the standard name
+either.
+
+```python
+with RootFile(Path("simulation.root")) as root_file:
+    print(root_file.hits_tree_names())
+    data = root_file.read(GateTree.HITS, tree_name="Hits_run1")
+```
+
+When nothing matches, the error names the trees the file actually holds:
 
 ```text
 TreeNotFoundError: Tree 'Singles' is not present in file: simulation.root.
@@ -38,6 +54,17 @@ Trees available in the file: ['pet_data', 'Hits', 'OpticalData'].
 ```
 
 That list is the fastest way to see whether a simulation wrote the tree at all.
+
+A file can hold hits in several trees, one per run or one per sensitive
+detector. Reading one of them and saying nothing would hide the rest, so the
+package either warns or refuses to choose. See [Merging Trees](merging.md).
+
+## What Reading Checks
+
+Reading the "Hits" tree recognises which structure it has and checks the tree
+against it, before any data is loaded. A file whose structure the package does
+not know is reported rather than half read, and can still be extracted with
+`validate=False`. See [The "Hits" Tree](hits.md).
 
 ## Which Branch Types Are Supported
 

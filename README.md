@@ -82,6 +82,11 @@ Validation behavior:
   detector, reports them and is read either one tree at a time
   (`--input-tree-name`) or as one dataset (`--merge-hits-trees`)
 
+The structures the "Hits" tree can have, how the package tells them apart and
+what it checks are described in the
+[guide](https://opengate-gate-tree.readthedocs.io/en/latest/guide/hits.html),
+which also lists the branches of every supported structure.
+
 The output file is named after the title, the tree it holds and the format it
 is written in: a run extracting the hits into `csv` under the title
 `patient_01` writes `patient_01.hits.csv`. The tree is part of the name because

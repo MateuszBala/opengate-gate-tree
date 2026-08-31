@@ -38,6 +38,14 @@ opengate-gate-tree \
 The run writes `./out/patient_01.hits.csv`. The output directory is created if it
 does not exist, and an existing output file is overwritten without a prompt.
 
+Reading the "Hits" tree recognises which structure the simulation wrote and
+checks the tree against it, so the run reports what it found before extracting
+anything:
+
+```text
+Hits tree variant: System (A2), stored as 'Hits', system cylindricalPET / OPET, 46 branches
+```
+
 Add `--branches-to-extract` to keep only what the analysis needs:
 
 ```bash
