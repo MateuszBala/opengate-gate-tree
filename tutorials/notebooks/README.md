@@ -8,7 +8,7 @@ answered.
 
 | Notebook | Version | What it shows | Simulation | Data |
 | --- | --- | --- | --- | --- |
-| _none yet_ | | | | |
+| [`tutorial-01-tools-plotting.ipynb`](tutorial-01-tools-plotting.ipynb) | 1 | every plot `tools.plotting` draws, and which form suits a discrete column and which a continuous one | — | `positronium-source-all-variants.root` |
 
 Every new notebook adds a row. A tutorial nobody can find is a tutorial nobody
 reads.

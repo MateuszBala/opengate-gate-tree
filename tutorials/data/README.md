@@ -14,7 +14,7 @@ that reads it.
 
 | File | Size | What it holds | Written by | Read by |
 | --- | --- | --- | --- | --- |
-| _none yet_ | | | | |
+| `positronium-source-all-variants.root` | 80 kB | 500 hits of a "Hits" tree, from a scene with a `PositroniumSource` configured with every component at once beside a back-to-back source, so the file holds annihilation, prompt and unknown gammas | a GATE simulation of a spherical shell detector, 200 mm across on the inside | `tutorial-01-tools-plotting.ipynb` |
 
 ## imgs
 
