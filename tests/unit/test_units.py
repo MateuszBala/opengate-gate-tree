@@ -44,6 +44,29 @@ RUN_LENGTH_NS = 2e7
 ANNIHILATION_ENERGY_MEV = 0.511
 ANNIHILATION_ENERGY_KEV = 511.0
 
+# Every conversion with a value it is pinned by. A round trip cannot pin one:
+# both directions read the same constant, so a wrong constant survives it.
+KNOWN_VALUES: list[tuple[Callable[[float], float], float, float]] = [
+    (MeV_to_keV, ANNIHILATION_ENERGY_MEV, ANNIHILATION_ENERGY_KEV),
+    (keV_to_MeV, ANNIHILATION_ENERGY_KEV, ANNIHILATION_ENERGY_MEV),
+    (mm_to_cm, A2_BORE_RADIUS_MM, A2_BORE_RADIUS_CM),
+    (cm_to_mm, A2_BORE_RADIUS_CM, A2_BORE_RADIUS_MM),
+    (mm_to_m, A1_SHELL_INNER_RADIUS_MM, A1_SHELL_INNER_RADIUS_M),
+    (m_to_mm, A1_SHELL_INNER_RADIUS_M, A1_SHELL_INNER_RADIUS_MM),
+    (cm_to_m, A2_BORE_RADIUS_CM, 0.409),
+    (m_to_cm, A1_SHELL_INNER_RADIUS_M, 20.0),
+    (s_to_ms, RUN_LENGTH_S, RUN_LENGTH_MS),
+    (ms_to_s, RUN_LENGTH_MS, RUN_LENGTH_S),
+    (s_to_ns, RUN_LENGTH_S, RUN_LENGTH_NS),
+    (ns_to_s, RUN_LENGTH_NS, RUN_LENGTH_S),
+    (ms_to_ns, RUN_LENGTH_MS, RUN_LENGTH_NS),
+    (ns_to_ms, RUN_LENGTH_NS, RUN_LENGTH_MS),
+    (rad_to_deg, np.pi, 180.0),
+    (deg_to_rad, 180.0, np.pi),
+]
+
+VALUE_IDS = [f"{conversion.__name__}" for conversion, _, _ in KNOWN_VALUES]
+
 # Every conversion with the one that undoes it.
 INVERSE_PAIRS: list[tuple[Callable[[float], float], Callable[[float], float]]] = [
     (MeV_to_keV, keV_to_MeV),
@@ -283,3 +306,26 @@ def test_the_units_gate_writes_are_stated_once() -> None:
     assert units == {"energy": "MeV", "length": "mm", "time": "s"}
     with pytest.raises(TypeError):
         GATE_UNITS["energy"] = "keV"  # type: ignore[index]
+
+
+@pytest.mark.parametrize(("conversion", "given", "expected"), KNOWN_VALUES, ids=VALUE_IDS)
+def test_a_conversion_turns_a_known_value_into_the_known_answer(
+    conversion: Callable[[float], float],
+    given: float,
+    expected: float,
+) -> None:
+    """The factor is the whole of the behaviour, so every one is pinned here.
+
+    A round trip is blind to it: both directions of a pair read the same
+    constant, so a wrong constant undoes itself. The numbers are the ones the
+    macros of the fixtures give, apart from the two that no macro states -
+    40.9 cm in metres and 0.2 m in centimetres - and half a turn.
+    """
+    # ARRANGE
+    # No additional setup required.
+
+    # ACT
+    converted = conversion(given)
+
+    # ASSERT
+    assert converted == pytest.approx(expected)
