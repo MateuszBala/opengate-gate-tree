@@ -136,12 +136,12 @@ parameter:
 frame.gate.in_cylinder((0, 0), 500.0, columns=("posX", "posZ", "posY"))
 ```
 
-```{note}
+### Note
+
 Surfaces belong to their shape: a hit sitting exactly on a face, on a sphere or
 on the wall of a ring counts as inside. The other convention would drop hits on
 a boundary, and a simulation puts them there — a crystal is where energy is
 deposited, and its surface is where a gamma enters it.
-```
 
 ### Which Columns A Shape Reads
 
@@ -199,27 +199,6 @@ frame["gammaType"].gate.is_gamma_type(GammaType.PROMPT, GammaType.ANNIHILATION)
 Several members can be given at once, and the answer covers all of them. Giving
 none raises `ValueError`: an empty selection is a call that means nothing.
 
-```{note}
-These four selectors are asked about **one column**, so `select_by_*` answers
-with the values of that column — a `decayType` column holding nothing but
-`DEEXCITATION`, which is what to count or to run `value_counts()` on. Rows are
-selected through the mask, which is why the chains on this page use `is_*` and
-index the frame with it:
-
-```python
-deexcitation = frame["decayType"].gate.is_decay_type(DecayType.DEEXCITATION)
-rows = frame[deexcitation]
-```
-```
-
-```{warning}
-Each selector takes the members of its own class. The classes share their
-numbers — a source type of 2 is a para-positronium and a gamma type of 2 is an
-annihilation gamma — so a member of the wrong class would select the right rows
-for the wrong reason, or the wrong rows outright. Passing one raises
-`ValueError` naming what was passed.
-```
-
 Rows carrying the decay metadata of such a source are told from the rest by
 `decayIndex`, which the frame answers about directly:
 
@@ -239,6 +218,27 @@ come straight out of `to_dataframe()`: a round trip through CSV, or a
 concatenation that introduced a missing value, turns the column into floating
 point numbers, where the value standing for "no metadata" can no longer be
 compared for.
+
+### Warning
+
+Each selector takes the members of its own class. The classes share their
+numbers — a source type of 2 is a para-positronium and a gamma type of 2 is an
+annihilation gamma — so a member of the wrong class would select the right rows
+for the wrong reason, or the wrong rows outright. Passing one raises
+`ValueError` naming what was passed.
+
+### Note
+
+These four selectors are asked about **one column**, so `select_by_*` answers
+with the values of that column — a `decayType` column holding nothing but
+`DEEXCITATION`, which is what to count or to run `value_counts()` on. Rows are
+selected through the mask, which is why the chains on this page use `is_*` and
+index the frame with it:
+
+```python
+deexcitation = frame["decayType"].gate.is_decay_type(DecayType.DEEXCITATION)
+rows = frame[deexcitation]
+```
 
 ## The Process That Made A Hit
 
@@ -288,11 +288,11 @@ in_sphere(frame, (0, 0, 0), 500.0)
 in_range(frame["edep"], 0.2, 0.4)
 ```
 
-```{note}
+### Note
+
 `gate` is registered on classes the whole process shares. Should the name
 already be taken, pandas says so with a warning, which the package does not
 silence: it reports a real collision in somebody's code.
-```
 
 ## Filtering And What Follows
 
@@ -306,13 +306,22 @@ data = TreeData.from_dataframe(GateTree.HITS, selected)
 write_tree(data, Path("out/in-the-ring.hdf5"), OutputFileFormat.HDF5)
 ```
 
+A selection is also where a computation starts: the vectors of the rows that
+were kept are read from the frame the filter answered with, and they carry its
+index. See [Vectors And Angles](vectors.md).
+
+```python
+selected = frame.gate.in_cylinder((0, 0), 500.0, inner_radius=409.0)
+angles = selected.gate.position().angle_to(selected.gate.momentum_direction())
+```
+
 `from_dataframe` drops the index, so a written file holds the rows that were
 selected and nothing about which entries they had been. Identifiers are what
 carries that, and they are written as GATE wrote them.
 
-```{warning}
+### Warning
+
 A statistics report computed after a selection describes the selection, not the
 file. That is usually the point — but `runs` and `events` counted on rows that
 a filter has already removed say how much of the data survived it, not how much
 the simulation produced.
-```

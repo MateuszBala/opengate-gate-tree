@@ -243,6 +243,32 @@ What pandas already says — comparing, `isin`, combining masks — is left to
 pandas. See the
 [guide](https://opengate-gate-tree.readthedocs.io/en/latest/guide/filtering.html).
 
+### Units And Vectors
+
+Quantities come out of GATE in MeV, mm and s. The conversions to the units an
+analysis uses are named after what they do, in four closed families - energy,
+length, time and angle:
+
+```python
+energies = frame["edep"].gate.MeV_to_keV()
+resolution = frame["time"].gate.s_to_ns()
+```
+
+Three columns of a tree are a vector, and a view reads them as one while
+keeping the rows they came from, so a length or an angle comes back as a
+column and a vector as another view:
+
+```python
+position = frame.gate.position()
+angles = position.angle_to(frame.gate.momentum_direction()).gate.rad_to_deg()
+spherical = position.spherical()          # radius, polar, azimuth
+```
+
+Directions can be rebuilt from the places a particle was, which is what a
+detector leaves to work with, and the polarization of a scattered photon is
+estimated from the plane it scattered in. Every formula is written out in the
+[guide](https://opengate-gate-tree.readthedocs.io/en/latest/guide/vectors.html).
+
 ### Reading What A Gamma Was
 
 The branches a `PositroniumSource` writes hold integers saying what each gamma
@@ -302,6 +328,7 @@ Available capabilities:
 - 0.3.0: the structure of the "Hits" tree is recognised and validated against the schema of the variant it holds, hits stored under another name are found by their structure, a file split into one tree per run or per sensitive detector is read as one dataset, statistics are computed and saved beside the data, and output files are named after the tree they hold.
 - 0.4.0: the branches a PositroniumSource writes are described by enum classes whose members are the integers GATE wrote, so a column compares against them as it was read; their values can be read as names, rows carrying the decay metadata of such a source are told from the rest, and a statistics report names those values instead of printing numbers.
 - 0.5.0: rows of a "Hits" tree are picked out by what the data means - a closed range, a box, a sphere or a ring in the geometry of the detector, the run and event a hit belongs to, the decay metadata it carries, and the meaning of the codes a PositroniumSource wrote - as functions and as a `gate` namespace on a pandas column and frame, each filter answering either with a mask that combines with others or with the rows themselves.
+- 0.6.0: quantities are converted between the units GATE writes and the ones an analysis uses - energy, length, time and angle, each family closed - and the triples of columns a tree writes a vector in are read as vectors: lengths, products, angles, the decomposition of a vector along an axis and across it, its spherical components, the plane two directions span and the angle between two such planes, a momentum direction rebuilt from the places a particle was, and the polarization a scattering leaves behind.
 
 
 

@@ -1,18 +1,26 @@
 """The ``gate`` namespace on a pandas column and on a pandas frame.
 
-Importing the package registers two accessors, so that a filter reads as
+Importing the package registers two accessors, so that the work reads as
 something the data does rather than as something done to it::
 
-    frame["edep"].gate.in_range(0.2, 0.4)
+    frame["edep"].gate.in_range(0.2, 0.4).gate.MeV_to_keV()
     frame.gate.in_cylinder(centre=(0, 0), radius=500.0, inner_radius=409.0)
+    frame.gate.position().angle_to(frame.gate.momentum_direction())
 
-The split follows what a filter needs to know. A range is a question about one
-column, so it lives on the column; a shape is a question about three of them
-at once, and the identity of an event about two, so those live on the frame.
+The split follows what the work needs to know. A range and a conversion are
+questions about one column, so they live on the column; a shape is a question
+about three of them at once, the identity of an event about two, and a vector
+is three columns read as one thing, so those live on the frame.
 
 Every method calls the function of the same name in
-:mod:`opengate_gate_tree.tree.filters` and adds nothing. The accessors are a
-way of writing, and nothing is reachable only through them.
+:mod:`opengate_gate_tree.tree.filters` or in :mod:`opengate_gate_tree.units`
+and adds nothing. The accessors are a way of writing, and nothing is reachable
+only through them.
+
+The five that read vectors are the exception, and only in their names: they
+call :meth:`~opengate_gate_tree.geometry.vectorview.VectorView.from_frame` with
+the triple of columns their name stands for, which is the one thing an accessor
+knows that a function taking a frame would have to be told.
 
 Registering a name in pandas is a change to something the whole process
 shares, and it happens when this package is imported. Should ``gate`` already
@@ -34,6 +42,7 @@ from typing import Final
 
 import pandas as pd
 
+from opengate_gate_tree.geometry.vectorview import VectorView
 from opengate_gate_tree.tree.filters import (
     POSITION_COLUMNS,
     InclusiveSide,
@@ -61,17 +70,47 @@ from opengate_gate_tree.tree.filters import (
     with_decay_metadata,
 )
 from opengate_gate_tree.tree.hits.positronium import DecayType, GammaType, SourceType
+from opengate_gate_tree.tree.hits.schema import (
+    LOCAL_POSITION_BRANCHES,
+    MOMENTUM_DIRECTION_BRANCHES,
+    SOURCE_POSITION_BRANCHES,
+)
+from opengate_gate_tree.units import (
+    MeV_to_keV,
+    cm_to_m,
+    cm_to_mm,
+    deg_to_rad,
+    keV_to_MeV,
+    m_to_cm,
+    m_to_mm,
+    mm_to_cm,
+    mm_to_m,
+    ms_to_ns,
+    ms_to_s,
+    ns_to_ms,
+    ns_to_s,
+    rad_to_deg,
+    s_to_ms,
+    s_to_ns,
+)
 
 # Name both accessors answer to.
 ACCESSOR_NAME: Final[str] = "gate"
 
+# The triples of columns a "Hits" tree carries, each read as vectors by the
+# method named after it. The names come from the schema, which is where every
+# other branch name of a tree is written down.
+LOCAL_POSITION_COLUMNS: Final[tuple[str, str, str]] = LOCAL_POSITION_BRANCHES
+SOURCE_POSITION_COLUMNS: Final[tuple[str, str, str]] = SOURCE_POSITION_BRANCHES
+MOMENTUM_DIRECTION_COLUMNS: Final[tuple[str, str, str]] = MOMENTUM_DIRECTION_BRANCHES
+
 
 @pd.api.extensions.register_series_accessor(ACCESSOR_NAME)
 class GateSeriesAccessor:
-    """Filters of one column of a GATE tree."""
+    """What one column of a GATE tree answers: filters and conversions."""
 
     def __init__(self, values: pd.Series) -> None:
-        """Keep the column the filters will be asked about."""
+        """Keep the column that will be asked about."""
         self._values = values
 
     def is_in_range(
@@ -124,13 +163,77 @@ class GateSeriesAccessor:
         """Return the values that name one of the given processes."""
         return select_by_process(self._values, *names)
 
+    def MeV_to_keV(self) -> pd.Series:
+        """Convert energy from megaelectronvolts to kiloelectronvolts."""
+        return MeV_to_keV(self._values)
+
+    def keV_to_MeV(self) -> pd.Series:
+        """Convert energy from kiloelectronvolts to megaelectronvolts."""
+        return keV_to_MeV(self._values)
+
+    def mm_to_cm(self) -> pd.Series:
+        """Convert length from millimetres to centimetres."""
+        return mm_to_cm(self._values)
+
+    def cm_to_mm(self) -> pd.Series:
+        """Convert length from centimetres to millimetres."""
+        return cm_to_mm(self._values)
+
+    def mm_to_m(self) -> pd.Series:
+        """Convert length from millimetres to metres."""
+        return mm_to_m(self._values)
+
+    def m_to_mm(self) -> pd.Series:
+        """Convert length from metres to millimetres."""
+        return m_to_mm(self._values)
+
+    def cm_to_m(self) -> pd.Series:
+        """Convert length from centimetres to metres."""
+        return cm_to_m(self._values)
+
+    def m_to_cm(self) -> pd.Series:
+        """Convert length from metres to centimetres."""
+        return m_to_cm(self._values)
+
+    def s_to_ms(self) -> pd.Series:
+        """Convert time from seconds to milliseconds."""
+        return s_to_ms(self._values)
+
+    def ms_to_s(self) -> pd.Series:
+        """Convert time from milliseconds to seconds."""
+        return ms_to_s(self._values)
+
+    def s_to_ns(self) -> pd.Series:
+        """Convert time from seconds to nanoseconds."""
+        return s_to_ns(self._values)
+
+    def ns_to_s(self) -> pd.Series:
+        """Convert time from nanoseconds to seconds."""
+        return ns_to_s(self._values)
+
+    def ms_to_ns(self) -> pd.Series:
+        """Convert time from milliseconds to nanoseconds."""
+        return ms_to_ns(self._values)
+
+    def ns_to_ms(self) -> pd.Series:
+        """Convert time from nanoseconds to milliseconds."""
+        return ns_to_ms(self._values)
+
+    def rad_to_deg(self) -> pd.Series:
+        """Convert angle from radians to degrees."""
+        return rad_to_deg(self._values)
+
+    def deg_to_rad(self) -> pd.Series:
+        """Convert angle from degrees to radians."""
+        return deg_to_rad(self._values)
+
 
 @pd.api.extensions.register_dataframe_accessor(ACCESSOR_NAME)
 class GateFrameAccessor:
-    """Filters reading several columns of a GATE tree at once."""
+    """What several columns of a GATE tree answer at once: filters and vectors."""
 
     def __init__(self, frame: pd.DataFrame) -> None:
-        """Keep the frame the filters will be asked about."""
+        """Keep the frame that will be asked about."""
         self._frame = frame
 
     def is_in_box(
@@ -214,3 +317,39 @@ class GateFrameAccessor:
     def with_decay_metadata(self) -> pd.DataFrame:
         """Return the rows that carry the decay metadata of a PositroniumSource."""
         return with_decay_metadata(self._frame)
+
+    def vector(self, x: str, y: str, z: str) -> VectorView:
+        """Read three columns as vectors.
+
+        Parameters
+        ----------
+        x, y, z : str
+            The columns holding the components, in that order.
+
+        Returns
+        -------
+        VectorView
+            The vectors, with the index of the frame.
+        """
+        return VectorView.from_frame(self._frame, (x, y, z))
+
+    def position(self) -> VectorView:
+        """Read where the hits happened, as vectors."""
+        return VectorView.from_frame(self._frame, POSITION_COLUMNS)
+
+    def local_position(self) -> VectorView:
+        """Read where the hits happened inside their volume, as vectors."""
+        return VectorView.from_frame(self._frame, LOCAL_POSITION_COLUMNS)
+
+    def source_position(self) -> VectorView:
+        """Read where the gammas were born, as vectors."""
+        return VectorView.from_frame(self._frame, SOURCE_POSITION_COLUMNS)
+
+    def momentum_direction(self) -> VectorView:
+        """Read where the particles went after the hits, as vectors.
+
+        GATE writes this direction as it is after the interaction at the hit,
+        so the one a particle arrived with is rebuilt from positions by
+        :func:`~opengate_gate_tree.geometry.momentum.momentum_direction_from_positions`.
+        """
+        return VectorView.from_frame(self._frame, MOMENTUM_DIRECTION_COLUMNS)

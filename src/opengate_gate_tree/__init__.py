@@ -31,12 +31,14 @@ each row came from.
 :func:`compute_statistics` summarises what was extracted, and
 :func:`write_statistics` saves that summary next to the data.
 
-Filters and selectors work on the pandas view of the data, both as functions
-and through the ``gate`` namespace this package registers on a column and on a
-frame::
+Filters, conversions and vectors work on the pandas view of the data, both as
+functions and through the ``gate`` namespace this package registers on a column
+and on a frame::
 
     prompt = frame["gammaType"].gate.select_by_gamma_type(GammaType.PROMPT)
     in_the_ring = frame.gate.in_cylinder((0, 0), radius=500.0, inner_radius=409.0)
+    energies = in_the_ring["edep"].gate.MeV_to_keV()
+    angles = in_the_ring.gate.position().angle_to(in_the_ring.gate.momentum_direction())
 
 The branches a ``PositroniumSource`` writes carry integers whose meaning is
 described by :class:`SourceType`, :class:`DecayType` and :class:`GammaType`.
@@ -50,6 +52,48 @@ Failures while reading or writing files are reported through a subclass of
 :class:`GateTreeError`, so a single ``except`` clause covers them. Malformed
 arguments, such as an empty branch name or inconsistent columns, raise
 ``ValueError`` instead, and are not caught by that clause.
+
+Three columns of a frame are a column of vectors, and
+:meth:`VectorView.from_frame` reads them as one, keeping the rows they came
+from::
+
+    direction = frame.gate.position() - frame.gate.source_position()
+    forward = direction.unit().dot(frame.gate.momentum_direction())
+
+:func:`as_vectors` does the same for an array.
+
+A vector is taken apart along a direction with :func:`parallel_component` and
+:func:`perpendicular_component`, and read in spherical components with
+:func:`spherical_components`: a radius, a polar angle from ``z`` in
+``[0, pi]``, and an azimuth in ``[0, 2*pi)``.
+
+:func:`angle_between` measures the angle between two directions, and
+:func:`plane_normal` with :func:`angle_between_planes` the angle between the
+planes a pair of directions spans - the scattering planes of a coincidence.
+Angles are in radians; :func:`rad_to_deg` reads them in degrees.
+An angle is only defined up to whole turns, so
+:func:`transform_to_angle_range` reads one into whatever range a question is
+asked in, and :func:`wrap_to_two_pi` and :func:`wrap_to_signed_pi` do it for
+the two everyday ones.
+
+A detector records where something happened rather than where it was going, so
+:func:`momentum_direction_from_positions` rebuilds a direction of flight from
+two places: the ``momDir`` branches of a "Hits" tree hold the direction after
+an interaction, not the one the particle arrived with.
+
+Compton scattering happens most readily perpendicular to the polarization of
+the incoming photon, so the normal of the scattering plane is what can be known
+about it. :func:`polarization_direction` names that estimate, and takes the two
+momentum directions of the scattering. :func:`normalize`, :func:`dot` and
+:func:`cross` work on whole columns at once; a vector of no length has no
+direction, so such a row is answered with ``nan`` and reported, rather than
+refusing the column it sits in.
+
+Quantities are read in the units GATE writes them in - MeV, mm and s. The
+conversions to the units an analysis uses are named after what they do::
+
+    energies = MeV_to_keV(frame["edep"])
+    resolution = s_to_ns(frame["time"])
 
 The package does not configure logging on import. Applications decide that for
 themselves; :func:`opengate_gate_tree.logging_setup.configure_logging` is
@@ -80,6 +124,38 @@ from opengate_gate_tree.errors import (  # noqa: E402
     UnknownHitsVariantError,
     UnsupportedBranchTypeError,
 )
+from opengate_gate_tree.geometry.anglerange import (  # noqa: E402
+    transform_to_angle_range,
+    wrap_to_signed_pi,
+    wrap_to_two_pi,
+)
+from opengate_gate_tree.geometry.angles import (  # noqa: E402
+    angle_between,
+    angle_between_normals,
+    angle_between_planes,
+    plane_normal,
+)
+from opengate_gate_tree.geometry.components import (  # noqa: E402
+    parallel_component,
+    perpendicular_component,
+    spherical_components,
+)
+from opengate_gate_tree.geometry.momentum import (  # noqa: E402
+    momentum_direction_from_positions,
+)
+from opengate_gate_tree.geometry.polarization import (  # noqa: E402
+    polarization_direction,
+)
+from opengate_gate_tree.geometry.vectors import (  # noqa: E402
+    as_vectors,
+    clip_cosine,
+    cross,
+    dot,
+    ensure_vectors,
+    norm,
+    normalize,
+)
+from opengate_gate_tree.geometry.vectorview import VectorView  # noqa: E402
 from opengate_gate_tree.io.fileformat import (  # noqa: E402
     OutputFileFormat,
     parse_output_file_format,
@@ -164,6 +240,25 @@ from opengate_gate_tree.tree.statistics import (  # noqa: E402
     statistics_to_dict,
 )
 from opengate_gate_tree.tree.treedata import TreeData  # noqa: E402
+from opengate_gate_tree.units import (  # noqa: E402
+    GATE_UNITS,
+    MeV_to_keV,
+    cm_to_m,
+    cm_to_mm,
+    deg_to_rad,
+    keV_to_MeV,
+    m_to_cm,
+    m_to_mm,
+    mm_to_cm,
+    mm_to_m,
+    ms_to_ns,
+    ms_to_s,
+    ns_to_ms,
+    ns_to_s,
+    rad_to_deg,
+    s_to_ms,
+    s_to_ns,
+)
 
 # Keep the package quiet when the application using it has not configured
 # logging. Without a handler, logging falls back to writing warnings straight
@@ -181,6 +276,7 @@ __all__ = [
     "DecayType",
     "EVENT_COLUMN",
     "ExportError",
+    "GATE_UNITS",
     "GammaType",
     "GateSystemType",
     "GateTree",
@@ -190,6 +286,7 @@ __all__ = [
     "HitsTreeValidationError",
     "HitsTreeVariant",
     "InclusiveSide",
+    "MeV_to_keV",
     "NO_POSITRONIUM_METADATA",
     "OutputFileFormat",
     "POSITION_COLUMNS",
@@ -205,17 +302,29 @@ __all__ = [
     "TreeStatistics",
     "UnknownHitsVariantError",
     "UnsupportedBranchTypeError",
+    "VectorView",
     "__version__",
+    "angle_between",
+    "angle_between_normals",
+    "angle_between_planes",
+    "as_vectors",
     "build_output_file_name",
     "build_output_file_path",
     "build_statistics_file_path",
     "by_event",
     "by_run",
+    "clip_cosine",
+    "cm_to_m",
+    "cm_to_mm",
     "compute_statistics",
+    "cross",
     "decode_positronium_column",
     "decode_positronium_value",
+    "deg_to_rad",
     "describe_hits_tree",
     "detect_hits_variant",
+    "dot",
+    "ensure_vectors",
     "expected_branches",
     "format_statistics",
     "has_decay_metadata",
@@ -234,22 +343,45 @@ __all__ = [
     "is_in_sphere",
     "is_process",
     "is_source_type",
+    "keV_to_MeV",
+    "m_to_cm",
+    "m_to_mm",
     "merge_tree_data",
+    "mm_to_cm",
+    "mm_to_m",
+    "momentum_direction_from_positions",
+    "ms_to_ns",
+    "ms_to_s",
+    "norm",
+    "normalize",
+    "ns_to_ms",
+    "ns_to_s",
+    "parallel_component",
     "parse_gate_tree",
     "parse_output_file_format",
+    "perpendicular_component",
+    "plane_normal",
+    "polarization_direction",
     "positronium_enum",
+    "rad_to_deg",
     "read_hits_trees",
     "read_tree",
+    "s_to_ms",
+    "s_to_ns",
     "select_by_decay_type",
     "select_by_gamma_type",
     "select_by_process",
     "select_by_source_type",
+    "spherical_components",
     "statistics_to_dict",
     "summarise_hits_tree",
     "supported_variants",
+    "transform_to_angle_range",
     "validate_hits_tree",
     "variant_reference",
     "with_decay_metadata",
+    "wrap_to_signed_pi",
+    "wrap_to_two_pi",
     "write_statistics",
     "write_tree",
 ]
