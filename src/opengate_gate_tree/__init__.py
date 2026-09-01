@@ -31,12 +31,14 @@ each row came from.
 :func:`compute_statistics` summarises what was extracted, and
 :func:`write_statistics` saves that summary next to the data.
 
-Filters and selectors work on the pandas view of the data, both as functions
-and through the ``gate`` namespace this package registers on a column and on a
-frame::
+Filters, conversions and vectors work on the pandas view of the data, both as
+functions and through the ``gate`` namespace this package registers on a column
+and on a frame::
 
     prompt = frame["gammaType"].gate.select_by_gamma_type(GammaType.PROMPT)
     in_the_ring = frame.gate.in_cylinder((0, 0), radius=500.0, inner_radius=409.0)
+    energies = in_the_ring["edep"].gate.MeV_to_keV()
+    angles = in_the_ring.gate.position().angle_to(in_the_ring.gate.momentum_direction())
 
 The branches a ``PositroniumSource`` writes carry integers whose meaning is
 described by :class:`SourceType`, :class:`DecayType` and :class:`GammaType`.
