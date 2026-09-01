@@ -16,10 +16,11 @@ This document is a reusable template for code-style rules. Copy it into a new re
 3. [Type Hints And Docstrings](#type-hints-and-docstrings)
 4. [Naming Conventions](#naming-conventions)
 5. [Code Organization](#code-organization)
-6. [Shell Script Conventions](#shell-script-conventions)
-7. [Tools And Analysis](#tools-and-analysis)
-8. [Best Practices](#best-practices)
-9. [Examples](#examples)
+6. [Documentation Conventions](#documentation-conventions)
+7. [Shell Script Conventions](#shell-script-conventions)
+8. [Tools And Analysis](#tools-and-analysis)
+9. [Best Practices](#best-practices)
+10. [Examples](#examples)
 
 ---
 
@@ -414,6 +415,20 @@ class InputProcessor:
 - Keep internal helpers private unless they are meant to be reused.
 
 ---
+
+## Documentation Conventions
+
+- Write user documentation in Markdown, parsed by MyST.
+- Do not use admonition directives - ```` ```{note} ````, ```` ```{warning} ````
+  and the rest. An aside worth making is worth a subsection: write `### Note` or
+  `### Warning` inside the section it belongs to, with plain text under it.
+- Place such a subsection at the end of its section, so that the prose after it
+  does not fall under a heading it has nothing to do with.
+- Write the formula for anything a page describes in mathematical terms, in a
+  `$$ ... $$` block. The prose says what a quantity means; the formula says what
+  the code computes, and settles any convention that could go two ways.
+- Run the snippets on a fixture before publishing them, and check the built HTML
+  rather than the source: a formula that does not render is not a warning.
 
 ## Shell Script Conventions
 
