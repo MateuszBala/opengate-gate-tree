@@ -138,7 +138,7 @@ def test_parallel_directions_span_no_plane(caplog: pytest.LogCaptureFixture) -> 
 
     # ASSERT
     assert np.isnan(normal).all()
-    assert "1 of 1 plane normal values have no length" in caplog.text
+    assert "1 of 1 plane normal values have no length to divide out" in caplog.text
 
 
 def test_the_angle_between_two_planes() -> None:
@@ -274,3 +274,38 @@ def test_every_angle_lies_where_arccos_answers(hits_variant_files: Mapping[str, 
     assert angles.min() >= 0.0
     assert angles.max() <= HALF_TURN
     assert rad_to_deg(angles).max() <= 180.0
+
+
+@pytest.mark.parametrize("angle", [1e-9, 1e-7, 1e-5, 1e-3], ids=["1e-9", "1e-7", "1e-5", "1e-3"])
+def test_a_small_angle_is_measured_and_not_rounded_away(angle: float) -> None:
+    """The angles this package measures live where a cosine carries nothing.
+
+    A cosine near one holds the angle in its last bits, so `arccos` of the
+    scalar product answers 0 for an angle of 1e-9 rad even in float64. The
+    computation goes through `atan2` of the two products instead, which is the
+    same angle and keeps it. The identity this package checks on real data -
+    the angle between a momentum direction and the step it points along - is
+    exactly such an angle.
+    """
+    # ARRANGE
+    turned = np.array([[np.cos(angle), np.sin(angle), 0.0]])
+
+    # ACT
+    measured = angle_between(X_AXIS, turned)
+
+    # ASSERT
+    assert measured == pytest.approx([angle], rel=1e-6)
+
+
+@pytest.mark.parametrize("gap", [1e-9, 1e-7], ids=["1e-9", "1e-7"])
+def test_an_angle_just_short_of_a_half_turn_is_measured_too(gap: float) -> None:
+    """The other end of the range, where the cosine is just as flat."""
+    # ARRANGE
+    angle = HALF_TURN - gap
+    turned = np.array([[np.cos(angle), np.sin(angle), 0.0]])
+
+    # ACT
+    measured = angle_between(X_AXIS, turned)
+
+    # ASSERT
+    assert measured == pytest.approx([angle], abs=1e-12)

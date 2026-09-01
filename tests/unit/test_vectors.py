@@ -17,6 +17,7 @@ from opengate_gate_tree.geometry.vectors import (
     ensure_vectors,
     norm,
     normalize,
+    wrap_to_two_pi,
 )
 from opengate_gate_tree.io.reader import read_tree
 from opengate_gate_tree.tree.gatetree import GateTree
@@ -89,7 +90,7 @@ def test_a_vector_of_no_length_has_no_direction(caplog: pytest.LogCaptureFixture
     assert np.isnan(unit[0]).all()
     assert unit[1].tolist() == [0.6, 0.8, 0.0]
     assert np.isnan(unit[2]).all()
-    assert "2 of 3 direction values have no length" in caplog.text
+    assert "2 of 3 direction values have no length to divide out" in caplog.text
 
 
 def test_a_column_of_directions_is_reported_once(caplog: pytest.LogCaptureFixture) -> None:
@@ -162,16 +163,73 @@ def test_parallel_vectors_span_no_plane() -> None:
 
 
 def test_a_cosine_is_pulled_back_into_the_domain_of_arccos() -> None:
-    """Without this, the angle between a vector and itself would be nothing."""
+    """Without this, an angle taken from such a cosine would be nothing.
+
+    The values have to be outside the domain to begin with: 1e-16 is below the
+    spacing of float64 at one, so `1.0 + 1e-16` is `1.0` and would prove
+    nothing. 1e-15 is above it.
+    """
     # ARRANGE
-    just_outside = np.array([1.0 + 1e-16, -1.0 - 1e-16, 0.5])
+    just_outside = np.array([1.0 + 1e-15, -1.0 - 1e-15, 0.5])
 
     # ACT
     clipped = clip_cosine(just_outside)
 
     # ASSERT
+    assert just_outside[0] > 1.0
+    assert just_outside[1] < -1.0
     assert clipped.tolist() == [1.0, -1.0, 0.5]
     assert not np.isnan(np.arccos(clipped)).any()
+
+
+@pytest.mark.parametrize(
+    ("angle", "expected"),
+    [
+        (0.0, 0.0),
+        (np.pi, np.pi),
+        (-np.pi / 2, 3 * np.pi / 2),
+        (-np.pi, np.pi),
+        (-1e-17, 0.0),
+    ],
+    ids=["zero", "half-turn", "quarter-back", "half-back", "a-hair-below-zero"],
+)
+def test_an_angle_is_moved_into_a_whole_turn(angle: float, expected: float) -> None:
+    """The range is half-open, and the last case is where that is decided.
+
+    An angle a hair below zero plus a full turn rounds to exactly the full
+    turn, which is the one value the range excludes; it comes back as zero.
+    A histogram is what the range is for, and both ends landing in it would be
+    the two-halves artefact the wrap exists to prevent.
+    """
+    # ARRANGE
+    # No additional setup required.
+
+    # ACT
+    wrapped = wrap_to_two_pi(np.array([angle]))
+
+    # ASSERT
+    assert wrapped[0] == pytest.approx(expected)
+    assert 0.0 <= wrapped[0] < 2 * np.pi
+
+
+def test_a_vector_too_long_to_measure_has_no_direction(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Its length overflows, and dividing by that would answer a vector of zeros.
+
+    Of the ways a row can fail, that is the only one that would be neither an
+    exception, nor nan, nor a line in the log.
+    """
+    # ARRANGE
+    enormous = [[1e200, 1e200, 1e200]]
+
+    # ACT
+    with caplog.at_level(logging.WARNING):
+        unit = normalize(enormous)
+
+    # ASSERT
+    assert np.isnan(unit).all()
+    assert "1 of 1 vector values have no length to divide out" in caplog.text
 
 
 @pytest.mark.parametrize(

@@ -120,7 +120,7 @@ def test_a_photon_that_carried_straight_on_says_nothing(
 
     # ASSERT
     assert np.isnan(polarization).all()
-    assert "1 of 1 plane normal values have no length" in caplog.text
+    assert "1 of 1 plane normal values have no length to divide out" in caplog.text
 
 
 def test_the_estimate_is_the_normal_of_the_scattering_plane() -> None:

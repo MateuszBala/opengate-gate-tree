@@ -35,6 +35,7 @@ from opengate_gate_tree.geometry.vectors import (
     clip_cosine,
     ensure_vectors,
     normalize,
+    report_undirected,
     wrap_to_two_pi,
 )
 
@@ -142,8 +143,10 @@ def spherical_components(vectors: ArrayLike) -> tuple[np.ndarray, np.ndarray, np
         If the input does not hold vectors.
     """
     array = as_vectors(vectors)
-    radius = np.linalg.norm(array, axis=-1)
-    undirected = radius < MIN_NORM
+    with np.errstate(over="ignore"):
+        radius = np.linalg.norm(array, axis=-1)
+    undirected = (radius < MIN_NORM) | np.isinf(radius)
+    report_undirected(undirected, "position")
     with np.errstate(invalid="ignore", divide="ignore"):
         polar = np.where(undirected, np.nan, np.arccos(clip_cosine(array[:, 2] / radius)))
     azimuth = np.where(undirected, np.nan, wrap_to_two_pi(np.arctan2(array[:, 1], array[:, 0])))
@@ -155,11 +158,13 @@ def _as_axis(axis: ArrayLike, count: int) -> np.ndarray:
 
     One direction for a whole column is the usual case - the axis of a
     scanner, the direction of a beam - so a single vector is spread over the
-    rows rather than refused.
+    rows rather than refused. It is taken either as ``(3,)``, the way an axis
+    is written down, or as ``(1, 3)``, the way the rest of the package writes
+    a column of one vector.
     """
     array = np.asarray(axis, dtype=np.float64)
-    if array.shape == (VECTOR_DIMENSION,):
-        return np.broadcast_to(array, (count, VECTOR_DIMENSION))
+    if array.shape == (VECTOR_DIMENSION,) or array.shape == (1, VECTOR_DIMENSION):
+        return np.broadcast_to(array.reshape(VECTOR_DIMENSION), (count, VECTOR_DIMENSION))
     ensure_vectors(array)
     if len(array) != count:
         raise ValueError(

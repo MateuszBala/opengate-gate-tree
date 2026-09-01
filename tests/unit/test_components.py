@@ -19,7 +19,6 @@ from opengate_gate_tree.io.reader import read_tree
 from opengate_gate_tree.tree.gatetree import GateTree
 
 Z_AXIS = [0.0, 0.0, 1.0]
-X_AXIS = [1.0, 0.0, 0.0]
 
 # A half turn and a quarter of one, which is where the spherical conventions
 # are decided.
@@ -125,7 +124,7 @@ def test_an_axis_of_no_direction_answers_nothing(caplog: pytest.LogCaptureFixtur
 
     # ASSERT
     assert np.isnan(along).all()
-    assert "1 of 1 axis values have no length" in caplog.text
+    assert "1 of 1 axis values have no length to divide out" in caplog.text
 
 
 @pytest.mark.parametrize(
@@ -195,18 +194,57 @@ def test_spherical_components_come_back_from_where_they_went(positions: np.ndarr
     assert rebuilt == pytest.approx(positions, abs=1e-9)
 
 
-def test_a_vector_of_no_length_has_a_radius_and_no_angles() -> None:
-    """Its length is nothing, which is a fact; its direction is not."""
+def test_a_vector_of_no_length_has_a_radius_and_no_angles(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Its length is nothing, which is a fact; its direction is not.
+
+    And the rows are counted in the log, as everywhere else a row cannot be
+    answered - a hit at the origin must not lose two angles in silence.
+    """
     # ARRANGE
     # No additional setup required.
 
     # ACT
-    radius, polar, azimuth = spherical_components([[0.0, 0.0, 0.0]])
+    with caplog.at_level(logging.WARNING):
+        radius, polar, azimuth = spherical_components([[0.0, 0.0, 0.0], [1.0, 0.0, 0.0]])
 
     # ASSERT
-    assert radius.tolist() == [0.0]
+    assert radius.tolist() == [0.0, 1.0]
     assert np.isnan(polar[0])
     assert np.isnan(azimuth[0])
+    assert not np.isnan(polar[1])
+    assert "1 of 2 position values have no length to divide out" in caplog.text
+
+
+def test_an_azimuth_a_hair_below_zero_comes_back_inside_the_turn() -> None:
+    """The range is half-open, and this is the vector that decides it.
+
+    Just below the x axis, `atan2` answers a tiny negative angle; adding a
+    full turn to it rounds to the full turn itself, which the range excludes.
+    """
+    # ARRANGE
+    just_below_the_axis = [[1.0, -1e-17, 0.0]]
+
+    # ACT
+    _, _, azimuth = spherical_components(just_below_the_axis)
+
+    # ASSERT
+    assert azimuth[0] == 0.0
+    assert azimuth[0] < 2 * np.pi
+
+
+def test_a_single_axis_is_taken_either_way_round(positions: np.ndarray) -> None:
+    """`(3,)` is how an axis is written; `(1, 3)` is how this package writes one."""
+    # ARRANGE
+    # No additional setup required.
+
+    # ACT
+    written_flat = parallel_component(positions, Z_AXIS)
+    written_as_a_column = parallel_component(positions, np.array([Z_AXIS]))
+
+    # ASSERT
+    assert written_flat == pytest.approx(written_as_a_column)
 
 
 def test_the_view_takes_itself_apart(hits: pd.DataFrame) -> None:

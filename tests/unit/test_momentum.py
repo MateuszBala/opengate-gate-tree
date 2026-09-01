@@ -85,7 +85,7 @@ def test_a_particle_that_went_nowhere_has_no_direction(
 
     # ASSERT
     assert np.isnan(direction).all()
-    assert "1 of 1 momentum direction values have no length" in caplog.text
+    assert "1 of 1 momentum direction values have no length to divide out" in caplog.text
 
 
 def test_the_rebuilt_direction_is_the_one_gate_wrote(

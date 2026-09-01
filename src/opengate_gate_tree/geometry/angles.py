@@ -31,7 +31,7 @@ angle_between_planes(before_a, after_a, before_b, after_b) -> numpy.ndarray
 import numpy as np
 from numpy.typing import ArrayLike
 
-from opengate_gate_tree.geometry.vectors import clip_cosine, cross, dot, normalize
+from opengate_gate_tree.geometry.vectors import cross, dot, normalize
 
 
 def angle_between(left: ArrayLike, right: ArrayLike) -> np.ndarray:
@@ -40,6 +40,11 @@ def angle_between(left: ArrayLike, right: ArrayLike) -> np.ndarray:
     :math:`\theta = \arccos(\hat{u} \cdot \hat{v})`, in ``[0, pi]``. This is
     the scattering angle when the two are the directions before and after an
     interaction.
+
+    It is computed as :math:`\operatorname{atan2}
+    (\lVert \hat{u} \times \hat{v} \rVert, \hat{u} \cdot \hat{v})`, which is
+    the same angle and keeps its accuracy where the cosine loses it: near zero
+    and near :math:`\pi`.
 
     Parameters
     ----------
@@ -60,11 +65,18 @@ def angle_between(left: ArrayLike, right: ArrayLike) -> np.ndarray:
 
     Examples
     --------
-    >>> float(angle_between([[1.0, 0.0, 0.0]], [[0.0, 1.0, 0.0]]))
-    1.5707963267948966
+    >>> angle_between([[1.0, 0.0, 0.0]], [[0.0, 1.0, 0.0]])
+    array([1.57079633])
     """
-    cosine = clip_cosine(dot(normalize(left), normalize(right)))
-    angles: np.ndarray = np.arccos(cosine)
+    first = normalize(left)
+    second = normalize(right)
+    # arctan2 of the two products rather than arccos of one of them. The two
+    # agree exactly in arithmetic, and differ where it matters: a cosine
+    # carries a small angle in its last bits, so arccos answers 0 for an angle
+    # of 1e-9 rad, while this form is accurate at both ends of the range.
+    angles: np.ndarray = np.arctan2(
+        np.linalg.norm(cross(first, second), axis=-1), dot(first, second)
+    )
     return angles
 
 

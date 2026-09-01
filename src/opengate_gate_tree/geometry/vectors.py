@@ -34,6 +34,8 @@ clip_cosine(values) -> numpy.ndarray
     Cosines pulled back into the domain of ``arccos``.
 wrap_to_two_pi(angles) -> numpy.ndarray
     Angles moved into ``[0, 2*pi)``.
+report_undirected(undirected, name) -> None
+    Report the rows a calculation could not answer, without refusing the rest.
 """
 
 from typing import Final
@@ -155,7 +157,7 @@ def normalize(vectors: ArrayLike, name: str = "vector") -> np.ndarray:
     -------
     numpy.ndarray
         Vectors of shape ``(N, 3)`` and unit length, with ``nan`` in every row
-        whose length was below :data:`MIN_NORM`.
+        whose length was below :data:`MIN_NORM` or too large to measure.
 
     Raises
     ------
@@ -168,9 +170,13 @@ def normalize(vectors: ArrayLike, name: str = "vector") -> np.ndarray:
     array([[0.6, 0.8, 0. ]])
     """
     array = as_vectors(vectors)
-    lengths = np.linalg.norm(array, axis=-1, keepdims=True)
-    undirected = lengths < MIN_NORM
-    _report_undirected(undirected, name)
+    with np.errstate(over="ignore"):
+        lengths = np.linalg.norm(array, axis=-1, keepdims=True)
+    # A length that overflowed carries no direction either: dividing by it
+    # would answer a vector of zeros, which is the one wrong answer that is
+    # neither an exception nor a nan nor a line in the log.
+    undirected = (lengths < MIN_NORM) | np.isinf(lengths)
+    report_undirected(undirected, name)
     with np.errstate(invalid="ignore", divide="ignore"):
         unit = np.where(undirected, np.nan, array / lengths)
     return unit
@@ -255,6 +261,9 @@ def wrap_to_two_pi(angles: ArrayLike) -> np.ndarray:
     of zero and makes a histogram of azimuths read as two halves. Adding a full
     turn to the negative ones puts them in the range an analysis expects.
 
+    The range is half-open, and stays so: an angle a hair below zero plus a
+    full turn rounds to exactly ``2*pi``, which is answered as ``0.0``.
+
     Parameters
     ----------
     angles : array_like
@@ -266,7 +275,11 @@ def wrap_to_two_pi(angles: ArrayLike) -> np.ndarray:
         The same angles, in ``[0, 2*pi)``.
     """
     values = np.asarray(angles, dtype=np.float64)
-    wrapped: np.ndarray = np.where(values < 0.0, values + TWO_PI, values)
+    shifted = np.where(values < 0.0, values + TWO_PI, values)
+    # A hair below zero plus a full turn rounds to the full turn itself, which
+    # is the one value the range excludes. Closing it here costs an ulp of
+    # angle and keeps the promise the range makes to a histogram.
+    wrapped: np.ndarray = np.where(shifted >= TWO_PI, 0.0, shifted)
     return wrapped
 
 
@@ -282,12 +295,24 @@ def _paired(left: ArrayLike, right: ArrayLike) -> tuple[np.ndarray, np.ndarray]:
     return first, second
 
 
-def _report_undirected(undirected: np.ndarray, name: str) -> None:
-    """Report the rows that hold no direction, without refusing the column."""
+def report_undirected(undirected: np.ndarray, name: str) -> None:
+    """Report the rows that hold no direction, without refusing the column.
+
+    The rule every calculation here follows: a row that cannot be answered is
+    answered with ``nan`` and counted, and the column carries on.
+
+    Parameters
+    ----------
+    undirected : numpy.ndarray
+        Which rows hold no direction.
+    name : str
+        What those rows were, for the message.
+    """
     count = int(np.count_nonzero(undirected))
     if count:
         log().warning(
-            "%d of %d %s values have no length, so they have no direction. "
+            "%d of %d %s values have no length to divide out, so they have no "
+            "direction. "
             "Those rows are read as nothing at all.",
             count,
             len(undirected),

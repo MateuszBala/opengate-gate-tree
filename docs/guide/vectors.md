@@ -102,6 +102,18 @@ $$
 }
 $$
 
+computed as
+
+$$
+\boxed{
+\theta = \operatorname{atan2}
+\left(\lVert \hat{u}\times\hat{v} \rVert,\ \hat{u}\cdot\hat{v}\right)
+}
+$$
+
+which is the same angle. The two differ only in what survives in floating
+point, and the section on precision below says where.
+
 ```python
 angles = position.angle_to(direction)            # radians
 degrees = angles.gate.rad_to_deg()               # degrees
@@ -245,6 +257,16 @@ normal = plane_normal(before, after)
 between = angle_between_planes(before_a, after_a, before_b, after_b)
 ```
 
+The answer runs over the whole `[0, π]` rather than being folded into
+`[0, π/2]`, because the two planes here are oriented: each one is spanned by a
+direction before and a direction after, in that order, and a coincidence
+analysis wants to tell `170°` from `10°`. For the geometric angle between two
+planes with no side to them, fold it:
+
+```python
+unoriented = numpy.minimum(between, numpy.pi - between)
+```
+
 ### Warning
 
 A normal points to one side of its plane, and which side follows from the order
@@ -315,8 +337,9 @@ cancelling.
 
 ## Rows That Answer Nothing
 
-A vector of no length has no direction, and two parallel directions span no
-plane. Those rows come back as `nan`, and the package reports how many:
+A vector of no length has no direction, two parallel directions span no plane,
+and a hit at the origin has no angles. Those rows come back as `nan`, and the
+package reports how many:
 
 ```text
 WARNING  3 of 12000 plane normal values have no length, so they have no
@@ -333,9 +356,26 @@ same rule governs
 Vectors are read in `float64` whatever the file holds. GATE writes positions
 and momentum directions as `float32`, and two things go wrong at that width:
 the scalar product of two nearly parallel unit vectors loses about three
-significant digits before `arccos` sees it, and a step between two hits is a
-difference of coordinates around 200 mm, where the cancellation costs several
-more.
+significant digits, and a step between two hits is a difference of coordinates
+around 200 mm, where the cancellation costs several more.
+
+`float64` does not make a cosine a good way of measuring a small angle,
+though. Near zero the cosine is `1 - θ²/2`, so the angle sits in the last bits
+of the product and `arccos` cannot recover better than about 10⁻⁸ rad —
+measured, `arccos` of the scalar product answers exactly 0 for an angle of
+10⁻⁹ rad. That is why the angle is computed through `atan2` of the two
+products instead, which holds the angle at both ends of the range:
+
+| θ | from the cosine | from `atan2` |
+| --- | --- | --- |
+| 10⁻³ | correct to 12 digits | exact |
+| 10⁻⁵ | correct to 8 digits | exact |
+| 10⁻⁷ | correct to 3 digits | exact |
+| 10⁻⁹ | answers 0 | exact |
+
+The angles this package is asked for live in that corner: a photon that
+scattered forward, or the check that a rebuilt direction agrees with the one
+GATE wrote.
 
 ## In A Chain
 
