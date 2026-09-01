@@ -25,6 +25,9 @@ times = frame["time"].gate.s_to_ns()
 | length | mm | `posX`…, `localPosX`…, `sourcePosX`…, `stepLength`, `trackLength` |
 | time | s | `time`, `trackLocalTime` |
 
+The three kinds have conversions here; `rotationAngle` is the one branch of a
+"Hits" tree that is none of them.
+
 `GATE_UNITS` says the same thing in code, which is where a conversion of a
 branch starts:
 
@@ -34,8 +37,11 @@ from opengate_gate_tree import GATE_UNITS
 GATE_UNITS["energy"]     # 'MeV'
 ```
 
-Angles are not written by GATE at all. Every angle in this package is computed,
-and computed in radians, as in NumPy.
+`GATE_UNITS` covers those three kinds, which are the ones these conversions are
+about. A "Hits" tree carries one more angle-shaped branch, `rotationAngle`,
+which holds the orientation of a rotating system; the package claims no unit
+for it and offers no conversion of it. Every angle the package *computes* is in
+radians, as in NumPy, and `rad_to_deg` is what reads it in degrees.
 
 ## The Four Families
 

@@ -159,18 +159,22 @@ def test_a_plane_read_backwards_answers_from_the_other_side() -> None:
     """A normal points to one side, and which side follows from the order.
 
     Written down because it is the mistake to make: the two pairs have to be
-    given in the same order, before and then after.
+    given in the same order, before and then after. The planes here stand at
+    a third of a half turn, not at a right angle - at a right angle the
+    reversed answer would be the same number and this would prove nothing.
     """
     # ARRANGE
-    # No additional setup required.
+    third = HALF_TURN / 3
+    tilted = np.array([[0.0, np.cos(third), np.sin(third)]])
 
     # ACT
-    in_order = angle_between_planes(X_AXIS, Y_AXIS, X_AXIS, Z_AXIS)
-    second_pair_reversed = angle_between_planes(X_AXIS, Y_AXIS, Z_AXIS, X_AXIS)
+    in_order = angle_between_planes(X_AXIS, Y_AXIS, X_AXIS, tilted)
+    second_pair_reversed = angle_between_planes(X_AXIS, Y_AXIS, tilted, X_AXIS)
 
     # ASSERT
-    assert in_order == pytest.approx([QUARTER_TURN])
-    assert second_pair_reversed == pytest.approx([HALF_TURN - QUARTER_TURN])
+    assert in_order == pytest.approx([third])
+    assert second_pair_reversed == pytest.approx([HALF_TURN - third])
+    assert in_order != pytest.approx(second_pair_reversed)
 
 
 def test_planes_are_compared_by_their_normals_alone() -> None:

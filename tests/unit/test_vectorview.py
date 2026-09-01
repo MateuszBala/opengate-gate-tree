@@ -161,6 +161,29 @@ def test_vectors_go_back_into_a_frame(hits: pd.DataFrame) -> None:
     assert list(position.to_frame().columns) == ["posX", "posY", "posZ"]
 
 
+def test_what_a_view_hands_out_belongs_to_the_caller(hits: pd.DataFrame) -> None:
+    """A frame or a column taken out of a view is the caller's to write to.
+
+    Handing out the storage the view holds would make the two change together,
+    which is what pandas did with an array before version 3 unless told
+    otherwise, and the read-only array would be a promise with a way around it.
+    """
+    # ARRANGE
+    position = VectorView.from_frame(hits)
+    before = float(position.array[0, 0])
+
+    # ACT
+    exported = position.to_frame("dir")
+    component = position.x
+    exported.iloc[0, 0] = -999.0
+    component.iloc[0] = -999.0
+
+    # ASSERT
+    assert float(position.array[0, 0]) == before
+    assert not np.shares_memory(exported["dirX"].to_numpy(), position.array)
+    assert not np.shares_memory(component.to_numpy(), position.array)
+
+
 def test_a_view_of_selected_rows_keeps_those_rows(hits: pd.DataFrame) -> None:
     """Filtering and reading vectors have to compose, in that order."""
     # ARRANGE

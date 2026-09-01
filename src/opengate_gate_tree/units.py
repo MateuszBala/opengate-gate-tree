@@ -34,7 +34,8 @@ rad_to_deg(values), deg_to_rad(values)
 Public attributes:
 
 GATE_UNITS : Mapping[str, str]
-    The unit GATE writes each kind of quantity in.
+    The unit GATE writes energy, length and time in - the three kinds these
+    conversions are about.
 """
 
 from collections.abc import Mapping
@@ -54,8 +55,10 @@ MS_PER_S: Final[float] = 1000.0
 NS_PER_S: Final[float] = 1_000_000_000.0
 NS_PER_MS: Final[float] = 1_000_000.0
 
-# The unit GATE writes each kind of quantity in, which is where every
-# conversion of a branch starts.
+# The unit GATE writes each kind of quantity in, for the three kinds these
+# conversions are about, which is where every conversion of a branch starts.
+# A tree carries one more angle-shaped branch, ``rotationAngle``; no unit is
+# claimed for it here, because none was established from a file.
 GATE_UNITS: Final[Mapping[str, str]] = MappingProxyType(
     {"energy": "MeV", "length": "mm", "time": "s"}
 )

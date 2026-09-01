@@ -371,14 +371,19 @@ class VectorView:
         Returns
         -------
         pandas.DataFrame
-            Three columns, with the index of the rows.
+            Three columns, with the index of the rows. The frame holds values
+            of its own: writing to it does not reach the view it came from.
         """
         names = self._names if prefix is None else _prefixed(prefix)
-        return pd.DataFrame(self._array, index=self._index, columns=list(names))
+        # A copy: the frame is the caller's to write to, and pandas before 3.0
+        # would otherwise hand it the storage this view is holding.
+        return pd.DataFrame(self._array.copy(), index=self._index, columns=list(names))
 
     def _component(self, position: int) -> pd.Series:
         """Return one component of every vector, as a column."""
-        return pd.Series(self._array[:, position], index=self._index, name=self._names[position])
+        return pd.Series(
+            self._array[:, position].copy(), index=self._index, name=self._names[position]
+        )
 
     def _combined(self, values: np.ndarray, names: tuple[str, str, str]) -> "VectorView":
         """Return another view of the same rows."""
