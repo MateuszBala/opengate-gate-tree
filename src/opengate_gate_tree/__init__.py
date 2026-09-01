@@ -63,7 +63,12 @@ from::
 A vector is taken apart along a direction with :func:`parallel_component` and
 :func:`perpendicular_component`, and read in spherical components with
 :func:`spherical_components`: a radius, a polar angle from ``z`` in
-``[0, pi]``, and an azimuth in ``[0, 2*pi)``. :func:`normalize`, :func:`dot` and
+``[0, pi]``, and an azimuth in ``[0, 2*pi)``.
+
+:func:`angle_between` measures the angle between two directions, and
+:func:`plane_normal` with :func:`angle_between_planes` the angle between the
+planes a pair of directions spans - the scattering planes of a coincidence.
+Angles are in radians; :func:`rad_to_deg` reads them in degrees. :func:`normalize`, :func:`dot` and
 :func:`cross` work on whole columns at once; a vector of no length has no
 direction, so such a row is answered with ``nan`` and reported, rather than
 refusing the column it sits in.
@@ -102,6 +107,12 @@ from opengate_gate_tree.errors import (  # noqa: E402
     TreeNotFoundError,
     UnknownHitsVariantError,
     UnsupportedBranchTypeError,
+)
+from opengate_gate_tree.geometry.angles import (  # noqa: E402
+    angle_between,
+    angle_between_normals,
+    angle_between_planes,
+    plane_normal,
 )
 from opengate_gate_tree.geometry.components import (  # noqa: E402
     parallel_component,
@@ -267,6 +278,9 @@ __all__ = [
     "UnsupportedBranchTypeError",
     "VectorView",
     "__version__",
+    "angle_between",
+    "angle_between_normals",
+    "angle_between_planes",
     "as_vectors",
     "build_output_file_name",
     "build_output_file_path",
@@ -319,6 +333,7 @@ __all__ = [
     "parse_gate_tree",
     "parse_output_file_format",
     "perpendicular_component",
+    "plane_normal",
     "positronium_enum",
     "rad_to_deg",
     "read_hits_trees",

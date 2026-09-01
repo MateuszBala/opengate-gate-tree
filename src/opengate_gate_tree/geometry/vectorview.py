@@ -30,6 +30,7 @@ import numpy as np
 import pandas as pd
 from numpy.typing import ArrayLike
 
+from opengate_gate_tree.geometry.angles import angle_between
 from opengate_gate_tree.geometry.components import (
     parallel_component,
     perpendicular_component,
@@ -257,6 +258,31 @@ class VectorView:
             If the two views do not describe the same rows.
         """
         return self._combined(cross(self._array, self._matching(other)), GENERIC_NAMES)
+
+    def angle_to(self, other: "VectorView") -> pd.Series:
+        """Return the angle to another view, row by row.
+
+        Parameters
+        ----------
+        other : VectorView
+            Vectors describing the same rows.
+
+        Returns
+        -------
+        pandas.Series
+            Angles in radians, in ``[0, pi]``, with the index of the rows.
+            :func:`~opengate_gate_tree.units.rad_to_deg` reads them in degrees.
+
+        Raises
+        ------
+        ValueError
+            If the two views do not describe the same rows.
+        """
+        return pd.Series(
+            angle_between(self._array, self._matching(other)),
+            index=self._index,
+            name="angle",
+        )
 
     def parallel_to(self, axis: "VectorView | ArrayLike") -> "VectorView":
         """Return the part of every vector that lies along an axis.
