@@ -68,7 +68,17 @@ A vector is taken apart along a direction with :func:`parallel_component` and
 :func:`angle_between` measures the angle between two directions, and
 :func:`plane_normal` with :func:`angle_between_planes` the angle between the
 planes a pair of directions spans - the scattering planes of a coincidence.
-Angles are in radians; :func:`rad_to_deg` reads them in degrees. :func:`normalize`, :func:`dot` and
+Angles are in radians; :func:`rad_to_deg` reads them in degrees.
+
+A detector records where something happened rather than where it was going, so
+:func:`momentum_direction_from_positions` rebuilds a direction of flight from
+two places: the ``momDir`` branches of a "Hits" tree hold the direction after
+an interaction, not the one the particle arrived with.
+
+Compton scattering happens most readily perpendicular to the polarization of
+the incoming photon, so the normal of the scattering plane is what can be known
+about it. :func:`polarization_direction` names that estimate, and takes the two
+momentum directions of the scattering. :func:`normalize`, :func:`dot` and
 :func:`cross` work on whole columns at once; a vector of no length has no
 direction, so such a row is answered with ``nan`` and reported, rather than
 refusing the column it sits in.
@@ -118,6 +128,12 @@ from opengate_gate_tree.geometry.components import (  # noqa: E402
     parallel_component,
     perpendicular_component,
     spherical_components,
+)
+from opengate_gate_tree.geometry.momentum import (  # noqa: E402
+    momentum_direction_from_positions,
+)
+from opengate_gate_tree.geometry.polarization import (  # noqa: E402
+    polarization_direction,
 )
 from opengate_gate_tree.geometry.vectors import (  # noqa: E402
     as_vectors,
@@ -323,6 +339,7 @@ __all__ = [
     "merge_tree_data",
     "mm_to_cm",
     "mm_to_m",
+    "momentum_direction_from_positions",
     "ms_to_ns",
     "ms_to_s",
     "norm",
@@ -334,6 +351,7 @@ __all__ = [
     "parse_output_file_format",
     "perpendicular_component",
     "plane_normal",
+    "polarization_direction",
     "positronium_enum",
     "rad_to_deg",
     "read_hits_trees",
