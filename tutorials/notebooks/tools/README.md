@@ -44,12 +44,15 @@ asking for, so that a histogram is one line rather than ten.
 
 | Function | Draws |
 | --- | --- |
-| `plot_hist_1d(x, xrange, xbins, xtitle, ytitle, title)` | one histogram |
-| `plot_hists_1d(histograms, ...)` | several histograms over one binning, with a legend |
+| `plot_hist_1d(x, xrange, xbins, xtitle, ytitle, title, discrete)` | one histogram |
+| `plot_hists_1d(histograms, ..., discrete)` | several histograms over one binning, with a legend |
 | `plot_hist_2d(x, y, xrange, xbins, yrange, ybins, ...)` | a two-dimensional histogram, with a colour bar |
 | `plot_graph(x, y, ...)` | one series of points, with error bars where there are any |
 | `plot_graphs(graphs, ...)` | several series, with a legend |
+| `plot_bar(x, heights, width, ...)` | one row of bars, each centred on its value |
+| `plot_bars(bars, ...)` | several rows, standing side by side above each value |
 | `plot_pie_chart(values, labels, ...)` | parts of a whole |
+| `count_values(values)` | how often each distinct value occurs |
 
 Every one of them takes an `ax` and returns one, so a plot can be built up over
 several calls or placed into a grid the notebook made itself:
@@ -81,12 +84,51 @@ plot_graphs(
 colour, transparency, line style, markers, error bars - so that a notebook can
 say what it wants without a wall of keyword arguments.
 
-Two things these do that a bare matplotlib call does not:
+### Counting Discrete Values
+
+A column of identifiers or of small counts does not want bins. With them, the
+bar for a `trackID` of 1 runs from 1 to 2 and reads as though it belonged to
+both; `discrete=True` counts each distinct value on its own and centres its bar
+over it:
+
+```python
+plot_hist_1d(frame["trackID"], discrete=True, xtitle="trackID")
+```
+
+```text
+binned:    bar for 1 runs from 1.00 to 1.75
+discrete:  bar for 1 runs from 0.60 to 1.40, centred on 1
+```
+
+Several columns of discrete values stand side by side above each value rather
+than over one another, which is how three runs are compared value by value:
+
+```python
+plot_hists_1d(
+    [HistogramParams(run["trackID"], label=f"run {number}") for number, run in enumerate(runs)],
+    discrete=True,
+    xtitle="trackID",
+)
+```
+
+The same shape is available from heights computed elsewhere, through
+`plot_bar` and `plot_bars`, and `count_values` is the step between the two:
+
+```python
+values, counts = count_values(frame["trackID"])
+plot_bar(values, counts, xtitle="trackID", ytitle="hits")
+```
+
+### Three Things These Do That A Bare Matplotlib Call Does Not
 
 - **`plot_hists_1d` bins every histogram the same way**, from `xrange` and
   `xbins` or, when no range is given, from all the values together. Histograms
   drawn one after another with binnings of their own cannot be compared, and
   nothing on the picture says so.
+- **A bar of a discrete histogram is centred on the value it counts**, so the
+  picture reads as a distribution over values rather than over intervals. This
+  matters most where it is easiest to misread: a narrow range, or a column of
+  identifiers.
 - **Values that are not finite are left out, and counted in a warning.** A
   column of angles from this package holds `nan` wherever a row had no answer,
   and a plot that quietly drops them tells the reader there was less data than

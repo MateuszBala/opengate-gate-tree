@@ -17,7 +17,7 @@ Public functions:
 use_tutorial_style() -> None
     Apply the settings to matplotlib, for the rest of the notebook.
 plot_hist_1d(x, ...) -> matplotlib.axes.Axes
-    One histogram.
+    One histogram, binned or counted value by value.
 plot_hists_1d(histograms, ...) -> matplotlib.axes.Axes
     Several histograms over one binning, with a legend.
 plot_hist_2d(x, y, ...) -> matplotlib.axes.Axes
@@ -26,8 +26,14 @@ plot_graph(x, y, ...) -> matplotlib.axes.Axes
     One series of points, with error bars where there are any.
 plot_graphs(graphs, ...) -> matplotlib.axes.Axes
     Several series, with a legend.
+plot_bar(x, heights, ...) -> matplotlib.axes.Axes
+    One row of bars, each centred on the value it belongs to.
+plot_bars(bars, ...) -> matplotlib.axes.Axes
+    Several rows of bars, standing side by side above each value.
 plot_pie_chart(values, ...) -> matplotlib.axes.Axes
     Parts of a whole.
+count_values(values) -> tuple[numpy.ndarray, numpy.ndarray]
+    How often each distinct value occurs.
 
 Public classes:
 
@@ -35,6 +41,8 @@ HistogramParams
     One histogram of :func:`plot_hists_1d`, with how it is drawn.
 GraphParams
     One series of :func:`plot_graphs`, with how it is drawn.
+BarParams
+    One row of bars of :func:`plot_bars`, with how it is drawn.
 """
 
 import warnings
@@ -68,6 +76,15 @@ COUNTS_LABEL: Final[str] = "counts"
 
 # How many bins a histogram has when nobody chooses.
 DEFAULT_BINS: Final[int] = 50
+
+# How much of the space between two values a group of bars takes. Less than
+# one, so that the groups read as separate answers.
+DEFAULT_BAR_WIDTH: Final[float] = 0.8
+
+# Above this many values, the ticks are left to matplotlib: one tick per value
+# is what makes a discrete axis readable, and what makes a crowded one
+# unreadable.
+TICK_LIMIT: Final[int] = 30
 
 
 @dataclass(frozen=True)
@@ -140,6 +157,39 @@ class GraphParams:
     extra: dict[str, Any] = field(default_factory=dict)
 
 
+@dataclass(frozen=True)
+class BarParams:
+    """One row of bars of :func:`plot_bars`, with how it is drawn.
+
+    Attributes
+    ----------
+    x : array_like
+        The values the bars stand above. They need not be the same for every
+        row: a value one row does not have is drawn as no bar at all rather
+        than as a bar of nothing.
+    heights : array_like
+        How tall each bar is, one per value.
+    label : str | None
+        What the legend calls this row.
+    color : str | None
+        Its colour; matplotlib chooses when this is ``None``.
+    alpha : float
+        How solid the bars are.
+    edgecolor : str | None
+        Colour of the outline, if any.
+    linewidth : float
+        Width of the outline.
+    """
+
+    x: ArrayLike
+    heights: ArrayLike
+    label: str | None = None
+    color: str | None = None
+    alpha: float = 0.85
+    edgecolor: str | None = None
+    linewidth: float = 0.0
+
+
 def use_tutorial_style() -> None:
     """Apply the tutorial style to matplotlib.
 
@@ -162,6 +212,7 @@ def plot_hist_1d(
     ytitle: str = COUNTS_LABEL,
     title: str = "",
     ax: Axes | None = None,
+    discrete: bool = False,
     **style: Any,
 ) -> Axes:
     """Draw one histogram.
@@ -171,25 +222,34 @@ def plot_hist_1d(
     x : array_like
         What to count.
     xrange : tuple[float, float] | None
-        Ends of the axis. Taken from the data when omitted.
+        Ends of the axis. Taken from the data when omitted. Ignored when
+        ``discrete`` is set, since there are no bins to place.
     xbins : int
-        How many bins.
+        How many bins. Ignored when ``discrete`` is set.
     xtitle, ytitle, title : str
         The labels.
     ax : matplotlib.axes.Axes | None
         Where to draw. A new figure is made when omitted.
+    discrete : bool
+        Count each distinct value on its own and centre its bar over it,
+        instead of dividing a range into bins. This is what a column of
+        identifiers or of small counts asks for: with bins, the bar for a
+        ``trackID`` of 1 runs from 1 to 2 and reads as though it belonged to
+        both.
     **style
-        Passed on to :meth:`matplotlib.axes.Axes.hist`, for anything this
-        signature does not name.
+        Passed on to :meth:`matplotlib.axes.Axes.hist`, or to
+        :func:`plot_bar` when ``discrete`` is set.
 
     Returns
     -------
     matplotlib.axes.Axes
         The axes drawn on, so that a notebook can add to them.
     """
+    if discrete:
+        values, counts = count_values(x, name="x")
+        return plot_bar(values, counts, xtitle=xtitle, ytitle=ytitle, title=title, ax=ax, **style)
     axes = _axes(ax)
-    values = _finite(x, "x")
-    axes.hist(values, bins=xbins, range=xrange, **style)
+    axes.hist(_finite(x, "x"), bins=xbins, range=xrange, **style)
     _label(axes, xtitle, ytitle, title)
     return axes
 
@@ -203,6 +263,7 @@ def plot_hists_1d(
     title: str = "",
     ax: Axes | None = None,
     legend: bool = True,
+    discrete: bool = False,
 ) -> Axes:
     """Draw several histograms over one another.
 
@@ -218,8 +279,10 @@ def plot_hists_1d(
         What to draw, and how to draw each one.
     xrange : tuple[float, float] | None
         Ends of the axis. Taken from all the values together when omitted.
+        Ignored when ``discrete`` is set.
     xbins : int
-        How many bins, shared by every histogram.
+        How many bins, shared by every histogram. Ignored when ``discrete`` is
+        set.
     xtitle, ytitle, title : str
         The labels.
     ax : matplotlib.axes.Axes | None
@@ -227,6 +290,11 @@ def plot_hists_1d(
     legend : bool
         Whether to draw the legend. It says which histogram is which, so it is
         drawn unless a notebook has a reason otherwise.
+    discrete : bool
+        Count each distinct value on its own, and stand the histograms side by
+        side above it rather than over one another. For values that are
+        identifiers or small counts this is the readable form: three columns
+        of ``trackID`` become three bars above 1, three above 2, and so on.
 
     Returns
     -------
@@ -240,6 +308,24 @@ def plot_hists_1d(
     """
     if not histograms:
         raise ValueError("Drawing histograms together needs at least one of them.")
+    if discrete:
+        return plot_bars(
+            [
+                BarParams(
+                    *count_values(histogram.values, name=histogram.label or "histogram"),
+                    label=histogram.label,
+                    color=histogram.color,
+                    alpha=histogram.alpha,
+                    linewidth=histogram.linewidth,
+                )
+                for histogram in histograms
+            ],
+            xtitle=xtitle,
+            ytitle=ytitle,
+            title=title,
+            ax=ax,
+            legend=legend,
+        )
     axes = _axes(ax)
     values = [_finite(histogram.values, histogram.label or "histogram") for histogram in histograms]
     edges = np.histogram_bin_edges(np.concatenate(values), bins=xbins, range=xrange)
@@ -417,6 +503,153 @@ def plot_graphs(
     return axes
 
 
+def plot_bar(
+    x: ArrayLike,
+    heights: ArrayLike,
+    width: float = DEFAULT_BAR_WIDTH,
+    xtitle: str = "",
+    ytitle: str = COUNTS_LABEL,
+    title: str = "",
+    ax: Axes | None = None,
+    **params: Any,
+) -> Axes:
+    """Draw one row of bars, each centred on the value it belongs to.
+
+    Parameters
+    ----------
+    x : array_like
+        The values the bars stand above.
+    heights : array_like
+        How tall each bar is, one per value.
+    width : float
+        How much of the space between neighbouring values a bar takes, from 0
+        to 1. The default leaves a gap, so that the bars read as separate
+        answers rather than as a filled range.
+    xtitle, ytitle, title : str
+        The labels.
+    ax : matplotlib.axes.Axes | None
+        Where to draw. A new figure is made when omitted.
+    **params
+        Anything :class:`BarParams` holds - ``label``, ``color``, ``alpha``,
+        ``edgecolor``, ``linewidth``.
+
+    Returns
+    -------
+    matplotlib.axes.Axes
+        The axes drawn on.
+    """
+    return plot_bars(
+        [BarParams(x=x, heights=heights, **params)],
+        width=width,
+        xtitle=xtitle,
+        ytitle=ytitle,
+        title=title,
+        ax=ax,
+    )
+
+
+def plot_bars(
+    bars: Sequence[BarParams],
+    width: float = DEFAULT_BAR_WIDTH,
+    xtitle: str = "",
+    ytitle: str = COUNTS_LABEL,
+    title: str = "",
+    ax: Axes | None = None,
+    legend: bool = True,
+) -> Axes:
+    """Draw several rows of bars, standing side by side above each value.
+
+    Every row is drawn over the same values - the ones any of them mentions -
+    so that the bars above one value can be compared by eye. A value one row
+    does not have is left empty there rather than drawn as zero, which are two
+    different statements.
+
+    The bars of one value share the space between it and its neighbours: the
+    group is centred on the value, and the rows are placed within it in the
+    order they were given.
+
+    Parameters
+    ----------
+    bars : Sequence[BarParams]
+        What to draw, and how to draw each row.
+    width : float
+        How much of the space between neighbouring values the whole group
+        takes, from 0 to 1.
+    xtitle, ytitle, title : str
+        The labels.
+    ax : matplotlib.axes.Axes | None
+        Where to draw. A new figure is made when omitted.
+    legend : bool
+        Whether to draw the legend.
+
+    Returns
+    -------
+    matplotlib.axes.Axes
+        The axes drawn on.
+
+    Raises
+    ------
+    ValueError
+        If no row was given, if a row has as many values as heights, or if the
+        width is not between 0 and 1.
+    """
+    if not bars:
+        raise ValueError("Drawing bars needs at least one row of them.")
+    if not 0.0 < width <= 1.0:
+        raise ValueError(f"A bar takes between 0 and 1 of the space it has, got {width}.")
+
+    rows = [_bar_row(row) for row in bars]
+    values = np.unique(np.concatenate([row[0] for row in rows]))
+    span = _smallest_gap(values) * width
+    thickness = span / len(rows)
+
+    axes = _axes(ax)
+    for number, (row_values, row_heights) in enumerate(rows):
+        offset = (number - (len(rows) - 1) / 2) * thickness
+        params = bars[number]
+        axes.bar(
+            row_values + offset,
+            row_heights,
+            width=thickness,
+            label=params.label,
+            color=params.color,
+            alpha=params.alpha,
+            edgecolor=params.edgecolor,
+            linewidth=params.linewidth,
+        )
+    if len(values) <= TICK_LIMIT:
+        axes.set_xticks(values)
+    _label(axes, xtitle, ytitle, title)
+    if legend and any(row.label for row in bars):
+        axes.legend()
+    return axes
+
+
+def count_values(values: ArrayLike, name: str = "values") -> tuple[np.ndarray, np.ndarray]:
+    """Return how often each distinct value occurs.
+
+    Parameters
+    ----------
+    values : array_like
+        What to count. Values that are not finite are left out and counted in
+        a warning, as everywhere else here.
+    name : str
+        What the values are, for that warning.
+
+    Returns
+    -------
+    tuple[numpy.ndarray, numpy.ndarray]
+        The distinct values in order, and how often each occurs.
+
+    Examples
+    --------
+    >>> count_values([1, 1, 2, 3, 3, 3])
+    (array([1., 2., 3.]), array([2, 1, 3]))
+    """
+    distinct, counts = np.unique(_finite(values, name), return_counts=True)
+    return distinct, counts
+
+
 def plot_pie_chart(
     values: ArrayLike,
     labels: Sequence[str] | None = None,
@@ -469,6 +702,26 @@ def plot_pie_chart(
     if title:
         axes.set_title(title)
     return axes
+
+
+def _bar_row(row: BarParams) -> tuple[np.ndarray, np.ndarray]:
+    """Return one row of bars as values and heights, refusing a mismatch."""
+    values = np.asarray(row.x, dtype=np.float64).ravel()
+    heights = np.asarray(row.heights, dtype=np.float64).ravel()
+    if values.size != heights.size:
+        raise ValueError(
+            f"A bar stands above one value, so a row holds as many values as heights: "
+            f"got {values.size} and {heights.size}."
+        )
+    return values, heights
+
+
+def _smallest_gap(values: np.ndarray) -> float:
+    """Return the space one value has to itself, along the axis."""
+    if values.size < 2:
+        return 1.0
+    gaps = np.diff(values)
+    return float(np.min(gaps))
 
 
 def _axes(ax: Axes | None) -> Axes:
