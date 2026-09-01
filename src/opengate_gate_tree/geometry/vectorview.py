@@ -25,7 +25,7 @@ VectorView
     Vectors read from three columns, with the index of their rows.
 """
 
-from typing import Final, Self
+from typing import ClassVar, Final, Self
 
 import numpy as np
 import pandas as pd
@@ -76,9 +76,19 @@ class VectorView:
     Raises
     ------
     ValueError
-        If the values do not hold vectors, or hold a different number of them
-        than the index holds rows.
+        If the values do not hold vectors, hold a different number of them
+        than the index holds rows, or are named by other than three names.
     """
+
+    # Higher than what pandas gives its own containers, so that ``series *
+    # view`` reaches __rmul__ with the column itself. Left to pandas, the
+    # multiplication is done element by element and answers a column of views,
+    # one per row, each of them whole - which is not an error anywhere and not
+    # what anybody asked for.
+    __pandas_priority__: ClassVar[int] = 5000
+
+    # The same for NumPy, whose ufuncs would otherwise build an array of views.
+    __array_ufunc__: ClassVar[None] = None
 
     def __init__(
         self,
@@ -92,6 +102,11 @@ class VectorView:
             raise ValueError(
                 f"A view holds one vector per row: got {len(array)} vector(s) "
                 f"for {len(index)} row(s)."
+            )
+        if len(names) != VECTOR_DIMENSION:
+            raise ValueError(
+                f"A vector has {VECTOR_DIMENSION} components, so it is named by "
+                f"{VECTOR_DIMENSION} names: got {list(names)}."
             )
         self._array = array
         self._index = index
@@ -111,8 +126,9 @@ class VectorView:
             Frame holding the columns.
         columns : tuple[str, str, str]
             The three columns, in the order ``(x, y, z)``. A "Hits" tree
-            carries three such triples: where the hit happened, where it
-            happened inside its volume, and where the gamma was born.
+            carries four such triples: where the hit happened, where it
+            happened inside its volume, where the gamma was born, and where
+            the particle went after the hit.
 
         Returns
         -------
@@ -199,7 +215,13 @@ class VectorView:
         return self._combined(self._array * self._factor(factor), self._names)
 
     def __rmul__(self, factor: float | pd.Series) -> "VectorView":
-        """Return the vectors scaled, with the factor written first."""
+        """Return the vectors scaled, with the factor written first.
+
+        A column written on the left reaches this method whole, rather than
+        one value at a time, because of ``__pandas_priority__`` above - so it
+        is held to the same rule as ``view * column``: it describes the same
+        rows or it is refused.
+        """
         return self.__mul__(factor)
 
     def __neg__(self) -> "VectorView":
@@ -407,6 +429,12 @@ class VectorView:
 
     def _factor(self, factor: float | pd.Series) -> np.ndarray | float:
         """Return a factor as one number or as one per row, refusing a mismatch."""
+        if isinstance(factor, np.ndarray | list | tuple):
+            raise ValueError(
+                "A factor given per row is given as a column, so that the rows it "
+                "describes can be checked against the rows of the view: got "
+                f"{type(factor).__name__}."
+            )
         if isinstance(factor, pd.Series):
             if not self._index.equals(factor.index):
                 raise ValueError(

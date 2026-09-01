@@ -71,8 +71,10 @@ def test_the_angles_between_the_axes() -> None:
 def test_the_angle_between_a_direction_and_itself_is_nothing() -> None:
     """The scalar product of a unit vector with itself overshoots one.
 
-    Without pulling the cosine back into the domain of arccos, the first thing
-    anybody checks would answer nan.
+    A cosine of 1.0000000000000002 is outside the domain of arccos, so an
+    angle taken that way would answer nan for the first thing anybody checks.
+    The angle is taken through atan2 of the two products instead, which is
+    defined for any pair of them - this test is what says so.
     """
     # ARRANGE
     awkward = as_vectors([[0.5773502691896258, 0.5773502691896258, 0.5773502691896258]])

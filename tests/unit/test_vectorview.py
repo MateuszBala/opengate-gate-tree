@@ -287,6 +287,69 @@ def test_a_column_the_frame_does_not_hold_is_named(hits: pd.DataFrame) -> None:
         VectorView.from_frame(hits, ("posX", "posY", "momentum"))
 
 
+def test_a_column_written_on_the_left_scales_the_view_whole(hits: pd.DataFrame) -> None:
+    """Left to pandas, the multiplication would be done one row at a time.
+
+    Each row would scale the whole view, and the answer would be a column of
+    views rather than a view - no error anywhere, and nothing anybody asked
+    for. The class takes precedence over pandas so that the column arrives
+    here whole and is held to the rule about rows.
+    """
+    # ARRANGE
+    position = VectorView.from_frame(hits)
+    weights = hits["edep"]
+
+    # ACT
+    from_the_left = weights * position
+
+    # ASSERT
+    assert isinstance(from_the_left, VectorView)
+    assert from_the_left.array == pytest.approx((position * weights).array)
+    assert from_the_left.index.equals(hits.index)
+
+
+def test_a_column_of_other_rows_is_refused_from_either_side(hits: pd.DataFrame) -> None:
+    """The rule holds whichever side the column is written on."""
+    # ARRANGE
+    position = VectorView.from_frame(hits.iloc[:10])
+    other_rows = hits["edep"].iloc[10:20]
+
+    # ACT / ASSERT
+    with pytest.raises(ValueError, match="the same rows"):
+        other_rows * position
+    with pytest.raises(ValueError, match="the same rows"):
+        position * other_rows
+
+
+@pytest.mark.parametrize(
+    "factor",
+    [np.array([1.0, 2.0]), [1.0, 2.0], (1.0, 2.0)],
+    ids=["array", "list", "tuple"],
+)
+def test_a_factor_per_row_without_rows_is_refused(factor: object) -> None:
+    """A weight per row has to say which rows, and only a column does.
+
+    An array of the right length would scale the view without anything
+    checking that its values belong to those hits.
+    """
+    # ARRANGE
+    position = VectorView(np.ones((2, 3)), pd.Index([4, 7]))
+
+    # ACT / ASSERT
+    with pytest.raises(ValueError, match="given as a column"):
+        position * factor  # type: ignore[operator]
+
+
+def test_a_vector_is_named_by_three_names() -> None:
+    """Fewer would build a view that fails later, at .z or at to_frame."""
+    # ARRANGE
+    vectors = np.zeros((2, 3))
+
+    # ACT / ASSERT
+    with pytest.raises(ValueError, match="named by 3 names"):
+        VectorView(vectors, pd.Index([0, 1]), ("x", "y"))  # type: ignore[arg-type]
+
+
 def test_a_view_holds_one_vector_per_row() -> None:
     """The index says which row a vector describes, so there is one of each."""
     # ARRANGE
