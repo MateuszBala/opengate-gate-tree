@@ -1,0 +1,10 @@
+# What a notebook needs beyond the package itself.
+#
+# The package is installed from the working tree rather than from PyPI, so a
+# notebook run after a change to src/ sees that change. The path is relative to
+# this directory, which is where the Makefile runs pip from.
+-e ..
+
+jupyterlab>=4.2
+ipykernel>=6.29
+matplotlib>=3.8
