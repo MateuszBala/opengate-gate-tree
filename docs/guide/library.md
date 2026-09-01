@@ -181,6 +181,37 @@ and `by_event` name rows by the identifiers GATE wrote, and
 `select_by_process` take the meaning of a code rather than its number. See
 [Filtering And Selecting](filtering.md).
 
+## Units And Vectors
+
+Quantities are read in the units GATE writes them in - MeV, mm and s - and the
+conversions to the ones an analysis uses are named after what they do:
+
+```python
+energies = frame["edep"].gate.MeV_to_keV()
+resolution = frame["time"].gate.s_to_ns()
+```
+
+Four families are covered, each closed so that every unit reaches every other
+one: energy, length, time and angle. See [Units](units.md).
+
+Three columns of a tree are a vector, and a view reads them as one, keeping the
+rows they came from:
+
+```python
+position = frame.gate.position()
+direction = frame.gate.momentum_direction()
+
+angles = position.angle_to(direction).gate.rad_to_deg()
+spherical = position.spherical()
+```
+
+A length or an angle comes back as a column, a vector as another view, three
+numbers as a frame. `angle_between`, `plane_normal` and `angle_between_planes`
+measure directions and the planes they span, `momentum_direction_from_positions`
+rebuilds a direction of flight from two places, and `polarization_direction`
+estimates a polarization from a scattering. See
+[Vectors And Angles](vectors.md).
+
 ## PositroniumSource Branches
 
 `SourceType`, `DecayType` and `GammaType` name the values of the three

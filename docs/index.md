@@ -36,6 +36,8 @@ guide/positronium
 guide/merging
 guide/representations
 guide/filtering
+guide/units
+guide/vectors
 guide/statistics
 guide/export
 guide/cli
@@ -47,6 +49,8 @@ guide/cli
 
 api/io
 api/tree
+api/units
+api/geometry
 api/cli
 ```
 

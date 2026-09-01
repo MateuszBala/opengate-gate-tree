@@ -243,6 +243,32 @@ What pandas already says — comparing, `isin`, combining masks — is left to
 pandas. See the
 [guide](https://opengate-gate-tree.readthedocs.io/en/latest/guide/filtering.html).
 
+### Units And Vectors
+
+Quantities come out of GATE in MeV, mm and s. The conversions to the units an
+analysis uses are named after what they do, in four closed families - energy,
+length, time and angle:
+
+```python
+energies = frame["edep"].gate.MeV_to_keV()
+resolution = frame["time"].gate.s_to_ns()
+```
+
+Three columns of a tree are a vector, and a view reads them as one while
+keeping the rows they came from, so a length or an angle comes back as a
+column and a vector as another view:
+
+```python
+position = frame.gate.position()
+angles = position.angle_to(frame.gate.momentum_direction()).gate.rad_to_deg()
+spherical = position.spherical()          # radius, polar, azimuth
+```
+
+Directions can be rebuilt from the places a particle was, which is what a
+detector leaves to work with, and the polarization of a scattered photon is
+estimated from the plane it scattered in. Every formula is written out in the
+[guide](https://opengate-gate-tree.readthedocs.io/en/latest/guide/vectors.html).
+
 ### Reading What A Gamma Was
 
 The branches a `PositroniumSource` writes hold integers saying what each gamma

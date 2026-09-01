@@ -144,3 +144,17 @@ frame["edep"].gate.in_range(0.2, 0.511)          # column in, column out
 The frame stays a plain `pandas.DataFrame` throughout — the namespace is added
 to the class, not to the object — and `TreeData.from_dataframe` reads a
 selection back. See [Filtering And Selecting](filtering.md).
+
+## Reading Columns As Something Else
+
+Two more views of the same data, both on the `gate` namespace. A column can be
+read in another unit, and three columns can be read as the vector they are:
+
+```python
+energies = frame["edep"].gate.MeV_to_keV()
+position = frame.gate.position()
+```
+
+The first answers with a column, the second with a `VectorView` that carries
+the index of the rows. Neither changes the frame. See [Units](units.md) and
+[Vectors And Angles](vectors.md).
