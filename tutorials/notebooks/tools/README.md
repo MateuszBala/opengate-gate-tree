@@ -46,7 +46,7 @@ asking for, so that a histogram is one line rather than ten.
 | --- | --- |
 | `plot_hist_1d(x, xrange, xbins, xtitle, ytitle, title, discrete)` | one histogram |
 | `plot_hists_1d(histograms, ..., discrete)` | several histograms over one binning, with a legend |
-| `plot_hist_2d(x, y, xrange, xbins, yrange, ybins, ...)` | a two-dimensional histogram, with a colour bar |
+| `plot_hist_2d(x, y, xrange, xbins, yrange, ybins, ..., discrete)` | a two-dimensional histogram, with a colour bar |
 | `plot_graph(x, y, ...)` | one series of points, with error bars where there are any |
 | `plot_graphs(graphs, ...)` | several series, with a legend |
 | `plot_bar(x, heights, width, ...)` | one row of bars, each centred on its value |
@@ -99,6 +99,24 @@ plot_hist_1d(frame["trackID"], discrete=True, xtitle="trackID")
 binned:    bar for 1 runs from 1.00 to 1.75
 discrete:  bar for 1 runs from 0.60 to 1.40, centred on 1
 ```
+
+The same option works in two dimensions, on either axis or on both. A pair of
+identifier columns gets one cell per pair of values, and a column of
+identifiers against a continuous quantity gets cells along one axis and bins
+along the other:
+
+```python
+plot_hist_2d(frame["trackID"], frame["parentID"], discrete=True,
+             xtitle="trackID", ytitle="parentID")
+
+plot_hist_2d(frame["trackID"], frame["edep"], discrete=(True, False), ybins=40,
+             xtitle="trackID", ytitle="energy deposited [MeV]")
+```
+
+Values spaced evenly land in the middle of their cell exactly. Values spaced
+unevenly land inside it, with each boundary halfway to the neighbour on that
+side — cells that tile the plane cannot also be centred on values that are not
+evenly spaced, and tiling is what a two-dimensional histogram is.
 
 Several columns of discrete values stand side by side above each value rather
 than over one another, which is how three runs are compared value by value:

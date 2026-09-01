@@ -21,7 +21,8 @@ plot_hist_1d(x, ...) -> matplotlib.axes.Axes
 plot_hists_1d(histograms, ...) -> matplotlib.axes.Axes
     Several histograms over one binning, with a legend.
 plot_hist_2d(x, y, ...) -> matplotlib.axes.Axes
-    A two-dimensional histogram, with a colour bar.
+    A two-dimensional histogram, binned or counted value by value, with a
+    colour bar.
 plot_graph(x, y, ...) -> matplotlib.axes.Axes
     One series of points, with error bars where there are any.
 plot_graphs(graphs, ...) -> matplotlib.axes.Axes
@@ -46,7 +47,7 @@ BarParams
 """
 
 import warnings
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from typing import Any, Final
 
@@ -360,6 +361,7 @@ def plot_hist_2d(
     colorbar: bool = True,
     colorbar_title: str = COUNTS_LABEL,
     ax: Axes | None = None,
+    discrete: bool | tuple[bool, bool] = False,
     **style: Any,
 ) -> Axes:
     """Draw a two-dimensional histogram.
@@ -370,9 +372,11 @@ def plot_hist_2d(
         The two coordinates. A row is counted only when both are finite, since
         half a point is not a point.
     xrange, yrange : tuple[float, float] | None
-        Ends of the axes. Taken from the data when omitted.
+        Ends of the axes. Taken from the data when omitted, and ignored for an
+        axis that is drawn discretely.
     xbins, ybins : int
-        How many bins along each axis.
+        How many bins along each axis. Ignored for an axis that is drawn
+        discretely, which has one cell per value.
     xtitle, ytitle, title : str
         The labels.
     colorbar : bool
@@ -381,6 +385,12 @@ def plot_hist_2d(
         What the colours count.
     ax : matplotlib.axes.Axes | None
         Where to draw. A new figure is made when omitted.
+    discrete : bool | tuple[bool, bool]
+        Give each distinct value a cell of its own, centred on it, instead of
+        dividing a range into bins. ``True`` does it for both axes; a pair does
+        it for the ones it names, which is what a column of identifiers
+        against a continuous quantity asks for - ``discrete=(True, False)``
+        for ``trackID`` against energy.
     **style
         Passed on to :meth:`matplotlib.axes.Axes.hist2d`.
 
@@ -396,8 +406,19 @@ def plot_hist_2d(
     """
     axes = _axes(ax)
     first, second = _finite_pair(x, y)
+    discrete_x, discrete_y = discrete if isinstance(discrete, tuple) else (discrete, discrete)
+
+    horizontal = _discrete_edges(first) if discrete_x else xbins
+    vertical = _discrete_edges(second) if discrete_y else ybins
     limits = None if xrange is None or yrange is None else [list(xrange), list(yrange)]
-    *_, image = axes.hist2d(first, second, bins=[xbins, ybins], range=limits, **style)
+    if discrete_x or discrete_y:
+        limits = None
+
+    *_, image = axes.hist2d(first, second, bins=[horizontal, vertical], range=limits, **style)
+    if discrete_x:
+        _discrete_ticks(axes.set_xticks, first)
+    if discrete_y:
+        _discrete_ticks(axes.set_yticks, second)
     if colorbar:
         axes.get_figure().colorbar(image, ax=axes, label=colorbar_title)
     _label(axes, xtitle, ytitle, title)
@@ -702,6 +723,35 @@ def plot_pie_chart(
     if title:
         axes.set_title(title)
     return axes
+
+
+def _discrete_edges(values: np.ndarray) -> np.ndarray:
+    """Return bin edges that put one cell around each distinct value.
+
+    The edges lie halfway between neighbouring values, and half a step beyond
+    the ends, so that a value sits in the middle of its cell rather than at
+    the corner of two.
+
+    Values spaced evenly - identifiers, counts, anything on a grid - land in
+    the middle of their cell exactly. Values spaced unevenly land inside it,
+    with each boundary halfway to the neighbour on that side: cells that tile
+    the plane cannot also be centred on values that are not evenly spaced, and
+    tiling is what a two-dimensional histogram is.
+    """
+    distinct = np.unique(values)
+    if distinct.size == 1:
+        return np.array([distinct[0] - 0.5, distinct[0] + 0.5])
+    middles = (distinct[:-1] + distinct[1:]) / 2
+    first = distinct[0] - (middles[0] - distinct[0])
+    last = distinct[-1] + (distinct[-1] - middles[-1])
+    return np.concatenate([[first], middles, [last]])
+
+
+def _discrete_ticks(place: Callable[[np.ndarray], object], values: np.ndarray) -> None:
+    """Put one tick under each value, while there are few enough to read."""
+    distinct = np.unique(values)
+    if distinct.size <= TICK_LIMIT:
+        place(distinct)
 
 
 def _bar_row(row: BarParams) -> tuple[np.ndarray, np.ndarray]:
