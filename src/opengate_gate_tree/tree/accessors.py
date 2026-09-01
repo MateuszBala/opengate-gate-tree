@@ -70,6 +70,11 @@ from opengate_gate_tree.tree.filters import (
     with_decay_metadata,
 )
 from opengate_gate_tree.tree.hits.positronium import DecayType, GammaType, SourceType
+from opengate_gate_tree.tree.hits.schema import (
+    LOCAL_POSITION_BRANCHES,
+    MOMENTUM_DIRECTION_BRANCHES,
+    SOURCE_POSITION_BRANCHES,
+)
 from opengate_gate_tree.units import (
     MeV_to_keV,
     cm_to_m,
@@ -93,18 +98,19 @@ from opengate_gate_tree.units import (
 ACCESSOR_NAME: Final[str] = "gate"
 
 # The triples of columns a "Hits" tree carries, each read as vectors by the
-# method named after it.
-LOCAL_POSITION_COLUMNS: Final[tuple[str, str, str]] = ("localPosX", "localPosY", "localPosZ")
-SOURCE_POSITION_COLUMNS: Final[tuple[str, str, str]] = ("sourcePosX", "sourcePosY", "sourcePosZ")
-MOMENTUM_DIRECTION_COLUMNS: Final[tuple[str, str, str]] = ("momDirX", "momDirY", "momDirZ")
+# method named after it. The names come from the schema, which is where every
+# other branch name of a tree is written down.
+LOCAL_POSITION_COLUMNS: Final[tuple[str, str, str]] = LOCAL_POSITION_BRANCHES
+SOURCE_POSITION_COLUMNS: Final[tuple[str, str, str]] = SOURCE_POSITION_BRANCHES
+MOMENTUM_DIRECTION_COLUMNS: Final[tuple[str, str, str]] = MOMENTUM_DIRECTION_BRANCHES
 
 
 @pd.api.extensions.register_series_accessor(ACCESSOR_NAME)
 class GateSeriesAccessor:
-    """Filters of one column of a GATE tree."""
+    """What one column of a GATE tree answers: filters and conversions."""
 
     def __init__(self, values: pd.Series) -> None:
-        """Keep the column the filters will be asked about."""
+        """Keep the column that will be asked about."""
         self._values = values
 
     def is_in_range(
@@ -224,10 +230,10 @@ class GateSeriesAccessor:
 
 @pd.api.extensions.register_dataframe_accessor(ACCESSOR_NAME)
 class GateFrameAccessor:
-    """Filters reading several columns of a GATE tree at once."""
+    """What several columns of a GATE tree answer at once: filters and vectors."""
 
     def __init__(self, frame: pd.DataFrame) -> None:
-        """Keep the frame the filters will be asked about."""
+        """Keep the frame that will be asked about."""
         self._frame = frame
 
     def is_in_box(
