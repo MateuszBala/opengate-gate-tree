@@ -28,6 +28,7 @@ spherical_components(vectors) -> tuple[numpy.ndarray, numpy.ndarray, numpy.ndarr
 import numpy as np
 from numpy.typing import ArrayLike
 
+from opengate_gate_tree.geometry.anglerange import wrap_to_two_pi
 from opengate_gate_tree.geometry.vectors import (
     MIN_NORM,
     VECTOR_DIMENSION,
@@ -36,7 +37,6 @@ from opengate_gate_tree.geometry.vectors import (
     ensure_vectors,
     normalize,
     report_undirected,
-    wrap_to_two_pi,
 )
 
 

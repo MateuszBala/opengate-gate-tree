@@ -17,7 +17,6 @@ from opengate_gate_tree.geometry.vectors import (
     ensure_vectors,
     norm,
     normalize,
-    wrap_to_two_pi,
 )
 from opengate_gate_tree.io.reader import read_tree
 from opengate_gate_tree.tree.gatetree import GateTree
@@ -180,36 +179,6 @@ def test_a_cosine_is_pulled_back_into_the_domain_of_arccos() -> None:
     assert just_outside[1] < -1.0
     assert clipped.tolist() == [1.0, -1.0, 0.5]
     assert not np.isnan(np.arccos(clipped)).any()
-
-
-@pytest.mark.parametrize(
-    ("angle", "expected"),
-    [
-        (0.0, 0.0),
-        (np.pi, np.pi),
-        (-np.pi / 2, 3 * np.pi / 2),
-        (-np.pi, np.pi),
-        (-1e-17, 0.0),
-    ],
-    ids=["zero", "half-turn", "quarter-back", "half-back", "a-hair-below-zero"],
-)
-def test_an_angle_is_moved_into_a_whole_turn(angle: float, expected: float) -> None:
-    """The range is half-open, and the last case is where that is decided.
-
-    An angle a hair below zero plus a full turn rounds to exactly the full
-    turn, which is the one value the range excludes; it comes back as zero.
-    A histogram is what the range is for, and both ends landing in it would be
-    the two-halves artefact the wrap exists to prevent.
-    """
-    # ARRANGE
-    # No additional setup required.
-
-    # ACT
-    wrapped = wrap_to_two_pi(np.array([angle]))
-
-    # ASSERT
-    assert wrapped[0] == pytest.approx(expected)
-    assert 0.0 <= wrapped[0] < 2 * np.pi
 
 
 def test_a_vector_too_long_to_measure_has_no_direction(

@@ -126,10 +126,12 @@ angle.
 
 ### Note
 
-The cosine is pulled back into `[-1, 1]` before `arccos` sees it. The scalar
+The `atan2` form is also what keeps the angle defined at all. The scalar
 product of a unit vector with itself is `1.0000000000000002` often enough that
-the first thing anybody checks — the angle between a vector and itself — would
-otherwise answer `nan`.
+`arccos` of it would answer `nan` for the first thing anybody checks — the
+angle between a vector and itself — whereas `atan2` takes any pair of numbers.
+Where a cosine is still what an angle is taken from, as for the polar angle
+below, it is pulled back into `[-1, 1]` first.
 
 ## Along An Axis And Across It
 
@@ -197,7 +199,8 @@ r = \lVert v \rVert
 }
 $$
 
-with the azimuth moved into a whole turn:
+with the azimuth moved into a whole turn by
+[the range transformation below](#reading-an-angle-into-a-range):
 
 $$
 \boxed{
@@ -227,6 +230,46 @@ The columns are named `polar` and `azimuth` rather than `theta` and `phi` so
 that nothing has to be guessed. `atan2` answers in `(-π, π]`, which would split
 a half turn either side of zero and make a histogram of azimuths read as two
 halves; the wrap above is what prevents that.
+
+## Reading An Angle Into A Range
+
+An angle is only defined up to whole turns: the same direction is `π/2` or
+`-3π/2`, and a calculation that answers one answers the other. Which of them a
+histogram or a comparison wants is part of the question, so the range is
+chosen:
+
+$$
+\boxed{
+\theta' = \theta_{\min} +
+          \left(\theta - \theta_{\min}\right) \bmod
+          \left(\theta_{\max} - \theta_{\min}\right)
+}
+$$
+
+```python
+from opengate_gate_tree import transform_to_angle_range, wrap_to_signed_pi, wrap_to_two_pi
+
+transform_to_angle_range(angles, 0.0, numpy.pi)     # an undirected line
+wrap_to_two_pi(angles)                              # [0, 2π), where an azimuth is binned
+wrap_to_signed_pi(angles)                           # [-π, π), what atan2 answers in
+```
+
+A range a full turn wide reads the same direction differently. A narrower one
+identifies angles that differ by its width, which is a statement about what the
+angle means:
+
+| Range | `-3π/2` | `-π/2` | `π/2` | `3π/2` | What it treats as one |
+| --- | --- | --- | --- | --- | --- |
+| `[0, 2π)` | `π/2` | `3π/2` | `π/2` | `3π/2` | directions, up to whole turns |
+| `[-π, π)` | `π/2` | `-π/2` | `π/2` | `-π/2` | the same, read as the shorter turn |
+| `[0, π)` | `π/2` | `π/2` | `π/2` | `π/2` | a direction and its reverse |
+| `[-π/2, π/2)` | `-π/2` | `-π/2` | `-π/2` | `-π/2` | the same, read as the shorter turn |
+| `[0, π/2)` | `0` | `0` | `0` | `0` | anything a quarter turn apart |
+
+The range is half-open, `[angle_min, angle_max)`: an angle that could fall in
+the first bin or the last one depending on rounding is the artefact these
+functions exist to prevent. A range that holds nothing — reversed, or of no
+width — raises `ValueError`.
 
 ## Planes And The Angle Between Them
 

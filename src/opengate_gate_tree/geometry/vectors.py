@@ -32,8 +32,6 @@ cross(left, right) -> numpy.ndarray
     Vector product, row by row.
 clip_cosine(values) -> numpy.ndarray
     Cosines pulled back into the domain of ``arccos``.
-wrap_to_two_pi(angles) -> numpy.ndarray
-    Angles moved into ``[0, 2*pi)``.
 report_undirected(undirected, name) -> None
     Report the rows a calculation could not answer, without refusing the rest.
 """
@@ -57,9 +55,6 @@ VECTOR_DIMENSION: Final[int] = 3
 # it often enough that every angle has to be pulled back in first.
 COS_MIN: Final[float] = -1.0
 COS_MAX: Final[float] = 1.0
-
-# A full turn, which is what an angle short of one is measured against.
-TWO_PI: Final[float] = 2.0 * np.pi
 
 
 def as_vectors(values: ArrayLike) -> np.ndarray:
@@ -252,35 +247,6 @@ def clip_cosine(values: ArrayLike) -> np.ndarray:
     """
     clipped: np.ndarray = np.clip(np.asarray(values, dtype=np.float64), COS_MIN, COS_MAX)
     return clipped
-
-
-def wrap_to_two_pi(angles: ArrayLike) -> np.ndarray:
-    """Return angles moved into ``[0, 2*pi)``.
-
-    ``arctan2`` answers in ``(-pi, pi]``, which splits a half turn either side
-    of zero and makes a histogram of azimuths read as two halves. Adding a full
-    turn to the negative ones puts them in the range an analysis expects.
-
-    The range is half-open, and stays so: an angle a hair below zero plus a
-    full turn rounds to exactly ``2*pi``, which is answered as ``0.0``.
-
-    Parameters
-    ----------
-    angles : array_like
-        Angles in radians, usually straight from ``arctan2``.
-
-    Returns
-    -------
-    numpy.ndarray
-        The same angles, in ``[0, 2*pi)``.
-    """
-    values = np.asarray(angles, dtype=np.float64)
-    shifted = np.where(values < 0.0, values + TWO_PI, values)
-    # A hair below zero plus a full turn rounds to the full turn itself, which
-    # is the one value the range excludes. Closing it here costs an ulp of
-    # angle and keeps the promise the range makes to a histogram.
-    wrapped: np.ndarray = np.where(shifted >= TWO_PI, 0.0, shifted)
-    return wrapped
 
 
 def _paired(left: ArrayLike, right: ArrayLike) -> tuple[np.ndarray, np.ndarray]:

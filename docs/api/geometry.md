@@ -24,6 +24,13 @@ Vectors built from the columns of a tree, and what is measured on them.
    :members:
 ```
 
+## Angle ranges
+
+```{eval-rst}
+.. automodule:: opengate_gate_tree.geometry.anglerange
+   :members:
+```
+
 ## Angles and planes
 
 ```{eval-rst}

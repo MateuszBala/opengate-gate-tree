@@ -71,6 +71,10 @@ A vector is taken apart along a direction with :func:`parallel_component` and
 :func:`plane_normal` with :func:`angle_between_planes` the angle between the
 planes a pair of directions spans - the scattering planes of a coincidence.
 Angles are in radians; :func:`rad_to_deg` reads them in degrees.
+An angle is only defined up to whole turns, so
+:func:`transform_to_angle_range` reads one into whatever range a question is
+asked in, and :func:`wrap_to_two_pi` and :func:`wrap_to_signed_pi` do it for
+the two everyday ones.
 
 A detector records where something happened rather than where it was going, so
 :func:`momentum_direction_from_positions` rebuilds a direction of flight from
@@ -120,6 +124,11 @@ from opengate_gate_tree.errors import (  # noqa: E402
     UnknownHitsVariantError,
     UnsupportedBranchTypeError,
 )
+from opengate_gate_tree.geometry.anglerange import (  # noqa: E402
+    transform_to_angle_range,
+    wrap_to_signed_pi,
+    wrap_to_two_pi,
+)
 from opengate_gate_tree.geometry.angles import (  # noqa: E402
     angle_between,
     angle_between_normals,
@@ -145,7 +154,6 @@ from opengate_gate_tree.geometry.vectors import (  # noqa: E402
     ensure_vectors,
     norm,
     normalize,
-    wrap_to_two_pi,
 )
 from opengate_gate_tree.geometry.vectorview import VectorView  # noqa: E402
 from opengate_gate_tree.io.fileformat import (  # noqa: E402
@@ -368,9 +376,11 @@ __all__ = [
     "statistics_to_dict",
     "summarise_hits_tree",
     "supported_variants",
+    "transform_to_angle_range",
     "validate_hits_tree",
     "variant_reference",
     "with_decay_metadata",
+    "wrap_to_signed_pi",
     "wrap_to_two_pi",
     "write_statistics",
     "write_tree",
