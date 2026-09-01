@@ -6,6 +6,14 @@ which follows.
 
 It works both as a command line tool and as a library.
 
+## Tutorials
+
+Worked examples, as Jupyter notebooks against real GATE output, live in the
+[`tutorials/` folder of the repository](https://github.com/MateuszBala/opengate-gate-tree/tree/main/tutorials). They read a file, do
+something with it and show the answer, which is what this documentation
+describes rather than shows. Each one names the version of the package it was
+written for, and is run start to finish before it is published.
+
 ## Supported GATE Versions
 
 The package targets the C++ line of GATE, version 9.4.2 and newer. GATE 10, the
@@ -62,6 +70,7 @@ ROADMAP
 CONTRIBUTION
 CODING_CONVENTIONS
 TESTING_CONVENTIONS
+TUTORIALS_CONVENTIONS
 COMMIT_CONVENTIONS
 VERSION_UPGRADE_CONVENTIONS
 ```

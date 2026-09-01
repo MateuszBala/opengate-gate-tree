@@ -29,7 +29,12 @@ simulation output into whichever format suits the analysis that follows:
 
 ## Documentation
 
-Full documentation, tutorials, and API reference are available on [Read the Docs](https://opengate-gate-tree.readthedocs.io/).
+Full documentation and API reference are available on
+[Read the Docs](https://opengate-gate-tree.readthedocs.io/).
+
+Worked examples are in [`tutorials/`](tutorials/): Jupyter notebooks that read
+real GATE output, do something with it and show the answer. Start with
+[`tutorials/README.md`](tutorials/README.md), which says how to run them.
 
 ## Quick Start
 
