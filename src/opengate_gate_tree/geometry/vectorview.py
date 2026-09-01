@@ -9,7 +9,8 @@ arithmetic reads like the physics::
     along = direction.unit().dot(frame.gate.momentum_direction())
 
 A view owns nothing. It holds the values as an ``(N, 3)`` array of ``float64``
-and the index of the rows they came from, and every answer carries that index
+and the index of the rows they came from - the array it hands back is
+read-only, and every answer carries that index
 back: a length or a scalar product comes back as a column, a vector as another
 view, three components as a frame. That is what lets a selection, a
 computation and another selection stand in one chain.
@@ -135,8 +136,18 @@ class VectorView:
 
     @property
     def array(self) -> np.ndarray:
-        """Return the vectors as an ``(N, 3)`` array of ``float64``."""
-        return self._array
+        """Return the vectors as an ``(N, 3)`` array of ``float64``.
+
+        The array is read-only, and is the one the view holds rather than a
+        copy of it: a view owns nothing, and handing out something writable
+        would let one caller change what another one is looking at. Values
+        given to the constructor are referenced too, as
+        :class:`~opengate_gate_tree.tree.treedata.TreeData` references the
+        arrays it is built from - write to them and the view sees it.
+        """
+        readable = self._array.view()
+        readable.flags.writeable = False
+        return readable
 
     @property
     def index(self) -> pd.Index:

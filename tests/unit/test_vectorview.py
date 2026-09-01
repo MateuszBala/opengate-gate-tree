@@ -187,6 +187,53 @@ def test_two_views_of_different_rows_are_not_combined(hits: pd.DataFrame) -> Non
         everything.dot(some)
 
 
+def test_two_views_of_as_many_other_rows_are_not_combined(hits: pd.DataFrame) -> None:
+    """The case the guard exists for: as many rows, and none of them the same.
+
+    A length check would let this through, and the vectors of one selection
+    would be read against the vectors of another, row by row, as if they
+    described the same hits.
+    """
+    # ARRANGE
+    first = VectorView.from_frame(hits.iloc[:10])
+    second = VectorView.from_frame(hits.iloc[10:20])
+
+    # ACT / ASSERT
+    assert len(first) == len(second)
+    with pytest.raises(ValueError, match="different index values"):
+        first.dot(second)
+    with pytest.raises(ValueError, match="different index values"):
+        first.cross(second)
+
+
+def test_a_factor_of_as_many_other_rows_is_not_applied(hits: pd.DataFrame) -> None:
+    """The same case for a weight given per row."""
+    # ARRANGE
+    position = VectorView.from_frame(hits.iloc[:10])
+
+    # ACT / ASSERT
+    with pytest.raises(ValueError, match="the same rows"):
+        position * hits["edep"].iloc[10:20]
+
+
+def test_the_array_a_view_hands_back_cannot_be_written_to(hits: pd.DataFrame) -> None:
+    """A view owns nothing, so it must not hand out something writable.
+
+    Whether the underlying array is a copy depends on the dtype of the frame,
+    which is not something to leave a caller guessing about.
+    """
+    # ARRANGE
+    position = VectorView.from_frame(hits)
+
+    # ACT
+    values = position.array
+
+    # ASSERT
+    assert not values.flags.writeable
+    with pytest.raises(ValueError, match="read-only"):
+        values[0, 0] = 1.0
+
+
 def test_a_factor_of_other_rows_is_not_applied(hits: pd.DataFrame) -> None:
     """A weight per row belongs to the rows it weighs."""
     # ARRANGE
