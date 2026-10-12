@@ -82,7 +82,9 @@ The index, with what each one shows, is in
 - `tutorial-02-reading-writing-root-file.ipynb` - what a GATE ROOT file holds,
   reading chosen branches, and writing a selection of rows to a ROOT file;
 - `tutorial-03-representations-and-formats.ipynb` - what a `TreeData` holds
-  beside its pandas view, and what ROOT, HDF5 and CSV keep of it.
+  beside its pandas view, and what ROOT, HDF5 and CSV keep of it;
+- `tutorial-04-command-line.ipynb` - the command line: every option, its output
+  files and exit codes, and the same run in Python.
 
 ## Writing A Tutorial
 
