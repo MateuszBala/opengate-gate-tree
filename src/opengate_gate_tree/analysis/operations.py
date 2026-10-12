@@ -17,11 +17,14 @@ FieldCondition
     Keep the elements whose field passes a value test.
 COMPARISONS
     Comparisons a value or a count can be asked to pass.
+INCLUSIVE_SIDES
+    Which ends of a range belong to it.
 """
 
 import operator
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
+from dataclasses import field as dataclass_field
 from types import MappingProxyType
 from typing import Any, Final
 
@@ -30,6 +33,7 @@ import numpy.typing as npt
 import pandas as pd
 
 from opengate_gate_tree.representation.fields import ElementLevel, EventTrackHitField
+from opengate_gate_tree.tree.filters import InclusiveSide
 
 FieldLike = EventTrackHitField | str
 
@@ -47,6 +51,9 @@ _BOUND_COMPARISONS: Final[Mapping[str, Callable[[Any, Any], Any]]] = MappingProx
 
 # Comparisons a value or a count can be asked to pass, in the order they are shown.
 COMPARISONS: Final[tuple[str, ...]] = (*_BOUND_COMPARISONS, "isin", "between")
+
+# Which ends of a range given with ``between`` belong to it, as pandas names them.
+INCLUSIVE_SIDES: Final[tuple[str, ...]] = ("both", "neither", "left", "right")
 
 
 @dataclass(frozen=True)
@@ -66,7 +73,7 @@ class Navigate:
 
     level: ElementLevel
     position: int | None
-    call: str
+    call: str = dataclass_field(compare=False)
 
     def __repr__(self) -> str:
         """Return the call that asked for the move."""
@@ -90,7 +97,7 @@ class CountCondition:
 
     counted: ElementLevel
     comparisons: tuple[tuple[str, int], ...]
-    call: str
+    call: str = dataclass_field(compare=False)
 
     def passes(self, counts: npt.NDArray[np.int64]) -> npt.NDArray[np.bool_]:
         """Return which counts pass every comparison."""
@@ -113,10 +120,14 @@ class ValueTest:
     comparisons : tuple[tuple[str, Any], ...]
         Pairs of a comparison from :data:`COMPARISONS` and what it compares
         against, all of which a value has to pass. ``isin`` takes a tuple of
-        values, ``between`` a pair of ends that belong to the range.
+        values, ``between`` a pair of ends.
+    inclusive : str
+        Which ends of ``between`` belong to the range: ``"both"``,
+        ``"neither"``, ``"left"`` or ``"right"``.
     """
 
     comparisons: tuple[tuple[str, Any], ...]
+    inclusive: InclusiveSide = "both"
 
     def passes(self, values: npt.NDArray[Any]) -> npt.NDArray[np.bool_]:
         """Return which values pass every comparison.
@@ -138,14 +149,18 @@ class ValueTest:
             if name == "isin":
                 passed &= np.isin(values, list(bound))
             elif name == "between":
-                passed &= pd.Series(values).between(*bound).to_numpy()
+                low, high = bound
+                passed &= pd.Series(values).between(low, high, inclusive=self.inclusive).to_numpy()
             else:
                 passed &= np.asarray(_BOUND_COMPARISONS[name](values, bound), dtype=bool)
         return passed
 
     def arguments(self) -> str:
         """Return the comparisons as the keyword arguments that asked for them."""
-        return ", ".join(f"{name}={bound!r}" for name, bound in self.comparisons)
+        shown = [f"{name}={bound!r}" for name, bound in self.comparisons]
+        if self.inclusive != "both":
+            shown.append(f"inclusive={self.inclusive!r}")
+        return ", ".join(shown)
 
 
 @dataclass(frozen=True)
@@ -165,7 +180,7 @@ class FieldCondition:
 
     field: FieldLike
     test: ValueTest
-    call: str
+    call: str = dataclass_field(compare=False)
 
     def __repr__(self) -> str:
         """Return the call that asked for the condition."""

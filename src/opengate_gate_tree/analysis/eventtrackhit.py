@@ -47,6 +47,7 @@ from opengate_gate_tree.analysis.base import Analysis, Combination
 from opengate_gate_tree.analysis.extract import extract_table
 from opengate_gate_tree.analysis.operations import (
     COMPARISONS,
+    INCLUSIVE_SIDES,
     CountCondition,
     FieldCondition,
     FieldLike,
@@ -467,7 +468,7 @@ class EventTrackHitAnalysis(Analysis[EventTrackHit, Selection]):
                 f"'{_name(field)}' describes {_PLURAL[level]}, but the analysis stands at the "
                 f"{_PLURAL[standing]}; move to them first with {_MOVE[level]}."
             )
-        return self._appended(FieldCondition(field, test, call))
+        return self._appended(FieldCondition(_resolved(field), test, call))
 
     def _target(self, source: Source) -> _Run:
         """Return one performance of the analysis on a representation."""
@@ -658,27 +659,53 @@ def _count_comparisons(
     Raises
     ------
     ValueError
-        If ``eq`` or ``count`` is given with another comparison.
+        If a bound is not a whole number of zero or more, ``eq`` or ``count``
+        is given with another comparison, or no count passes them all.
     """
+    for name, bound in (
+        ("count", count),
+        ("eq", eq),
+        ("ne", ne),
+        ("ge", ge),
+        ("le", le),
+        ("gt", gt),
+        ("lt", lt),
+    ):
+        if bound is not None and (
+            isinstance(bound, bool) or not isinstance(bound, int | np.integer) or bound < 0
+        ):
+            raise ValueError(f"A count is a whole number of zero or more; {name}={bound!r}.")
     if count is not None and eq is not None:
         raise ValueError(f"A count of {count} and eq={eq} say the same thing twice; give one.")
     equal = count if count is not None else eq
     others = {"ne": ne, "ge": ge, "le": le, "gt": gt, "lt": lt}
-    given = tuple((name, bound) for name, bound in others.items() if bound is not None)
+    given = tuple((name, int(bound)) for name, bound in others.items() if bound is not None)
     if equal is not None:
         if given:
             raise ValueError(
                 f"A count equal to {equal} cannot also be compared with "
                 f"{[name for name, _ in given]}; give either eq or the other comparisons."
             )
-        return (("eq", equal),)
+        return (("eq", int(equal)),)
+    lowest, highest = 0, None
+    if ge is not None:
+        lowest = max(lowest, int(ge))
+    if gt is not None:
+        lowest = max(lowest, int(gt) + 1)
+    if le is not None:
+        highest = int(le)
+    if lt is not None:
+        highest = int(lt) - 1 if highest is None else min(highest, int(lt) - 1)
+    if highest is not None and lowest > highest:
+        shown = ", ".join(f"{name}={bound}" for name, bound in given)
+        raise ValueError(f"No count passes {shown}; the comparisons leave nothing between them.")
     return given
 
 
 def _count_call(name: str, count: int | None, comparisons: tuple[tuple[str, int], ...]) -> str:
     """Return the call that asked for a count, as it was written."""
     if count is not None:
-        return f"{name}({count})"
+        return f"{name}({int(count)})"
     return f"{name}({', '.join(f'{key}={bound}' for key, bound in comparisons)})"
 
 
@@ -695,23 +722,67 @@ def _value_test(comparisons: Mapping[str, Any]) -> ValueTest:
     Raises
     ------
     ValueError
-        If no comparison is given, or one is unknown.
+        If no comparison is given, one is unknown, a bound is not a number,
+        ``isin`` is given a string or nothing, ``between`` is not a pair of
+        numbers in order, or ``inclusive`` is given without ``between`` or
+        names no side.
     """
-    unknown = sorted(set(comparisons) - set(COMPARISONS))
+    inclusive = comparisons.get("inclusive", "both")
+    asked = {name: bound for name, bound in comparisons.items() if name != "inclusive"}
+    unknown = sorted(set(asked) - set(COMPARISONS))
     if unknown:
-        raise ValueError(f"Unknown comparison(s) {unknown}; expected some of {list(COMPARISONS)}.")
-    if not comparisons:
+        raise ValueError(
+            f"Unknown comparison(s) {unknown}; expected some of {list(COMPARISONS)}, "
+            "and inclusive with between."
+        )
+    if not asked:
         raise ValueError(f"A value test needs at least one of {list(COMPARISONS)}.")
+    if inclusive not in INCLUSIVE_SIDES:
+        raise ValueError(f"inclusive is one of {list(INCLUSIVE_SIDES)}, got {inclusive!r}.")
+    if "inclusive" in comparisons and "between" not in asked:
+        raise ValueError("inclusive says which ends of between belong to it; give between too.")
     pairs = []
     for name in COMPARISONS:
-        if name in comparisons:
-            bound = comparisons[name]
-            if name in ("isin", "between"):
-                bound = tuple(bound)
-            if name == "between" and len(bound) != 2:
-                raise ValueError(f"'between' takes the two ends of a range, got {bound!r}.")
-            pairs.append((name, bound))
-    return ValueTest(tuple(pairs))
+        if name not in asked:
+            continue
+        bound = asked[name]
+        if name == "isin":
+            if isinstance(bound, str | bytes):
+                raise ValueError(
+                    f"isin takes several values, got the string {bound!r}; write "
+                    f"isin=[{bound!r}] or eq={bound!r}."
+                )
+            bound = tuple(bound)
+            if not bound:
+                raise ValueError("isin needs at least one value to keep.")
+        elif name == "between":
+            bound = (
+                tuple(bound)
+                if isinstance(bound, Sequence) and not isinstance(bound, str | bytes)
+                else (bound,)
+            )
+            if len(bound) != 2 or not all(_is_number(end) for end in bound):
+                raise ValueError(f"between takes the two ends of a range, got {bound!r}.")
+            if bound[0] > bound[1]:
+                raise ValueError(f"between takes the lower end first, got {bound!r}.")
+        elif _is_nan(bound):
+            raise ValueError(f"{name}={bound!r} compares against nothing: no value equals it.")
+        pairs.append((name, bound))
+    return ValueTest(tuple(pairs), inclusive)
+
+
+def _is_number(value: object) -> bool:
+    """Return whether a value is a number, and not one that is not a number."""
+    return (
+        isinstance(value, int | float | np.integer | np.floating)
+        and not isinstance(value, bool)
+        and not _is_nan(value)
+    )
+
+
+def _is_nan(value: object) -> bool:
+    """Return whether a value is a floating point number that is not a number."""
+    return isinstance(value, float | np.floating) and bool(np.isnan(value))
 
 
 def _resolved(field: FieldLike) -> FieldLike:
@@ -765,14 +836,12 @@ def _describe(step: object, standing: tuple[ElementLevel, int | None]) -> str:
         )
     if isinstance(step, FieldCondition):
         own = _level_of(step.field)
-        arguments = step.test.arguments()
         if own is level and position is not None:
             decided = ElementLevel.EVENT if level is ElementLevel.TRACK else ElementLevel.TRACK
             return (
-                f"Keep the {_PLURAL[decided]} whose {_place(level, position)} has "
-                f"{_name(step.field)} passing {arguments}."
+                f"Keep the {_PLURAL[decided]} whose {_place(level, position)} passes {step.call}."
             )
-        return f"Keep the {_PLURAL[own]} whose {_name(step.field)} passes {arguments}."
+        return f"Keep the {_PLURAL[own]} that pass {step.call}."
     assert isinstance(step, Combination)
     joined = "and" if step.kind == "and" else "or"
     return f"Keep what {step.left!r} {joined} {step.right!r} keep."

@@ -290,9 +290,7 @@ def test_a_condition_at_a_position_is_described_as_deciding_about_the_parent() -
     described = analysis.describe().splitlines()
 
     # ASSERT
-    assert (
-        described[1] == "2. Keep the tracks whose hit 1 has processName passing isin=('Compton',)."
-    )
+    assert described[1] == "2. Keep the tracks whose hit 1 passes process(Process.COMPTON)."
     assert described[3] == (
         "4. Keep the events whose track 1 from the end has a number of hits passing eq=2, "
         "and move to their hits."

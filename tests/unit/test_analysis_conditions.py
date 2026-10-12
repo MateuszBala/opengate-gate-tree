@@ -323,11 +323,78 @@ def test_an_analysis_is_shown_and_described() -> None:
         ".process(Process.COMPTON, 'Rayl').edep(ge=0.1)"
     )
     assert described.splitlines() == [
-        "1. Keep the events whose sourceType passes isin=(2,).",
+        "1. Keep the events that pass source_type(SourceType.PARA_POSITRONIUM).",
         "2. Move to the tracks.",
-        "3. Keep the tracks whose trackID passes isin=(1, 2).",
+        "3. Keep the tracks that pass where(EventTrackHitField.TRACK_ID, isin=(1, 2)).",
         "4. Move to the hits.",
-        "5. Keep the hits whose processName passes isin=('Compton', 'Rayl').",
-        "6. Keep the hits whose edep passes ge=0.1.",
+        "5. Keep the hits that pass process(Process.COMPTON, 'Rayl').",
+        "6. Keep the hits that pass edep(ge=0.1).",
     ]
     assert Analysis().describe() == "Keep every event, track and hit."
+
+
+@pytest.mark.parametrize(
+    ("build", "message"),
+    [
+        (lambda: Analysis().tracks(ge=3, le=1), "No count passes ge=3, le=1"),
+        (lambda: Analysis().tracks(lt=0), "No count passes lt=0"),
+        (lambda: Analysis().hits(gt=2, lt=3), "No count passes gt=2, lt=3"),
+        (lambda: Analysis().tracks(2.5), "count=2.5"),  # type: ignore[arg-type]
+        (lambda: Analysis().tracks(-1), "count=-1"),
+        (lambda: Analysis().hits(True), "count=True"),
+        (lambda: Analysis().tracks("2"), "count='2'"),  # type: ignore[arg-type]
+        (lambda: Analysis().hits().where("processName", isin="Compton"), "isin=['Compton']"),
+        (lambda: Analysis().hits().where("processName", isin=[]), "at least one value"),
+        (lambda: Analysis().hits().edep(between="ab"), "two ends of a range"),
+        (lambda: Analysis().hits().edep(between=5), "two ends of a range"),  # type: ignore[arg-type]
+        (lambda: Analysis().hits().edep(between=(0.5, 0.1)), "lower end first"),
+        (lambda: Analysis().hits().edep(between=(0.1, float("nan"))), "two ends of a range"),
+        (lambda: Analysis().hits().edep(gt=float("nan")), "compares against nothing"),
+        (lambda: Analysis().hits().edep(ge=0.1, inclusive="left"), "give between too"),
+        (lambda: Analysis().hits().edep(between=(0, 1), inclusive="open"), "inclusive is one of"),
+    ],
+)
+def test_bounds_that_select_by_mistake_are_refused(build: object, message: str) -> None:
+    """A typo becomes an error where it is written, not an empty result."""
+    # ARRANGE
+    # No additional setup required.
+
+    # ACT
+    with pytest.raises(ValueError) as raised:
+        build()  # type: ignore[operator]
+
+    # ASSERT
+    assert message in str(raised.value)
+
+
+def test_which_ends_of_a_range_belong_to_it_is_said_as_in_the_representation(
+    representation: EventTrackHit,
+) -> None:
+    """inclusive takes the sides pandas names, as with_value does."""
+    # ARRANGE
+    analysis = Analysis().tracks().where(Field.TRACK_ID, between=(1, 2), inclusive="left")
+
+    # ACT
+    result = analysis.apply(representation)
+
+    # ASSERT
+    expected = representation.with_value(Field.TRACK_ID, between=(1, 2), inclusive="left")
+    assert same(result, expected)
+    assert repr(analysis).endswith(
+        "where(EventTrackHitField.TRACK_ID, between=(1, 2), inclusive='left')"
+    )
+
+
+def test_analyses_asking_the_same_question_are_equal_however_spelt() -> None:
+    """A count given positionally or as eq, a field by name or by member."""
+    # ARRANGE
+    # No additional setup required.
+
+    # ACT
+    counts = (Analysis().tracks(2), Analysis().tracks(eq=2))
+    fields = (Analysis().hits().edep(ge=0.1), Analysis().hits().where("edep", ge=0.1))
+
+    # ASSERT
+    assert counts[0] == counts[1]
+    assert hash(counts[0]) == hash(counts[1])
+    assert fields[0] == fields[1]
