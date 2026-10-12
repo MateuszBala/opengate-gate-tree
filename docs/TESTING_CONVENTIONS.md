@@ -251,17 +251,19 @@ Each case is a directory under `tests/consistency/cases/`:
 | --- | --- |
 | `input.root` | the GATE output both analyses read, 500 kB or less |
 | `reference.csv` | the output of the outside analysis: one row per event, `runID` and `eventID` first, the other columns named as `EventTrackHitAnalysis.extract` names them (`t1h2_edep`) |
-| `analysis.py` | the same analysis written with the package: `ANALYSIS`, `VARIABLES`, and optionally `RTOL` |
+| `analysis.py` | the same analysis written with the package: `ANALYSIS`, `VARIABLES`, and optionally `RTOL` and `ATOL` |
 | `README.md` | the tool and version the reference was made with, the commit of its code, what the analysis asks, and why the tolerance is what it is |
 
 ### When Two Tables Agree
 
-They hold the same events, the same columns, equal whole numbers and text,
-and floating point values within the relative tolerance of the case - `1e-6`
-unless the case says otherwise, since GATE writes single precision and the
-other analysis may compute in double. Every difference is reported, both
-ways: an event the package keeps and the reference does not is as much a
-failure as the reverse.
+They hold the same events and the same columns in the same order, whole
+numbers and text are equal, and floating point values agree within the
+tolerance of the case - relative `1e-6` and absolute `0` unless the case says
+otherwise, since GATE writes single precision and the other analysis may
+compute in double. A value missing on both sides agrees. A whole-number column
+of the package is compared exactly even when the reference wrote it as
+floating point. Every difference is reported, both ways: an event the package
+keeps and the reference does not is as much a failure as the reverse.
 
 ### Who Provides A Case, And When
 

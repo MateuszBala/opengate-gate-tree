@@ -206,7 +206,8 @@ def test_a_case_is_loaded_from_its_directory(
         "from opengate_gate_tree import EventTrackHitAnalysis\n"
         "ANALYSIS = EventTrackHitAnalysis().tracks(2)\n"
         "VARIABLES = ['edep']\n"
-        "RTOL = 1e-5\n",
+        "RTOL = 1e-5\n"
+        "ATOL = 1e-9\n",
     )
     (tmp_path / ".hidden").mkdir()
 
@@ -218,6 +219,7 @@ def test_a_case_is_loaded_from_its_directory(
     assert case.analysis == EventTrackHitAnalysis().tracks(2)
     assert case.variables == ["edep"]
     assert case.rtol == 1e-5
+    assert case.atol == 1e-9
     assert list(case.reference().columns) == ["runID", "eventID"]
     assert case.input_path.name == "input.root"
 
@@ -240,3 +242,89 @@ def test_a_case_without_its_files_or_its_analysis_is_refused(
     # ASSERT
     assert "lacks ['input.root', 'reference.csv', 'analysis.py', 'README.md']" in str(lacking.value)
     assert "has to define ANALYSIS" in str(malformed.value)
+
+
+def test_a_value_missing_on_both_sides_agrees(tables: tuple[pd.DataFrame, pd.DataFrame]) -> None:
+    """Nothing against nothing is not a difference."""
+    # ARRANGE
+    table, reference = tables
+    mine = table.copy()
+    theirs = reference.copy()
+    mine.loc[0, "t1h1_edep"] = float("nan")
+    theirs.loc[0, "t1h1_edep"] = float("nan")
+
+    # ACT
+    differences = compare_tables(mine, theirs, rtol=1e-6)
+
+    # ASSERT
+    assert differences == []
+
+
+def test_text_against_an_empty_column_is_a_difference_not_a_crash(
+    tables: tuple[pd.DataFrame, pd.DataFrame],
+) -> None:
+    """A reference column CSV read as nothing at all is reported as differing."""
+    # ARRANGE
+    table, reference = tables
+    mine = table.assign(process="Compton")
+    theirs = reference.assign(process=float("nan"))
+
+    # ACT
+    differences = compare_tables(mine, theirs, rtol=1e-6)
+
+    # ASSERT
+    assert len(differences) == 1
+    assert differences[0].startswith(f"Column process differs in {len(table)} event(s)")
+
+
+def test_whole_numbers_are_compared_exactly_even_when_written_as_floats(
+    tables: tuple[pd.DataFrame, pd.DataFrame],
+) -> None:
+    """A track identifier of 1 against 1.0000001 is a different track."""
+    # ARRANGE
+    table, reference = tables
+    mine = table.assign(t1_trackID=1)
+    exact = reference.assign(t1_trackID=1.0)
+    off = reference.assign(t1_trackID=1.0000001)
+
+    # ACT
+    agreeing = compare_tables(mine, exact, rtol=1e-6)
+    differing = compare_tables(mine, off, rtol=1e-6)
+
+    # ASSERT
+    assert agreeing == []
+    assert differing[0].startswith("Column t1_trackID differs in 18 event(s)")
+
+
+def test_columns_in_another_order_are_named(tables: tuple[pd.DataFrame, pd.DataFrame]) -> None:
+    """The order of the columns is part of what the table promises."""
+    # ARRANGE
+    table, reference = tables
+    swapped = reference[["runID", "eventID", "t1h2_edep", "t1h1_edep", "t2h1_edep", "t2h2_edep"]]
+
+    # ACT
+    differences = compare_tables(table, swapped, rtol=1e-6)
+
+    # ASSERT
+    assert differences == [
+        "The columns are in another order: column 2 is 't1h1_edep' in the table and "
+        "'t1h2_edep' in the reference."
+    ]
+
+
+def test_an_absolute_tolerance_covers_values_near_zero(
+    tables: tuple[pd.DataFrame, pd.DataFrame],
+) -> None:
+    """1e-12 against an exact zero differs relatively, and agrees absolutely."""
+    # ARRANGE
+    table, reference = tables
+    mine = table.assign(offset=0.0)
+    theirs = reference.assign(offset=1e-12)
+
+    # ACT
+    relative = compare_tables(mine, theirs, rtol=1e-6)
+    absolute = compare_tables(mine, theirs, rtol=1e-6, atol=1e-9)
+
+    # ASSERT
+    assert relative[0].startswith("Column offset differs")
+    assert absolute == []
