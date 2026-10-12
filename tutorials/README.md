@@ -100,7 +100,9 @@ The index, with what each one shows, is in
 - `tutorial-11-events-and-tracks.ipynb` - events and tracks, and why an event
   is the pair `(runID, eventID)`;
 - `tutorial-12-units.ipynb` - the units GATE writes and the conversions to the
-  ones an analysis reads.
+  ones an analysis reads;
+- `tutorial-13-vectors-from-columns.ipynb` - vectors read from three columns,
+  and the angles and components they give.
 
 ## Writing A Tutorial
 
