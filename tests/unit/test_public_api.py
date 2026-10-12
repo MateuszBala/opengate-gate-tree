@@ -20,10 +20,12 @@ from opengate_gate_tree.logging_setup import LOGGER_NAME
 EXPECTED_EXPORTS = {
     "ACCESSOR_NAME",
     "AmbiguousTreeError",
+    "Analysis",
     "BranchKind",
     "BranchNotFoundError",
     "BranchSpec",
     "BranchStatistics",
+    "Combination",
     "ConsistencyReport",
     "DECAY_INDEX_BRANCH",
     "DataRepresentation",

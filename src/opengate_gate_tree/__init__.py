@@ -123,6 +123,7 @@ __version__ = "0.8.0"
 
 import logging  # noqa: E402
 
+from opengate_gate_tree.analysis.base import Analysis, Combination  # noqa: E402
 from opengate_gate_tree.errors import (  # noqa: E402
     AmbiguousTreeError,
     BranchNotFoundError,
@@ -312,10 +313,12 @@ logging.getLogger(LOGGER_NAME).addHandler(logging.NullHandler())
 __all__ = [
     "ACCESSOR_NAME",
     "AmbiguousTreeError",
+    "Analysis",
     "BranchKind",
     "BranchNotFoundError",
     "BranchSpec",
     "BranchStatistics",
+    "Combination",
     "ConsistencyReport",
     "DECAY_INDEX_BRANCH",
     "DataRepresentation",
