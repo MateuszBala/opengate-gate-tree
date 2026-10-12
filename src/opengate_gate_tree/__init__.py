@@ -202,6 +202,7 @@ from opengate_gate_tree.representation.fields import (  # noqa: E402
 from opengate_gate_tree.representation.index import (  # noqa: E402
     EventTrackHitIndex,
     build_event_track_hit_index,
+    segment_of,
 )
 from opengate_gate_tree.representation.reduce import (  # noqa: E402
     REDUCTIONS,
@@ -434,6 +435,7 @@ __all__ = [
     "reduce_tracks_to_events",
     "s_to_ms",
     "s_to_ns",
+    "segment_of",
     "select_by_decay_type",
     "select_by_gamma_type",
     "select_by_process",

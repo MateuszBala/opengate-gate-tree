@@ -295,3 +295,84 @@ def test_nothing_to_reduce_answers_with_nothing() -> None:
 
     # ASSERT
     assert answer.tolist() == []
+
+
+def test_the_smallest_and_largest_value_of_every_track(
+    a1_frame: pd.DataFrame, a1_index: EventTrackHitIndex
+) -> None:
+    """The earliest hit and the largest deposit, in the type of the column."""
+    # ARRANGE
+    edep = a1_frame["edep"].to_numpy()[a1_index.hit_rows]
+    grouped = a1_frame.groupby(TRACK_KEY)["edep"]
+
+    # ACT
+    smallest = reduce_hits_to_tracks(a1_index, edep, "min")
+    largest = reduce_hits_to_tracks(a1_index, edep, "max")
+
+    # ASSERT
+    assert smallest.dtype == np.float32
+    assert smallest.tolist() == grouped.min().tolist()
+    assert largest.tolist() == grouped.max().tolist()
+
+
+@pytest.mark.parametrize("how", ["min", "max"])
+def test_an_empty_track_has_no_smallest_or_largest_value(how: str) -> None:
+    """As it has no first or last hit."""
+    # ARRANGE
+    values = np.array([1.0, 2.0, 3.0, 4.0])
+
+    # ACT
+    with pytest.raises(ValueError) as raised:
+        reduce_hits_to_tracks(small_index(), values, how)  # type: ignore[arg-type]
+
+    # ASSERT
+    assert "no " + how in str(raised.value)
+
+
+def test_a_row_of_components_is_taken_first_and_spread_whole() -> None:
+    """volumeID is ten numbers per hit, and stays ten numbers."""
+    # ARRANGE
+    index = EventTrackHitIndex(
+        hit_rows=np.arange(3, dtype=np.int64),
+        track_offsets=np.array([0, 2, 3], dtype=np.int64),
+        event_offsets=np.array([0, 2], dtype=np.int64),
+        track_rows=np.array([0, 2], dtype=np.int64),
+        event_rows=np.array([0], dtype=np.int64),
+    )
+    volumes = np.arange(6).reshape(3, 2)
+
+    # ACT
+    first = reduce_hits_to_tracks(index, volumes, "first")
+    spread = broadcast_tracks_to_hits(index, first)
+    per_track = broadcast_events_to_tracks(index, first[:1])
+
+    # ASSERT
+    assert first.tolist() == [[0, 1], [4, 5]]
+    assert spread.tolist() == [[0, 1], [0, 1], [4, 5]]
+    assert per_track.tolist() == [[0, 1], [0, 1]]
+
+
+def test_a_sum_refuses_a_row_of_components() -> None:
+    """Only first and last take more than one value per hit."""
+    # ARRANGE
+    volumes = np.zeros((4, 2))
+
+    # ACT
+    with pytest.raises(ValueError) as raised:
+        reduce_hits_to_tracks(small_index(), volumes, "sum")
+
+    # ASSERT
+    assert "shape (4, 2)" in str(raised.value)
+
+
+def test_nothing_to_pick_from_answers_with_nothing() -> None:
+    """No tracks, no smallest value of any of them."""
+    # ARRANGE
+    empty = np.empty(0, dtype=np.int32)
+    index = build_event_track_hit_index(empty, empty, empty, np.empty(0))
+
+    # ACT
+    answer = reduce_hits_to_tracks(index, np.empty(0), "min")
+
+    # ASSERT
+    assert answer.tolist() == []

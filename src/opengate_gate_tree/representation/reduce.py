@@ -14,8 +14,14 @@ The reductions take the name of what they answer:
 - ``"sum"`` - the sum of a segment, in ``float64`` for floating point values
   and ``int64`` for whole numbers, so that summing many ``float32`` deposits
   loses nothing; an empty segment sums to zero;
-- ``"first"`` / ``"last"`` - the first or last element of a segment, which an
-  empty segment does not have.
+- ``"min"`` / ``"max"`` - the smallest or largest element of a segment, in the
+  type of the values;
+- ``"first"`` / ``"last"`` - the first or last element of a segment; they also
+  take values of several components per element, such as ``volumeID``.
+
+An empty segment has no smallest, largest, first or last element, and those
+four reductions refuse it rather than answer with a value that would mean
+something.
 
 A position counts elements a mask keeps, from 1, the way "the first hit" is
 said: elements the mask leaves out have position 0.
@@ -47,13 +53,19 @@ import numpy.typing as npt
 
 from opengate_gate_tree.representation.index import EventTrackHitIndex, IndexArray
 
-Reduction = Literal["any", "all", "count", "sum", "first", "last"]
+Reduction = Literal["any", "all", "count", "sum", "min", "max", "first", "last"]
 
 # Every reduction, in the order the module lists them.
 REDUCTIONS: Final[tuple[Reduction, ...]] = get_args(Reduction)
 
 # Reductions that read their values as a mask.
 _MASK_REDUCTIONS: Final[frozenset[str]] = frozenset({"any", "all", "count"})
+
+# Reductions that pick an element of a segment, so an empty one has no answer.
+_PICKING_REDUCTIONS: Final[frozenset[str]] = frozenset({"min", "max", "first", "last"})
+
+# Reductions that take values of several components per element.
+_ROW_REDUCTIONS: Final[frozenset[str]] = frozenset({"first", "last"})
 
 
 def reduce_hits_to_tracks(
@@ -80,8 +92,8 @@ def reduce_hits_to_tracks(
     ------
     ValueError
         If there is not one value per hit, the reduction is unknown, a mask
-        reduction is given values that are not a mask, or ``"first"`` or
-        ``"last"`` meets a track without hits.
+        reduction is given values that are not a mask, or a reduction picking
+        an element meets a track without hits.
 
     Examples
     --------
@@ -118,8 +130,8 @@ def reduce_tracks_to_events(
     ------
     ValueError
         If there is not one value per track, the reduction is unknown, a mask
-        reduction is given values that are not a mask, or ``"first"`` or
-        ``"last"`` meets an event without tracks.
+        reduction is given values that are not a mask, or a reduction picking
+        an element meets an event without tracks.
     """
     return _reduce_segments("track", values, index.event_offsets, how)
 
@@ -132,7 +144,7 @@ def broadcast_tracks_to_hits(index: EventTrackHitIndex, values: npt.ArrayLike) -
     index : EventTrackHitIndex
         Hits and tracks the values belong to.
     values : numpy.typing.ArrayLike
-        One value per track.
+        One value per track, or one row of components per track.
 
     Returns
     -------
@@ -144,7 +156,9 @@ def broadcast_tracks_to_hits(index: EventTrackHitIndex, values: npt.ArrayLike) -
     ValueError
         If there is not one value per track.
     """
-    return np.repeat(_level_values("track", values, index.track_count), index.hits_per_track())
+    return np.repeat(
+        _level_values("track", values, index.track_count, rows=True), index.hits_per_track(), axis=0
+    )
 
 
 def broadcast_events_to_tracks(
@@ -157,7 +171,7 @@ def broadcast_events_to_tracks(
     index : EventTrackHitIndex
         Tracks and events the values belong to.
     values : numpy.typing.ArrayLike
-        One value per event.
+        One value per event, or one row of components per event.
 
     Returns
     -------
@@ -169,7 +183,11 @@ def broadcast_events_to_tracks(
     ValueError
         If there is not one value per event.
     """
-    return np.repeat(_level_values("event", values, index.event_count), index.tracks_per_event())
+    return np.repeat(
+        _level_values("event", values, index.event_count, rows=True),
+        index.tracks_per_event(),
+        axis=0,
+    )
 
 
 def position_in_track(
@@ -244,12 +262,12 @@ def _reduce_segments(
     ------
     ValueError
         If the values do not match the segments, the reduction is unknown, a
-        mask reduction is given another kind of values, or ``"first"`` or
-        ``"last"`` meets an empty segment.
+        mask reduction is given another kind of values, or a reduction
+        picking an element meets an empty segment.
     """
     if how not in REDUCTIONS:
         raise ValueError(f"Unknown reduction {how!r}; expected one of {list(REDUCTIONS)}.")
-    column = _level_values(level, values, int(offsets[-1]))
+    column = _level_values(level, values, int(offsets[-1]), rows=how in _ROW_REDUCTIONS)
     if how in _MASK_REDUCTIONS:
         _require_mask(level, column)
 
@@ -257,13 +275,21 @@ def _reduce_segments(
     filled = counts > 0
     starts = offsets[:-1]
 
-    if how in ("first", "last"):
+    if how in _PICKING_REDUCTIONS:
         if not np.all(filled):
             raise ValueError(
                 f"A segment without a {level} has no {how} {level}; "
                 f"{int(np.count_nonzero(~filled))} segments are empty."
             )
-        return column[starts] if how == "first" else column[offsets[1:] - 1]
+        if how == "first":
+            return column[starts]
+        if how == "last":
+            return column[offsets[1:] - 1]
+        if len(starts) == 0:
+            return column[:0]
+        picking = np.minimum if how == "min" else np.maximum
+        picked: npt.NDArray[Any] = picking.reduceat(column, starts)
+        return picked
 
     operation: np.ufunc
     kind: type[np.generic]
@@ -306,17 +332,23 @@ def _position_in_segments(
     return np.where(kept, positions, 0)
 
 
-def _level_values(level: str, values: npt.ArrayLike, expected: int) -> npt.NDArray[Any]:
+def _level_values(
+    level: str, values: npt.ArrayLike, expected: int, rows: bool = False
+) -> npt.NDArray[Any]:
     """Return values as an array holding one value per element of a level.
+
+    With ``rows``, an element may hold a row of components, as ``volumeID``
+    does.
 
     Raises
     ------
     ValueError
-        If the values are not one-dimensional or their number is not the one
-        expected.
+        If the values are not one-dimensional (or two-dimensional, with
+        ``rows``) or their number is not the one expected.
     """
     column = np.asarray(values)
-    if column.ndim != 1 or len(column) != expected:
+    dimensions_allowed = (1, 2) if rows else (1,)
+    if column.ndim not in dimensions_allowed or len(column) != expected:
         raise ValueError(
             f"Expected one value per {level}, {expected} in all, "
             f"but got an array of shape {column.shape}."

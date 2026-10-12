@@ -25,7 +25,8 @@ The order is fixed, and it is the one an analysis counts in:
 - tracks within an event by their track identifier, so track 1 is the first
   primary particle the source emitted;
 - hits within a track by their time, and rows written at the same time in the
-  order of the data.
+  order of the data; a time that is not a number comes after every other one
+  of its track.
 
 GATE writes the hits of a track one after another, in the order they happened,
 but the tracks of an event from the last one to the first. The index is
@@ -43,8 +44,12 @@ build_event_track_hit_index(run_ids, event_ids, track_ids, times, force_sort) ->
     Group the rows of a "Hits" tree into hits, tracks and events.
 
 Selecting hits, tracks or events gives another index of the same rows, in
-the same order. A track whose hits were all left out, and an event whose
-tracks were, are removed with them unless the selection keeps them empty.
+the same order. A track whose hits a selection left out, and an event whose
+tracks it left out, are removed with them unless the selection keeps them
+empty; one that an earlier selection kept empty stays.
+
+segment_of(offsets, position) -> int
+    Segment of a level a position of the level below falls in.
 """
 
 from dataclasses import dataclass
@@ -151,8 +156,9 @@ class EventTrackHitIndex:
             Which events, tracks and hits to keep, one value per element of
             the level; ``None`` keeps every element of it.
         keep_empty : bool
-            Keep a track whose hits were all left out, and an event whose
-            tracks were. By default they are left out with them.
+            Keep a track whose hits this selection left out, and an event
+            whose tracks it left out. By default they are left out with them.
+            A track or event that was already empty stays either way.
 
         Returns
         -------
@@ -170,12 +176,14 @@ class EventTrackHitIndex:
         hits = _mask("hit", hit_mask, self.hit_count)
         hits &= np.repeat(tracks, self.hits_per_track())
 
+        # Only what this selection emptied is left out: a track or an event that
+        # was already empty was kept that way on purpose by an earlier one.
         hits_kept = _kept_per_segment(hits, self.track_offsets)
         if not keep_empty:
-            tracks &= hits_kept > 0
+            tracks &= (hits_kept > 0) | (self.hits_per_track() == 0)
         tracks_kept = _kept_per_segment(tracks, self.event_offsets)
         if not keep_empty:
-            events &= tracks_kept > 0
+            events &= (tracks_kept > 0) | (self.tracks_per_event() == 0)
 
         return EventTrackHitIndex(
             hit_rows=self.hit_rows[hits],
@@ -246,6 +254,25 @@ def build_event_track_hit_index(
     return _index_from_rows(rows, runs, events, tracks)
 
 
+def segment_of(offsets: IndexArray, position: int) -> int:
+    """Return the segment a position of the level below falls in.
+
+    Parameters
+    ----------
+    offsets : numpy.ndarray
+        Offsets of the segments, such as ``track_offsets``.
+    position : int
+        Position among the elements the offsets divide, such as a hit.
+
+    Returns
+    -------
+    int
+        The segment holding that element; a segment with no elements holds
+        none.
+    """
+    return int(np.searchsorted(offsets, position, side="right")) - 1
+
+
 def _as_column(name: str, values: npt.ArrayLike) -> npt.NDArray[Any]:
     """Return values as a one-dimensional array.
 
@@ -275,6 +302,10 @@ def _rows_by_sorting_blocks(
     if count == 0:
         return np.empty(0, dtype=np.int64)
 
+    # A time that is not a number compares as neither earlier nor later, so it
+    # would pass for being in order; sorting puts it after the others instead.
+    if np.issubdtype(times.dtype, np.floating) and np.isnan(times).any():
+        return None
     changes = (runs[1:] != runs[:-1]) | (events[1:] != events[:-1]) | (tracks[1:] != tracks[:-1])
     if np.any((times[1:] < times[:-1]) & ~changes):
         return None

@@ -143,6 +143,7 @@ EXPECTED_EXPORTS = {
     "reduce_tracks_to_events",
     "s_to_ms",
     "s_to_ns",
+    "segment_of",
     "select_by_decay_type",
     "select_by_gamma_type",
     "select_by_process",

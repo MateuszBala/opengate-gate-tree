@@ -17,6 +17,7 @@ from opengate_gate_tree.io.reader import read_hits_trees, read_tree
 from opengate_gate_tree.representation.index import (
     EventTrackHitIndex,
     build_event_track_hit_index,
+    segment_of,
 )
 from opengate_gate_tree.tree.gatetree import GateTree
 
@@ -118,6 +119,8 @@ def test_sorting_every_row_gives_the_same_index(
     assert np.array_equal(by_blocks.hit_rows, by_rows.hit_rows)
     assert np.array_equal(by_blocks.track_offsets, by_rows.track_offsets)
     assert np.array_equal(by_blocks.event_offsets, by_rows.event_offsets)
+    assert np.array_equal(by_blocks.track_rows, by_rows.track_rows)
+    assert np.array_equal(by_blocks.event_rows, by_rows.event_rows)
 
 
 def test_hits_merged_from_two_detectors_are_grouped_as_one_event(
@@ -424,3 +427,44 @@ def test_selecting_nothing_leaves_nothing(fixture_frames: Mapping[str, pd.DataFr
 
     # ASSERT
     assert (selected.event_count, selected.track_count, selected.hit_count) == (0, 0, 0)
+
+
+@pytest.mark.parametrize("force_sort", [False, True])
+def test_a_time_that_is_not_a_number_comes_last_in_its_track(force_sort: bool) -> None:
+    """Both ways of grouping put it after every other hit of its track."""
+    # ARRANGE
+    ones = np.ones(3, dtype=np.int32)
+
+    # ACT
+    index = build_event_track_hit_index(ones, ones, ones, [1.0, np.nan, 0.5], force_sort)
+
+    # ASSERT
+    assert index.hit_rows.tolist() == [2, 0, 1]
+
+
+def test_what_an_earlier_selection_kept_empty_stays_empty() -> None:
+    """A later selection removes only what it empties itself."""
+    # ARRANGE
+    index = two_events()
+    kept = index.select(hit_mask=np.array([True, False, False, False, False]), keep_empty=True)
+
+    # ACT
+    everything = kept.select(event_mask=np.ones(kept.event_count, dtype=bool))
+    first_track = kept.select(track_mask=np.array([True, False, True]))
+
+    # ASSERT
+    assert everything.hits_per_track().tolist() == [1, 0, 0]
+    assert everything.event_count == 2
+    assert first_track.tracks_per_event().tolist() == [1, 1]
+
+
+def test_the_segment_of_a_position_skips_empty_segments() -> None:
+    """A hit belongs to the track holding it, not to an empty one before it."""
+    # ARRANGE
+    offsets = np.array([0, 2, 2, 3], dtype=np.int64)
+
+    # ACT
+    segments = [segment_of(offsets, position) for position in range(3)]
+
+    # ASSERT
+    assert segments == [0, 0, 2]

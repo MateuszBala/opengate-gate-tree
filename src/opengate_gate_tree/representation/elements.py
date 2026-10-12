@@ -29,6 +29,7 @@ import numpy as np
 import numpy.typing as npt
 
 from opengate_gate_tree.representation.fields import ElementLevel, EventTrackHitField
+from opengate_gate_tree.representation.index import segment_of
 from opengate_gate_tree.tree.hits.positronium import decode_positronium_value
 
 if TYPE_CHECKING:
@@ -166,7 +167,7 @@ class Track:
     def event(self) -> Event:
         """Event the track belongs to."""
         offsets = self.representation.index.event_offsets
-        return Event(self.representation, _parent(offsets, self.index))
+        return Event(self.representation, segment_of(offsets, self.index))
 
     @property
     def number(self) -> int:
@@ -262,7 +263,7 @@ class Hit:
     def track(self) -> Track:
         """Track the hit belongs to."""
         offsets = self.representation.index.track_offsets
-        return Track(self.representation, _parent(offsets, self.index))
+        return Track(self.representation, segment_of(offsets, self.index))
 
     @property
     def number(self) -> int:
@@ -319,11 +320,6 @@ class Hit:
     def __repr__(self) -> str:
         """Return the row the hit was read from and its position in the track."""
         return f"Hit(row={self.row!r}, number={self.number})"
-
-
-def _parent(offsets: npt.NDArray[np.int64], position: int) -> int:
-    """Return the segment of the offsets a position falls in."""
-    return int(np.searchsorted(offsets, position, side="right")) - 1
 
 
 def _decoded(value: Any, field: EventTrackHitField) -> IntEnum:
