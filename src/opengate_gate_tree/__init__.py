@@ -124,6 +124,7 @@ __version__ = "0.8.0"
 import logging  # noqa: E402
 
 from opengate_gate_tree.analysis.base import Analysis, Combination  # noqa: E402
+from opengate_gate_tree.analysis.eventtrackhit import EventTrackHitAnalysis  # noqa: E402
 from opengate_gate_tree.errors import (  # noqa: E402
     AmbiguousTreeError,
     BranchNotFoundError,
@@ -327,6 +328,7 @@ __all__ = [
     "ElementLevel",
     "Event",
     "EventTrackHit",
+    "EventTrackHitAnalysis",
     "EventTrackHitField",
     "EventTrackHitIndex",
     "ExportError",

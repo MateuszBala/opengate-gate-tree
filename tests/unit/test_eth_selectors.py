@@ -364,3 +364,24 @@ def test_events_kept_empty_survive_a_later_selection(all_variants: EventTrackHit
     # ASSERT
     assert without_tracks.event_count == all_variants.event_count
     assert with_tracks.event_count == 0
+
+
+def test_every_level_can_be_selected_at_once(all_variants: EventTrackHit) -> None:
+    """The same as selecting one level after another, from the top."""
+    # ARRANGE
+    events = all_variants.is_source_type(SourceType.ORTHO_POSITRONIUM)
+    tracks = all_variants.is_gamma_type(GammaType.ANNIHILATION)
+    hits = all_variants.is_process(Process.PHOTOELECTRIC)
+
+    # ACT
+    at_once = all_variants.select(events, tracks, hits)
+
+    # ASSERT
+    one_by_one = (
+        all_variants.select_events(events)
+        .with_gamma_type(GammaType.ANNIHILATION)
+        .with_process(Process.PHOTOELECTRIC)
+    )
+    assert np.array_equal(at_once.index.hit_rows, one_by_one.index.hit_rows)
+    assert np.array_equal(at_once.index.track_offsets, one_by_one.index.track_offsets)
+    assert all_variants.select().hit_count == all_variants.hit_count

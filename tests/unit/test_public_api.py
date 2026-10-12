@@ -34,6 +34,7 @@ EXPECTED_EXPORTS = {
     "ElementLevel",
     "Event",
     "EventTrackHit",
+    "EventTrackHitAnalysis",
     "EventTrackHitField",
     "EventTrackHitIndex",
     "ExportError",
