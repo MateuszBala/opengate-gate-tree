@@ -19,6 +19,7 @@ answered.
 | [`tutorial-09-selecting-rows.ipynb`](tutorial-09-selecting-rows.ipynb) | 1 | what pandas already answers and what the package adds: the two forms of every filter, which ends of a range belong to it, combining masks, selectors for processes and kinds of gamma, and chains through the `gate` namespace | — | `positronium-source-all-variants.root` |
 | [`tutorial-10-shapes-and-detector-geometry.ipynb`](tutorial-10-shapes-and-detector-geometry.ipynb) | 1 | the size of a cylindricalPET scanner and its crystals read off the hits; rings, layers and ends selected with `in_cylinder`; why surfaces belong to a shape; and one question asked in `pos`, `localPos` and `sourcePos` | — | `hits-a2-cylindrical-pet.root` |
 | [`tutorial-11-events-and-tracks.ipynb`](tutorial-11-events-and-tracks.ipynb) | 1 | why an event is the pair `(runID, eventID)` and a track the triple; selecting with `by_run`, `by_event` and `is_from_event`; counting by the wrong key and by the right one; numbering the hits of a track | — | `hits-one-tree-per-run.root` |
+| [`tutorial-12-units.ipynb`](tutorial-12-units.ipynb) | 1 | which unit GATE writes each quantity in, converting numbers and columns, why conversions compute in `float64`, why a written file still holds MeV, mm and s - and the speed of light and the lifetime of ortho-positronium read off the file as checks | — | `positronium-source-all-variants.root` |
 
 Every new notebook adds a row. A tutorial nobody can find is a tutorial nobody
 reads.

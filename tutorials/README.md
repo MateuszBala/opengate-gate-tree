@@ -98,7 +98,9 @@ The index, with what each one shows, is in
 - `tutorial-10-shapes-and-detector-geometry.ipynb` - solid shapes and the
   geometry of a cylindricalPET scanner;
 - `tutorial-11-events-and-tracks.ipynb` - events and tracks, and why an event
-  is the pair `(runID, eventID)`.
+  is the pair `(runID, eventID)`;
+- `tutorial-12-units.ipynb` - the units GATE writes and the conversions to the
+  ones an analysis reads.
 
 ## Writing A Tutorial
 
