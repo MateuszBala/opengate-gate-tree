@@ -94,7 +94,9 @@ The index, with what each one shows, is in
 - `tutorial-08-positronium-source-values.ipynb` - what the values a
   `PositroniumSource` writes mean;
 - `tutorial-09-selecting-rows.ipynb` - selecting rows: masks, ranges and
-  chains.
+  chains;
+- `tutorial-10-shapes-and-detector-geometry.ipynb` - solid shapes and the
+  geometry of a cylindricalPET scanner.
 
 ## Writing A Tutorial
 
