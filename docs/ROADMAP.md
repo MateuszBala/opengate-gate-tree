@@ -122,43 +122,6 @@ Add physical unit converters and vector functionality:
 
 ## Version 0.7.0 (status: planned)
 
-Add a set of smearing functions for the "Hits" tree and the Event-Track-Hit representation:
-
-- position smearing
-- time smearing
-- energy smearing
-
-
-### Definition of Done (DoD)
-
-- a broad set of methods for smearing time, position, and energy is provided
-- all tests pass
-- user documentation (ReadTheDocs) clearly and comprehensively covers the added representations and features
-
-## Version 0.8.0 (status: planned)
-
-Add functionality for merging hits from the "Hits" tree and the Event-Track-Hit representation.
-
-### Definition of Done (DoD)
-
-- hit merging in tree-based representation follows the GATE convention for the digitizer adder
-- hit merging in Event-Track-Hit representation follows the GATE convention for the digitizer adder
-- all tests pass
-- user documentation (ReadTheDocs) clearly and comprehensively covers the added representations and features
-
-## Version 0.9.0 (status: planned)
-
-Optimization of "Hits" tree handling.
-
-### Definition of Done (DoD)
-
-- reduced CPU time and RAM usage
-- faster data processing
-- all tests pass
-- user documentation (ReadTheDocs) clearly and comprehensively covers the added representations and features
-
-## Version 0.10.0 (status: planned)
-
 Add a representation of the "Hits" tree using the Event, Track, and Hit concepts:
 
 - introduction of Event, Track, and Hit classes
@@ -172,141 +135,30 @@ Add a representation of the "Hits" tree using the Event, Track, and Hit concepts
 - all tests pass
 - user documentation (ReadTheDocs) clearly and comprehensively covers the added representations and features
 
-## Version 0.11.0 (status: planned)
+## Version 0.8.0 (status: planned)
 
-Basic support for the "Singles" tree:
+Add a lazy Event-Track-Hit analysis:
 
-- branch definitions
-- tree validation
-- statistics generation
-
-### Definition of Done (DoD)
-
-- all versions of the "Singles" tree structure are fully supported
-- all versions of the "Singles" tree structure have dedicated validation
-- all tests pass
-- user documentation (ReadTheDocs) clearly and comprehensively covers the added representations and features
-
-## Version 0.12.0 (status: planned)
-
-Add a set of filters and selectors for data from the "Singles" tree.
+- adding the ability to define an analysis as an object by applying operations to Event-Track-Hit elements
+- combining multiple analyses into one
+- performing the analysis only when data is provided for analysis
 
 ### Definition of Done (DoD)
 
-- each branch provides a set of filters and selectors in a pandas-style API: `Series.functionA.functionB... -> Series`
-- all tests pass
-- user documentation (ReadTheDocs) clearly and comprehensively covers the added representations and features
+- an advanced analysis can be defined as a chain of operations within a single object
+- multiple analyses can be combined into one
+- analyses performed using an `Analysis` object produce the same results as reference analyses performed using methods outside the package
 
-## Version 0.13.0 (status: planned)
+## Version 0.9.0 (status: planned)
 
-Add a representation of the "Singles" tree using the SinglesEvent and Single concepts:
+Add lazy Event-Track-Hit data smearing:
 
-- introduction of SinglesEvent and Single classes
-- a new output file structure
-- a set of filters and selectors
-
-### Definition of Done (DoD)
-
-- the "Singles" tree can be represented as a list of SinglesEvent objects
-- a flexible set of filters and selectors is available for SinglesEvent and Single classes
-- all tests pass
-- user documentation (ReadTheDocs) clearly and comprehensively covers the added representations and features
-
-## Version 0.14.0 (status: planned)
-
-Optimization of "Singles" tree handling.
+- adding the ability to define data smearing as a chain of operations within a single object
+- combining multiple smearing operations into one
+- performing smearing only when data is provided for smearing
 
 ### Definition of Done (DoD)
 
-- reduced CPU time and RAM usage
-- faster data processing
-- all tests pass
-- user documentation (ReadTheDocs) clearly and comprehensively covers the added representations and features
-
-## Version 0.15.0 (status: planned)
-
-Basic support for the "Coincidences" tree:
-
-- branch definitions
-- tree validation
-- statistics generation
-
-### Definition of Done (DoD)
-
-- all versions of the "Coincidences" tree structure are fully supported
-- all versions of the "Coincidences" tree structure have dedicated validation
-- all tests pass
-- user documentation (ReadTheDocs) clearly and comprehensively covers the added representations and features
-
-## Version 0.16.0 (status: planned)
-
-Add a set of filters and selectors for data from the "Coincidences" tree.
-
-### Definition of Done (DoD)
-
-- each branch provides a set of filters and selectors in a pandas-style API: `Series.functionA.functionB... -> Series`
-- all tests pass
-- user documentation (ReadTheDocs) clearly and comprehensively covers the added representations and features
-
-## Version 0.17.0 (status: planned)
-
-Optimization of "Coincidences" tree handling.
-
-### Definition of Done (DoD)
-
-- reduced CPU time and RAM usage
-- faster data processing
-- all tests pass
-- user documentation (ReadTheDocs) clearly and comprehensively covers the added representations and features
-
-## Version 1.0.0 (status: planned)
-
-The package is fully ready to support all branches from GATE output files.
-
-### Definition of Done (DoD)
-
-- all package features work correctly
-- all tests pass
-- user documentation (ReadTheDocs) is complete
-
-## Version 1.1.0 (status: planned)
-
-Add detector geometry support:
-
-- defining the detector geometry used in a simulation through a Detector class
-- visualizing detector geometry
-- filtering and selecting "Hits" tree content by detector position
-- filtering Hit-class objects by detector position
-
-### Definition of Done (DoD)
-
-- flexible definition and visualization of detector geometry
-- a broad set of methods for geometry-based data filtering
-- all tests pass
-- user documentation (ReadTheDocs) is complete
-
-## Version 1.2.0 (status: planned)
-
-Add conversion of GATE macros that define a detector into Detector definitions:
-
-- macro loading
-- macro validation
-- macro conversion into a Detector structure
-
-### Definition of Done (DoD)
-
-- full support for converting macros into package representations
-- all tests pass
-- user documentation (ReadTheDocs) is complete
-
-## Version 1.3.0 (status: planned)
-
-Add support for columns databases:
- - ClickHouse
- - DuckDB
-
-### Definition of Done (DoD)
-
-- full support for export to databases
-- all tests pass
-- user documentation (ReadTheDocs) is complete
+- advanced data smearing can be defined as a chain of operations within a single object
+- multiple smearing operations can be combined into one
+- smearing performed using a `Smearer` object produces the same results as reference analyses with smearing performed using methods outside the package
