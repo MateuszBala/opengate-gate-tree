@@ -36,6 +36,13 @@ Every file except `b1-tree-common-output.root` was rewritten with `uproot.mktree
 keeping the first 500 entries. Branch names, branch order, uproot interpretations and values were
 compared against the source files programmatically: they match.
 
+## The last event is cut short
+
+Cutting a file to its first 500 entries can end it in the middle of an event: the last event of a
+cut file may have fewer tracks, and its last track fewer hits, than the simulation gave them. In
+`../positronium/ops-prompt.root` the last event has one track where every other has four. Nothing
+in the rows says an event is incomplete, so the tests count it as it is.
+
 ## Why B1 is not trimmed
 
 `b1-tree-common-output.root` is a byte copy of the simulation output, with all 4441 entries.

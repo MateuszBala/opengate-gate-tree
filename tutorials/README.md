@@ -111,7 +111,9 @@ The index, with what each one shows, is in
 - `tutorial-16-rows-without-an-answer.ipynb` - rows a calculation cannot
   answer, and what the package reports about them;
 - `tutorial-17-whole-analysis-in-one-chain.ipynb` - a whole analysis in one
-  chain.
+  chain;
+- `tutorial-18-events-tracks-and-hits.ipynb` - a "Hits" tree read as events,
+  the tracks in them and the hits they left.
 
 ## Writing A Tutorial
 

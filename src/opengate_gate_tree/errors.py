@@ -31,6 +31,8 @@ TreeMergeError
     Trees cannot be placed one after another into a single dataset.
 ExportError
     The output file cannot be written.
+RepresentationError
+    The data cannot be read as the elements of a representation.
 """
 
 
@@ -94,3 +96,12 @@ class TreeMergeError(GateTreeError):
 
 class ExportError(GateTreeError):
     """Raised when the output file cannot be written."""
+
+
+class RepresentationError(GateTreeError):
+    """Raised when data cannot be read as the elements of a representation.
+
+    Covers data read from another tree than the one a representation reads,
+    and data missing a branch the representation is built from, such as the
+    identifiers telling events and tracks apart.
+    """

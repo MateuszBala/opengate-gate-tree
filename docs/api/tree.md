@@ -53,6 +53,13 @@ The trees GATE writes and the in-memory representation of their data.
    :members:
 ```
 
+## Processes
+
+```{eval-rst}
+.. automodule:: opengate_gate_tree.tree.hits.processes
+   :members:
+```
+
 ## Merging
 
 ```{eval-rst}

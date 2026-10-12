@@ -69,3 +69,10 @@ Two more things follow from the same decision:
 Reading a split file as one dataset adds a column naming the tree each row came
 from, because the identifiers alone do not always answer that question. See
 [Merging Trees](merging.md).
+
+## Reading The Tree As Events
+
+Grouping the rows into events, the tracks in them and the hits of every track
+is what [Events, Tracks And Hits](event-track-hit.md) does, once, so that an
+analysis can ask about the second hit of the first track without grouping
+again.

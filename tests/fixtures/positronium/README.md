@@ -35,6 +35,13 @@ checked before the files were cut, and the layout table above is compared agains
 Branch names, branch order, uproot interpretations and values were compared against the source
 files programmatically: they match.
 
+## The last event is cut short
+
+Cutting a file to its first 500 entries can end it in the middle of an event: the last event of a
+cut file may have fewer tracks, and its last track fewer hits, than the simulation gave them. In
+`ops-prompt.root` the last event has one track where every other has four. Nothing
+in the rows says an event is incomplete, so the tests count it as it is.
+
 ## What no file holds
 
 Two values of the enums do not occur in any scene:

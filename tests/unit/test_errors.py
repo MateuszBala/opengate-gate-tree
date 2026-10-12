@@ -8,6 +8,7 @@ from opengate_gate_tree.errors import (
     ExportError,
     GateTreeError,
     HitsTreeValidationError,
+    RepresentationError,
     RootFileError,
     TreeMergeError,
     TreeNotFoundError,
@@ -25,6 +26,7 @@ PACKAGE_ERRORS: list[type[GateTreeError]] = [
     HitsTreeValidationError,
     TreeMergeError,
     ExportError,
+    RepresentationError,
 ]
 
 
