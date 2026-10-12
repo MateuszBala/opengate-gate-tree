@@ -14,6 +14,12 @@ source model of an event can be asked while standing at its tracks - but a
 field of a level below has to be moved to first: a track has no single energy
 deposit.
 
+``track(i)`` and ``hit(j)`` stand at one position of every parent, counted
+from 1 among the elements kept so far, and from -1 backwards. A condition
+asked there decides about the parent: a track whose first hit is not a
+Compton scattering is left out with all its hits, and so is a track that has
+no first hit left.
+
 Every operation acts on what the operations before it kept, so their order is
 part of the question. Nothing is read until the analysis is given data.
 
@@ -47,6 +53,8 @@ from opengate_gate_tree.representation.eventtrackhit import EventTrackHit
 from opengate_gate_tree.representation.fields import ElementLevel, EventTrackHitField
 from opengate_gate_tree.representation.index import EventTrackHitIndex
 from opengate_gate_tree.representation.reduce import (
+    position_in_event,
+    position_in_track,
     reduce_hits_to_tracks,
     reduce_tracks_to_events,
 )
@@ -195,6 +203,44 @@ class EventTrackHitAnalysis(Analysis[EventTrackHit, Selection]):
             return self._appended(Navigate(ElementLevel.HIT, None, "hits()"))
         call = _count_call("hits", count, comparisons)
         return self._appended(CountCondition(ElementLevel.HIT, comparisons, call))
+
+    def track(self, position: int) -> Self:
+        """Move to the track at a position of every event.
+
+        A condition asked there decides about the event: an event whose
+        track at that position does not pass it, or that has no track there,
+        is left out with all its tracks.
+
+        Parameters
+        ----------
+        position : int
+            Position among the tracks kept so far, from 1 in the order of
+            their identifiers; a negative one counts from the last, -1 being
+            the last.
+
+        Raises
+        ------
+        ValueError
+            If the position is 0 or not a whole number.
+        """
+        return self._appended(
+            Navigate(ElementLevel.TRACK, _position(position), f"track({position})")
+        )
+
+    def hit(self, position: int) -> Self:
+        """Move to the hit at a position of every track.
+
+        A condition asked there decides about the track: a track whose hit at
+        that position does not pass it, or that has no hit there, is left out
+        with all its hits. See :meth:`track` for the parameter; hits are in the
+        order of their time.
+
+        Raises
+        ------
+        ValueError
+            If the position is 0 or not a whole number.
+        """
+        return self._appended(Navigate(ElementLevel.HIT, _position(position), f"hit({position})"))
 
     def source_type(self, *types: SourceType) -> Self:
         """Keep the events emitted with one of the given source models.
@@ -388,11 +434,18 @@ class EventTrackHitAnalysis(Analysis[EventTrackHit, Selection]):
             else:
                 counts = reduce_hits_to_tracks(index, state.hits, "count")
                 parent = ElementLevel.TRACK
-            kept = self._kept(target, state, parent, operation.passes(counts))
+            passed = operation.passes(counts)
+            if parent is state.level and state.position is not None:
+                kept = self._kept_at_position(target, state, passed)
+            else:
+                kept = self._kept(target, state, parent, passed)
             return Selection(kept.events, kept.tracks, kept.hits, operation.counted, None)
         assert isinstance(operation, FieldCondition)
         passed = operation.test.passes(target.values(operation.field))
-        return self._kept(target, state, _level_of(operation.field), passed)
+        level = _level_of(operation.field)
+        if level is state.level and state.position is not None:
+            return self._kept_at_position(target, state, passed)
+        return self._kept(target, state, level, passed)
 
     def _combine(
         self, target: _Run, kind: Literal["and", "or"], left: Selection, right: Selection
@@ -413,6 +466,23 @@ class EventTrackHitAnalysis(Analysis[EventTrackHit, Selection]):
     def _finish(self, target: _Run, state: Selection) -> EventTrackHit:
         """Return the representation of what the selection kept."""
         return target.representation.select(state.events, state.tracks, state.hits, keep_empty=True)
+
+    def _kept_at_position(
+        self, target: _Run, state: Selection, passed: npt.NDArray[np.bool_]
+    ) -> Selection:
+        """Return the selection keeping the parents whose element at the position passed."""
+        index = target.representation.index
+        assert state.position is not None
+        from_end = state.position < 0
+        if state.level is ElementLevel.TRACK:
+            numbers = position_in_event(index, state.tracks, from_end=from_end)
+            at = numbers == abs(state.position)
+            parents = reduce_tracks_to_events(index, at & passed, "any")
+            return self._kept(target, state, ElementLevel.EVENT, parents)
+        numbers = position_in_track(index, state.hits, from_end=from_end)
+        at = numbers == abs(state.position)
+        parents = reduce_hits_to_tracks(index, at & passed, "any")
+        return self._kept(target, state, ElementLevel.TRACK, parents)
 
     def _kept(
         self, target: _Run, state: Selection, level: ElementLevel, passed: npt.NDArray[np.bool_]
@@ -463,6 +533,21 @@ def _standing_after(steps: Sequence[object]) -> tuple[ElementLevel, int | None]:
         elif isinstance(step, Combination):
             level, position = ElementLevel.EVENT, None
     return level, position
+
+
+def _position(position: int) -> int:
+    """Return a position from 1, or from -1 backwards.
+
+    Raises
+    ------
+    ValueError
+        If the position is 0 or not a whole number.
+    """
+    if isinstance(position, bool) or not isinstance(position, int | np.integer):
+        raise ValueError(f"A position is a whole number, got {position!r}.")
+    if position == 0:
+        raise ValueError("Positions count from 1, and from -1 backwards; 0 is neither.")
+    return int(position)
 
 
 def _count_comparisons(
@@ -546,7 +631,16 @@ def _name(field: FieldLike) -> str:
 def _describe(step: object) -> str:
     """Return one step of an analysis in words."""
     if isinstance(step, Navigate):
-        return f"Move to the {_PLURAL[step.level]}."
+        if step.position is None:
+            return f"Move to the {_PLURAL[step.level]}."
+        holder = "event" if step.level is ElementLevel.TRACK else "track"
+        element = "track" if step.level is ElementLevel.TRACK else "hit"
+        place = (
+            f"{element} {step.position}"
+            if step.position > 0
+            else f"{element} {abs(step.position)} from the end"
+        )
+        return f"Move to {place} of every {holder}; a condition there decides about the {holder}."
     if isinstance(step, CountCondition):
         parent = ElementLevel.EVENT if step.counted is ElementLevel.TRACK else ElementLevel.TRACK
         counted = ", ".join(f"{name}={bound}" for name, bound in step.comparisons)
