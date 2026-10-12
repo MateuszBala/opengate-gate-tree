@@ -293,7 +293,7 @@ track = pairs.events[0].tracks[0]
 
 Tracks are counted in the order of their identifiers and hits in the order of
 their time, from 1. A selection keeps what it is asked to, and leaves out the
-tracks and events it empties. The representation is written as a flat tree
+tracks and events it empties itself. The representation is written as a flat tree
 with columns saying where every hit stands, `<title>.eth.<format>`, and read
 back. See the
 [guide](https://opengate-gate-tree.readthedocs.io/en/latest/guide/event-track-hit.html).

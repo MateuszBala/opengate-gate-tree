@@ -62,6 +62,8 @@ No question loops over events.
 | tracks in an event | by `trackID` | track 1 is the first primary particle the source emitted |
 | hits in a track | by `time`; rows of the same time in the order of the data | the first hit is the first interaction |
 
+A time that is not a number comes after every other hit of its track.
+
 GATE writes the hits of a track one after another, in the order they happened,
 but the tracks of an event **from the last one to the first**: an event of a
 PositroniumSource with a prompt gamma is written as tracks 4, 3, 2, 1. The
@@ -162,10 +164,14 @@ every event at once belong to the selectors and the tables.
 
 ## Selecting
 
-The selectors follow the convention of the [filters](filtering.md) of the
-pandas view. A method named `is_*` answers with a mask of the level it asks
-about; one named `select_*` or `with_*` answers with a new representation of
-what was kept, sharing the columns of the one it was made on.
+Every question comes in two, as the [filters](filtering.md) of the pandas
+view do. A method named `is_*` answers with a mask of the level it asks about,
+exactly as there. The other half answers with a new representation of what was
+kept, sharing the columns of the one it was made on, and is named after what it
+keeps rather than after the kind of question: `with_*` for the elements that
+carry something, `nth_*`, `first_hits` and `last_hits` for a position, and
+`select_*` for a mask of your own. Where the pandas view says
+`select_by_gamma_type`, the representation says `with_gamma_type`.
 
 | Asks about | Mask | Selector |
 | --- | --- | --- |
@@ -187,19 +193,28 @@ of the reference outputs - `COMPTON`, `PHOTOELECTRIC` and `RAYLEIGH` - and is a
 `StrEnum`, so a member is the string GATE writes; any other name is taken as a
 string.
 
-A mask built on a table selects by position:
+A numpy mask is read by position, in the order of the elements. A pandas
+column is read by its labels: a column of the events or tracks table selects
+the elements of its rows, and a column of hits - from `hits_frame()` or from
+the frame the representation was built from - selects the hits of its rows,
+whatever order those rows are in. A column that does not label every element
+is refused.
 
 ```python
 events = representation.events_frame()
 three_tracks = representation.select_events(events["trackCount"] == 3)
+large = representation.select_hits(frame["edep"] > 0.4)     # frame: the source
 ```
 
 ### What is left after a selection
 
-Leaving out every hit of a track leaves out the track, and leaving out every
-track of an event leaves out the event. `keep_empty=True` keeps them: a track
-without hits is still the track it was, with its identifier and its kind of
-gamma, because every track keeps the row it reads its own values from.
+A selection that leaves out every hit of a track leaves out the track, and one
+that leaves out every track of an event leaves out the event. `keep_empty=True`
+keeps them: a track without hits is still the track it was, with its
+identifier and its kind of gamma, because every track keeps the row it reads
+its own values from. What one selection kept empty, the next ones keep too -
+each selection removes only what it empties itself - so an event left without
+tracks can still be counted as one with `with_track_count(0)`.
 
 ### The order of selections is part of the question
 
@@ -237,8 +252,12 @@ representation.select_tracks(starts_with_compton)
 ```
 
 `reduce_hits_to_tracks` and `reduce_tracks_to_events` answer `"any"`, `"all"`,
-`"count"`, `"sum"`, `"first"` and `"last"`; `broadcast_tracks_to_hits` and
-`broadcast_events_to_tracks` go the other way. Sums are computed in `float64`.
+`"count"`, `"sum"`, `"min"`, `"max"`, `"first"` and `"last"`;
+`broadcast_tracks_to_hits` and `broadcast_events_to_tracks` go the other way.
+Sums of floating point values are computed in `float64` and of whole numbers in
+`int64`. `"first"` and `"last"` also take a row of components per hit, such as
+`volumeID`. An empty track has no smallest, largest, first or last hit, and
+those four reductions refuse it.
 
 ## Writing And Reading Back
 
@@ -271,11 +290,17 @@ still sees which rows make one track and one event. The identifiers GATE wrote
 are kept as they were; only the order of the rows and the added columns say
 something new.
 
-Reading a file back groups its rows again and compares the grouping with the
-columns the file carries. A file edited by hand, cut in the middle of a track,
-or not written by this package is refused rather than read as a grouping it
-does not hold. A track left empty by a selection has no row to be written in,
+Reading a file back groups its rows again. A written file stands in the order
+of its events, tracks and times, so a file whose rows would be put in another
+order - an identifier or a time changed by hand - is refused, and so is one
+whose five columns disagree with the grouping, such as a file cut in the middle
+of a track. Nothing checks the other values: an energy changed by hand is read
+as it stands. A track left empty by a selection has no row to be written in,
 so writing refuses it too.
+
+CSV keeps no types and no arrays. Reading one back gives every branch the type
+the "Hits" tree schema gives it and folds `volumeID_0` to `volumeID_9` back
+into `volumeID`, so a ROOT, HDF5 or CSV file reads back the same.
 
 The representation is part of the library only; the command line does not
 write it.
