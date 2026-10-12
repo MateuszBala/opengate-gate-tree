@@ -118,6 +118,7 @@ from opengate_gate_tree.errors import (  # noqa: E402
     ExportError,
     GateTreeError,
     HitsTreeValidationError,
+    RepresentationError,
     RootFileError,
     TreeMergeError,
     TreeNotFoundError,
@@ -170,6 +171,7 @@ from opengate_gate_tree.io.rootfile import RootFile  # noqa: E402
 from opengate_gate_tree.io.statistics import write_statistics  # noqa: E402
 from opengate_gate_tree.io.writers import write_tree  # noqa: E402
 from opengate_gate_tree.logging_setup import LOGGER_NAME  # noqa: E402
+from opengate_gate_tree.representation.base import DataRepresentation  # noqa: E402
 from opengate_gate_tree.tree.accessors import ACCESSOR_NAME  # noqa: E402
 from opengate_gate_tree.tree.filters import (  # noqa: E402
     EVENT_COLUMN,
@@ -273,6 +275,7 @@ __all__ = [
     "BranchSpec",
     "BranchStatistics",
     "DECAY_INDEX_BRANCH",
+    "DataRepresentation",
     "DecayType",
     "EVENT_COLUMN",
     "ExportError",
@@ -292,6 +295,7 @@ __all__ = [
     "POSITION_COLUMNS",
     "POSITRONIUM_BRANCHES",
     "RUN_COLUMN",
+    "RepresentationError",
     "RootFile",
     "RootFileError",
     "SOURCE_TREE_BRANCH",
