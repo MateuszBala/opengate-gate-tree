@@ -6,8 +6,9 @@ histogram. The style is applied once by :func:`use_tutorial_style`, and the
 functions below draw the shapes a tutorial keeps asking for.
 
 Every function takes an ``ax`` and returns one, so a plot can be built up over
-several calls or placed in a grid of its own making. Every function drops the
-values that are not finite before drawing, and says how many it dropped: a
+several calls or placed in a grid of its own making. Every function that draws
+values drops the ones that are not finite, and says how many it dropped - a pie
+chart refuses them instead, since a share of an unknown whole is no share: a
 column of angles from this package holds ``nan`` wherever a row had no answer,
 and a plot that quietly leaves them out is a plot that lies about how much data
 there was.
@@ -49,7 +50,7 @@ BarParams
 import warnings
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
-from typing import Any, Final
+from typing import Any, Final, cast
 
 import matplotlib as mpl
 import numpy as np
@@ -142,7 +143,10 @@ class GraphParams:
     alpha : float
         How solid the series is.
     yerr, xerr : array_like | None
-        Error bars, where the series has them.
+        Error bars, where the series has them. A point left out because it is
+        not finite takes its error bar with it.
+    extra : dict[str, Any]
+        Anything else :meth:`matplotlib.axes.Axes.errorbar` takes.
     """
 
     x: ArrayLike
@@ -202,7 +206,7 @@ def use_tutorial_style() -> None:
     >>> mpl.rcParams["axes.grid"]
     True
     """
-    mpl.rcParams.update(TUTORIAL_STYLE)
+    mpl.rcParams.update(cast(Any, TUTORIAL_STYLE))
 
 
 def plot_hist_1d(
@@ -333,7 +337,7 @@ def plot_hists_1d(
     for histogram, counted in zip(histograms, values, strict=True):
         axes.hist(
             counted,
-            bins=edges,
+            bins=edges.tolist(),
             label=histogram.label,
             color=histogram.color,
             alpha=histogram.alpha,
@@ -372,8 +376,8 @@ def plot_hist_2d(
         The two coordinates. A row is counted only when both are finite, since
         half a point is not a point.
     xrange, yrange : tuple[float, float] | None
-        Ends of the axes. Taken from the data when omitted, and ignored for an
-        axis that is drawn discretely.
+        Ends of the axes, each taken from the data when omitted, and ignored
+        for an axis that is drawn discretely.
     xbins, ybins : int
         How many bins along each axis. Ignored for an axis that is drawn
         discretely, which has one cell per value.
@@ -410,17 +414,23 @@ def plot_hist_2d(
 
     horizontal = _discrete_edges(first) if discrete_x else xbins
     vertical = _discrete_edges(second) if discrete_y else ybins
-    limits = None if xrange is None or yrange is None else [list(xrange), list(yrange)]
-    if discrete_x or discrete_y:
-        limits = None
+    limits = None
+    if (xrange is not None or yrange is not None) and first.size and not (discrete_x or discrete_y):
+        limits = [
+            list(xrange) if xrange is not None else [first.min(), first.max()],
+            list(yrange) if yrange is not None else [second.min(), second.max()],
+        ]
 
-    *_, image = axes.hist2d(first, second, bins=[horizontal, vertical], range=limits, **style)
+    *_, image = axes.hist2d(
+        first, second, bins=cast(Any, [horizontal, vertical]), range=limits, **style
+    )
     if discrete_x:
         _discrete_ticks(axes.set_xticks, first)
     if discrete_y:
         _discrete_ticks(axes.set_yticks, second)
-    if colorbar:
-        axes.get_figure().colorbar(image, ax=axes, label=colorbar_title)
+    figure = axes.get_figure()
+    if colorbar and figure is not None:
+        figure.colorbar(image, ax=axes, label=colorbar_title)
     _label(axes, xtitle, ytitle, title)
     return axes
 
@@ -491,24 +501,30 @@ def plot_graphs(
     Raises
     ------
     ValueError
-        If no series was given, or one of them has as many x as y.
+        If no series was given, or one of them does not hold as many x as y.
+
+    Warns
+    -----
+    UserWarning
+        When points are left out because a coordinate is not finite.
     """
     if not graphs:
         raise ValueError("Drawing series together needs at least one of them.")
     axes = _axes(ax)
     for graph in graphs:
-        first = np.asarray(graph.x, dtype=np.float64)
-        second = np.asarray(graph.y, dtype=np.float64)
-        if len(first) != len(second):
+        first = np.asarray(graph.x, dtype=np.float64).ravel()
+        second = np.asarray(graph.y, dtype=np.float64).ravel()
+        if first.size != second.size:
             raise ValueError(
                 f"A series is drawn point by point, so it holds as many x as y: "
-                f"got {len(first)} and {len(second)}."
+                f"got {first.size} and {second.size}."
             )
+        keep = _finite_mask(first, second, "points have a coordinate that is", stacklevel=3)
         axes.errorbar(
-            first,
-            second,
-            yerr=graph.yerr,
-            xerr=graph.xerr,
+            first[keep],
+            second[keep],
+            yerr=_kept_errors(graph.yerr, keep),
+            xerr=_kept_errors(graph.xerr, keep),
             label=graph.label,
             color=graph.color,
             marker=graph.marker,
@@ -611,8 +627,13 @@ def plot_bars(
     Raises
     ------
     ValueError
-        If no row was given, if a row has as many values as heights, or if the
-        width is not between 0 and 1.
+        If no row was given, if a row does not hold as many values as heights,
+        or if the width is not between 0 and 1.
+
+    Warns
+    -----
+    UserWarning
+        When bars are left out because their value or height is not finite.
     """
     if not bars:
         raise ValueError("Drawing bars needs at least one row of them.")
@@ -705,12 +726,15 @@ def plot_pie_chart(
     Raises
     ------
     ValueError
-        If there are no parts, if any of them is negative - a pie chart of a
-        negative share means nothing - or if the labels do not match them.
+        If there are no parts, if any of them is negative or not finite - a
+        pie chart of such a share means nothing - or if the labels do not
+        match them.
     """
     parts = np.asarray(values, dtype=np.float64)
     if parts.size == 0:
         raise ValueError("A pie chart of nothing has nothing to show.")
+    if not np.isfinite(parts).all():
+        raise ValueError(f"A part of a whole is a finite number, got {parts.tolist()}.")
     if (parts < 0).any():
         raise ValueError(f"A part of a whole is not negative, got {parts.tolist()}.")
     if labels is not None and len(labels) != parts.size:
@@ -755,7 +779,12 @@ def _discrete_ticks(place: Callable[[np.ndarray], object], values: np.ndarray) -
 
 
 def _bar_row(row: BarParams) -> tuple[np.ndarray, np.ndarray]:
-    """Return one row of bars as values and heights, refusing a mismatch."""
+    """Return one row of bars as values and heights, refusing a mismatch.
+
+    A bar whose value or height is not finite is left out, and counted in a
+    warning: one such value would otherwise make every bar of the plot as wide
+    as ``nan``, and the plot empty.
+    """
     values = np.asarray(row.x, dtype=np.float64).ravel()
     heights = np.asarray(row.heights, dtype=np.float64).ravel()
     if values.size != heights.size:
@@ -763,7 +792,8 @@ def _bar_row(row: BarParams) -> tuple[np.ndarray, np.ndarray]:
             f"A bar stands above one value, so a row holds as many values as heights: "
             f"got {values.size} and {heights.size}."
         )
-    return values, heights
+    keep = _finite_mask(values, heights, "bars have a value or a height that is")
+    return values[keep], heights[keep]
 
 
 def _smallest_gap(values: np.ndarray) -> float:
@@ -815,12 +845,30 @@ def _finite_pair(x: ArrayLike, y: ArrayLike) -> tuple[np.ndarray, np.ndarray]:
             f"A point has two coordinates, so both hold as many values: "
             f"got {first.size} and {second.size}."
         )
+    keep = _finite_mask(first, second, "points have a coordinate that is", stacklevel=4)
+    return first[keep], second[keep]
+
+
+def _finite_mask(
+    first: np.ndarray, second: np.ndarray, what: str, stacklevel: int = 4
+) -> np.ndarray:
+    """Return where both values can be drawn, and say how many pairs could not."""
     keep = np.isfinite(first) & np.isfinite(second)
     dropped = int(first.size - np.count_nonzero(keep))
     if dropped:
         warnings.warn(
-            f"{dropped} of {first.size} points have a coordinate that is not finite and are "
-            f"left out of the plot.",
-            stacklevel=3,
+            f"{dropped} of {first.size} {what} not finite and are left out of the plot.",
+            stacklevel=stacklevel,
         )
-    return first[keep], second[keep]
+    return keep
+
+
+def _kept_errors(errors: ArrayLike | None, keep: np.ndarray) -> ArrayLike | None:
+    """Return the error bars of the points that are drawn.
+
+    A single number is one error for every point and stays as it is; an array
+    holds one error, or a pair of them, per point along its last axis.
+    """
+    if errors is None or np.ndim(errors) == 0:
+        return errors
+    return np.asarray(errors, dtype=np.float64)[..., keep]
