@@ -36,11 +36,14 @@ ConsistencyReport
     Fields whose value differs within a track or an event that should share it.
 INDEX_BRANCHES
     Branches the representation is built from.
+STRUCTURE_COLUMNS
+    Columns a written representation adds to say where every hit stands.
 """
 
 import operator
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
+from types import MappingProxyType
 from typing import Any, ClassVar, Final
 
 import numpy as np
@@ -83,6 +86,18 @@ INDEX_BRANCHES: Final[tuple[str, ...]] = ("runID", "eventID", "trackID", "time")
 # Columns the tables add to say where an element stands.
 EVENT_INDEX_COLUMN: Final[str] = "eventIndex"
 TRACK_INDEX_COLUMN: Final[str] = "trackIndex"
+
+# Columns a written representation adds to say where every hit stands, with
+# the type they are written in.
+STRUCTURE_COLUMNS: Final[Mapping[str, type[np.integer[Any]]]] = MappingProxyType(
+    {
+        EVENT_INDEX_COLUMN: np.int64,
+        EventTrackHitField.TRACK_NUMBER.value: np.int32,
+        EventTrackHitField.HIT_NUMBER.value: np.int32,
+        EventTrackHitField.TRACK_COUNT.value: np.int32,
+        EventTrackHitField.HIT_COUNT.value: np.int32,
+    }
+)
 
 # Depth of every level, to tell whether a value can be spread over another.
 _DEPTH: Final[Mapping[ElementLevel, int]] = {
@@ -751,6 +766,56 @@ class EventTrackHit(DataRepresentation):
         chosen = list(self.data.branch_names) if fields is None else fields
         self._add_fields(columns, chosen, ElementLevel.HIT)
         return pd.DataFrame(columns, index=self.row_labels[index.hit_rows])
+
+    def to_tree_data(self) -> TreeData:
+        """Return the hits as a flat tree, the way the representation is written.
+
+        Every branch of the data is kept, its rows in the order of the
+        representation, and the columns in :data:`STRUCTURE_COLUMNS` are added:
+        the position of the event of every hit from 0, the position of its
+        track in the event and of the hit in the track from 1, and the number
+        of tracks of its event and of hits of its track. Identifiers written by
+        GATE are kept as they are. A column of the data already named like one
+        of them is replaced, since it described another grouping.
+
+        Returns
+        -------
+        TreeData
+            One entry per hit.
+
+        Raises
+        ------
+        RepresentationError
+            If a track holds no hits or an event no tracks: a flat tree has no
+            row to write them in.
+        """
+        index = self._index
+        if np.any(index.hits_per_track() == 0) or np.any(index.tracks_per_event() == 0):
+            raise RepresentationError(
+                "A track without hits, or an event without tracks, has no row to be written "
+                "in; select without keep_empty before writing."
+            )
+        columns = {
+            name: column[index.hit_rows]
+            for name, column in self.data.columns.items()
+            if name not in STRUCTURE_COLUMNS
+        }
+        derived = {
+            EVENT_INDEX_COLUMN: np.repeat(index.event_of_track(), index.hits_per_track()),
+            EventTrackHitField.TRACK_NUMBER.value: self.values(
+                EventTrackHitField.TRACK_NUMBER, ElementLevel.HIT
+            ),
+            EventTrackHitField.HIT_NUMBER.value: self.values(EventTrackHitField.HIT_NUMBER),
+            EventTrackHitField.TRACK_COUNT.value: self.values(
+                EventTrackHitField.TRACK_COUNT, ElementLevel.HIT
+            ),
+            EventTrackHitField.HIT_COUNT.value: self.values(
+                EventTrackHitField.HIT_COUNT, ElementLevel.HIT
+            ),
+        }
+        for name, values in derived.items():
+            columns[name] = values.astype(STRUCTURE_COLUMNS[name])
+        return TreeData(self.TREE, columns)
 
     def check_consistency(self, fields: Sequence[FieldLike] | None = None) -> ConsistencyReport:
         """Check that track and event fields agree within their track and event.

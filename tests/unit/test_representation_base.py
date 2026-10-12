@@ -20,6 +20,9 @@ class RowRepresentation(DataRepresentation):
     def __len__(self) -> int:
         return len(self.data)
 
+    def to_tree_data(self) -> TreeData:
+        return self.data
+
 
 def hits_data() -> TreeData:
     """Return three entries of a "Hits" tree."""
@@ -49,6 +52,9 @@ def test_a_subclass_that_counts_no_elements_cannot_be_used() -> None:
     class Uncounted(DataRepresentation):
         TREE: ClassVar[GateTree] = GateTree.HITS
 
+        def to_tree_data(self) -> TreeData:
+            return self.data
+
     # ACT
     with pytest.raises(TypeError):
         Uncounted(hits_data())  # type: ignore[abstract]
@@ -68,6 +74,7 @@ def test_columns_are_kept_as_they_were_given() -> None:
     # ASSERT
     assert representation.data is data
     assert len(representation) == 3
+    assert representation.to_tree_data() is data
 
 
 def test_rows_of_columns_are_labelled_by_their_position() -> None:

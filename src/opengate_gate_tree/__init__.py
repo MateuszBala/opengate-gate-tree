@@ -168,11 +168,16 @@ from opengate_gate_tree.geometry.vectors import (  # noqa: E402
     normalize,
 )
 from opengate_gate_tree.geometry.vectorview import VectorView  # noqa: E402
+from opengate_gate_tree.io.eth import (  # noqa: E402
+    read_event_track_hit,
+    write_event_track_hit,
+)
 from opengate_gate_tree.io.fileformat import (  # noqa: E402
     OutputFileFormat,
     parse_output_file_format,
 )
 from opengate_gate_tree.io.naming import (  # noqa: E402
+    build_event_track_hit_file_path,
     build_output_file_name,
     build_output_file_path,
     build_statistics_file_path,
@@ -186,6 +191,7 @@ from opengate_gate_tree.representation.base import DataRepresentation  # noqa: E
 from opengate_gate_tree.representation.elements import Event, Hit, Track  # noqa: E402
 from opengate_gate_tree.representation.eventtrackhit import (  # noqa: E402
     INDEX_BRANCHES,
+    STRUCTURE_COLUMNS,
     ConsistencyReport,
     EventTrackHit,
 )
@@ -344,6 +350,7 @@ __all__ = [
     "RootFile",
     "RootFileError",
     "SOURCE_TREE_BRANCH",
+    "STRUCTURE_COLUMNS",
     "SourceType",
     "Track",
     "TreeData",
@@ -360,6 +367,7 @@ __all__ = [
     "as_vectors",
     "broadcast_events_to_tracks",
     "broadcast_tracks_to_hits",
+    "build_event_track_hit_file_path",
     "build_event_track_hit_index",
     "build_output_file_name",
     "build_output_file_path",
@@ -419,6 +427,7 @@ __all__ = [
     "position_in_track",
     "positronium_enum",
     "rad_to_deg",
+    "read_event_track_hit",
     "read_hits_trees",
     "read_tree",
     "reduce_hits_to_tracks",
@@ -439,6 +448,7 @@ __all__ = [
     "with_decay_metadata",
     "wrap_to_signed_pi",
     "wrap_to_two_pi",
+    "write_event_track_hit",
     "write_statistics",
     "write_tree",
 ]

@@ -11,6 +11,11 @@ returns and the pandas view of them, possibly after a selection. The rows a
 frame was left with keep their labels, so an element can always be traced back
 to the rows it was read from.
 
+A representation is written as a flat tree again: the rows it holds, in its
+own order, with columns saying where each row stands. That keeps every output
+format of the package open to it, and keeps the file readable by tools that
+know nothing of this package.
+
 Public objects:
 
 DataRepresentation
@@ -81,3 +86,7 @@ class DataRepresentation(ABC):
     @abstractmethod
     def __len__(self) -> int:
         """Return the number of elements of the topmost kind."""
+
+    @abstractmethod
+    def to_tree_data(self) -> TreeData:
+        """Return the representation as a flat tree, the way it is written."""
