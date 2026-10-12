@@ -50,6 +50,9 @@ class NumberAnalysis(Analysis[frozenset[int], frozenset[int]]):
     def keep(self, condition: str) -> "NumberAnalysis":
         return self._appended(Keep(condition))
 
+    def _accepts(self, step: object) -> bool:
+        return isinstance(step, Keep)
+
     def _target(self, source: Any) -> Numbers:
         return source if isinstance(source, Numbers) else Numbers(set(source))
 
@@ -251,3 +254,44 @@ def test_a_combination_names_its_kind_and_its_sides() -> None:
 
     # ASSERT
     assert combination == Combination("and", even, small)
+
+
+def test_a_step_the_analysis_cannot_perform_is_refused() -> None:
+    """Steps given to the constructor are checked, as the methods check theirs."""
+    # ARRANGE
+    steps = (Keep("even"), "junk")
+
+    # ACT
+    with pytest.raises(TypeError) as raised:
+        NumberAnalysis(steps)
+
+    # ASSERT
+    assert "NumberAnalysis cannot perform 'junk'" in str(raised.value)
+
+
+def test_an_analysis_that_needs_no_restart_is_appended_as_it_is() -> None:
+    """The base class adds nothing between two analyses."""
+    # ARRANGE
+    first = NumberAnalysis().keep("even")
+
+    # ACT
+    chained = first.then(NumberAnalysis().keep("small"))
+
+    # ASSERT
+    assert chained.steps == (Keep("even"), Keep("small"))
+
+
+def test_a_kind_of_analysis_that_names_no_operation_accepts_none() -> None:
+    """Only combinations, unless the subclass says which operations it performs."""
+
+    # ARRANGE
+    class Bare(NumberAnalysis):
+        def _accepts(self, step: object) -> bool:
+            return Analysis._accepts(self, step)
+
+    # ACT
+    with pytest.raises(TypeError):
+        Bare((Keep("even"),))
+
+    # ASSERT
+    assert Bare().steps == ()

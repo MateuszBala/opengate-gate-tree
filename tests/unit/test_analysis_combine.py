@@ -177,3 +177,50 @@ def test_a_combination_is_shown_with_brackets() -> None:
         "((EventTrackHitAnalysis().tracks(2) & EventTrackHitAnalysis().hits(2)) | "
         "EventTrackHitAnalysis().hit(1).process(Process.COMPTON))"
     )
+
+
+def test_then_starts_the_second_analysis_where_it_starts_on_its_own(
+    representation: EventTrackHit,
+) -> None:
+    """After track(1), a count of hits keeps tracks, as it does alone."""
+    # ARRANGE
+    first = Analysis().track(1).gamma_type(GammaType.ANNIHILATION)
+    second = Analysis().hits(2)
+
+    # ACT
+    chained = first.then(second)
+
+    # ASSERT
+    assert repr(chained).endswith(".events().hits(2)")
+    expected = second.apply(first.apply(representation))
+    assert hits_kept(chained, representation) == set(expected.index.hit_rows.tolist())
+
+
+def test_a_combination_inside_a_chain_starts_from_the_events(
+    representation: EventTrackHit,
+) -> None:
+    """Each side means what it means alone, wherever the chain stood."""
+    # ARRANGE
+    first = Analysis().track(1).gamma_type(GammaType.ANNIHILATION)
+    combined = Analysis().hits(2) & Analysis().events()
+
+    # ACT
+    chained = first.then(combined).apply(representation)
+
+    # ASSERT
+    expected = combined.apply(first.apply(representation))
+    assert set(chained.index.hit_rows.tolist()) == set(expected.index.hit_rows.tolist())
+
+
+def test_tracks_and_events_given_empty_are_left_out(representation: EventTrackHit) -> None:
+    """An event without a track passes no condition, and is not part of the result."""
+    # ARRANGE
+    emptied = representation.with_process(Process.RAYLEIGH, keep_empty=True)
+
+    # ACT
+    nothing_asked = Analysis().apply(emptied)
+    tracks_asked = Analysis().tracks().where("trackID", eq=1).apply(emptied)
+
+    # ASSERT
+    assert emptied.event_count == representation.event_count
+    assert nothing_asked.event_count == tracks_asked.event_count == 0

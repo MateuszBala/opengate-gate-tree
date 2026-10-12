@@ -120,9 +120,10 @@ class _Run:
 
     def values(self, field: FieldLike) -> npt.NDArray[Any]:
         """Return a field at its own level, reading it once per performance."""
-        if field not in self._read:
-            self._read[field] = self.representation.values(field)
-        return self._read[field]
+        key = _resolved(field)
+        if key not in self._read:
+            self._read[key] = self.representation.values(key)
+        return self._read[key]
 
 
 class EventTrackHitAnalysis(Analysis[EventTrackHit, Selection]):
@@ -204,6 +205,7 @@ class EventTrackHitAnalysis(Analysis[EventTrackHit, Selection]):
         """
         comparisons = _count_comparisons(count, eq, ne, ge, le, gt, lt)
         if not comparisons:
+            self._refuse_hits_of_one_track("hits()")
             return self._appended(Navigate(ElementLevel.HIT, None, "hits()"))
         call = _count_call("hits", count, comparisons)
         return self._appended(CountCondition(ElementLevel.HIT, comparisons, call))
@@ -244,6 +246,7 @@ class EventTrackHitAnalysis(Analysis[EventTrackHit, Selection]):
         ValueError
             If the position is 0 or not a whole number.
         """
+        self._refuse_hits_of_one_track(f"hit({position})")
         return self._appended(Navigate(ElementLevel.HIT, _position(position), f"hit({position})"))
 
     def source_type(self, *types: SourceType) -> Self:
@@ -405,6 +408,21 @@ class EventTrackHitAnalysis(Analysis[EventTrackHit, Selection]):
             lines.append(f"{number}. {_describe(step, standing)}")
         return "\n".join(lines)
 
+    def _refuse_hits_of_one_track(self, call: str) -> None:
+        """Refuse to move to hits while standing at one track of every event.
+
+        Raises
+        ------
+        ValueError
+            If the analysis stands at a position of the tracks.
+        """
+        level, position = _standing_after(self.steps)
+        if level is ElementLevel.TRACK and position is not None:
+            raise ValueError(
+                f"{call} after track({position}) would stand at the hits of every track, not of "
+                f"track {position}: positions do not nest. Move to tracks() or events() first."
+            )
+
     def _enum_condition(
         self,
         field: EventTrackHitField,
@@ -459,12 +477,15 @@ class EventTrackHitAnalysis(Analysis[EventTrackHit, Selection]):
     def _initial(self, target: _Run) -> Selection:
         """Return a selection of everything, standing at the events."""
         index = target.representation.index
-        return Selection(
-            np.ones(index.event_count, dtype=bool),
-            np.ones(index.track_count, dtype=bool),
-            np.ones(index.hit_count, dtype=bool),
-            ElementLevel.EVENT,
-            None,
+        return _propagated(
+            index,
+            Selection(
+                np.ones(index.event_count, dtype=bool),
+                np.ones(index.track_count, dtype=bool),
+                np.ones(index.hit_count, dtype=bool),
+                ElementLevel.EVENT,
+                None,
+            ),
         )
 
     def _operate(self, target: _Run, state: Selection, operation: object) -> Selection:
@@ -488,7 +509,7 @@ class EventTrackHitAnalysis(Analysis[EventTrackHit, Selection]):
                 kept = self._kept(target, state, parent, passed)
             return Selection(kept.events, kept.tracks, kept.hits, operation.counted, None)
         assert isinstance(operation, FieldCondition)
-        passed = operation.test.passes(target.values(operation.field))
+        passed = operation.test.passes(self._field_values(target, state, operation.field))
         level = _level_of(operation.field)
         if level is state.level and state.position is not None:
             return self._kept_at_position(target, state, passed)
@@ -513,6 +534,34 @@ class EventTrackHitAnalysis(Analysis[EventTrackHit, Selection]):
     def _finish(self, target: _Run, state: Selection) -> EventTrackHit:
         """Return the representation of what the selection kept."""
         return target.representation.select(state.events, state.tracks, state.hits, keep_empty=True)
+
+    def _accepts(self, step: object) -> bool:
+        """Return whether a step is an operation of this analysis."""
+        return isinstance(step, Navigate | CountCondition | FieldCondition)
+
+    def _restart_steps(self) -> tuple[object, ...]:
+        """Return the move back to the events, when the analysis stands elsewhere."""
+        if _standing_after(self.steps) == (ElementLevel.EVENT, None):
+            return ()
+        return (Navigate(ElementLevel.EVENT, None, "events()"),)
+
+    def _restart(self, state: Selection) -> Selection:
+        """Return the selection standing at the events again."""
+        return Selection(state.events, state.tracks, state.hits, ElementLevel.EVENT, None)
+
+    def _field_values(self, target: _Run, state: Selection, field: FieldLike) -> npt.NDArray[Any]:
+        """Return a field at its own level; a derived one counts what is kept so far."""
+        index = target.representation.index
+        resolved = _resolved(field)
+        if resolved is EventTrackHitField.TRACK_COUNT:
+            return reduce_tracks_to_events(index, state.tracks, "count")
+        if resolved is EventTrackHitField.HIT_COUNT:
+            return reduce_hits_to_tracks(index, state.hits, "count")
+        if resolved is EventTrackHitField.TRACK_NUMBER:
+            return position_in_event(index, state.tracks)
+        if resolved is EventTrackHitField.HIT_NUMBER:
+            return position_in_track(index, state.hits)
+        return target.values(resolved)
 
     def _kept_at_position(
         self, target: _Run, state: Selection, passed: npt.NDArray[np.bool_]
@@ -557,15 +606,13 @@ def _propagated(index: EventTrackHitIndex, state: Selection) -> Selection:
     """Return a selection whose levels agree with one another.
 
     A track of a left-out event, and a hit of a left-out track, are left out.
-    A track whose hits were all left out is left out, and an event whose
-    tracks were; one that held nothing in the representation stays.
+    A track without a kept hit is left out, and so is an event without a kept
+    track - also one that held none in the representation it was given.
     """
     tracks = state.tracks & np.repeat(state.events, index.tracks_per_event())
     hits = state.hits & np.repeat(tracks, index.hits_per_track())
-    tracks &= reduce_hits_to_tracks(index, hits, "any") | (index.hits_per_track() == 0)
-    events = state.events & (
-        reduce_tracks_to_events(index, tracks, "any") | (index.tracks_per_event() == 0)
-    )
+    tracks &= reduce_hits_to_tracks(index, hits, "any")
+    events = state.events & reduce_tracks_to_events(index, tracks, "any")
     return Selection(events, tracks, hits, state.level, state.position)
 
 
@@ -665,6 +712,16 @@ def _value_test(comparisons: Mapping[str, Any]) -> ValueTest:
                 raise ValueError(f"'between' takes the two ends of a range, got {bound!r}.")
             pairs.append((name, bound))
     return ValueTest(tuple(pairs))
+
+
+def _resolved(field: FieldLike) -> FieldLike:
+    """Return the field a name stands for, or the name of a branch of hits."""
+    if isinstance(field, EventTrackHitField):
+        return field
+    try:
+        return EventTrackHitField(field)
+    except ValueError:
+        return field
 
 
 def _level_of(field: FieldLike) -> ElementLevel:

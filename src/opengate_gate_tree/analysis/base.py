@@ -19,7 +19,12 @@ Analyses combine in three ways:
   is performed on its own, from the same starting point, and their results are
   combined, so both operators are associative and commutative;
 - ``a.then(b)`` performs ``b`` on what ``a`` kept: the operations of ``b`` are
-  appended to those of ``a``, in order.
+  appended to those of ``a``, in order, and start from where ``b`` starts on
+  its own, whatever ``a`` ended with.
+
+Each side of ``a & b`` and ``a | b`` likewise starts from where an analysis
+starts, also inside a chain, so that an analysis means the same wherever it
+is used.
 
 Only analyses of the same kind combine: an analysis of events and one of
 coincidences describe different things.
@@ -75,11 +80,23 @@ class Analysis[Result, State](ABC):
     ----------
     steps : Sequence[object]
         Operations, and combinations of analyses, in the order they are
-        performed. A new analysis starts with none.
+        performed. A new analysis starts with none; the methods of a subclass
+        append to it, and check what they append.
+
+    Raises
+    ------
+    TypeError
+        If a step is neither a combination nor an operation of the subclass.
     """
 
     def __init__(self, steps: Sequence[object] = ()) -> None:
         self._steps: tuple[object, ...] = tuple(steps)
+        for step in self._steps:
+            if not isinstance(step, Combination) and not self._accepts(step):
+                raise TypeError(
+                    f"{type(self).__name__} cannot perform {step!r}: a step is a combination "
+                    "or one of its own operations."
+                )
 
     @property
     def steps(self) -> tuple[object, ...]:
@@ -95,7 +112,7 @@ class Analysis[Result, State](ABC):
             If the two analyses are not of the same kind.
         """
         self._require_same_kind(other, "then")
-        return self._appended(*other.steps)
+        return self._appended(*self._restart_steps(), *other.steps)
 
     def __and__(self, other: Self) -> Self:
         """Return an analysis keeping what both this one and ``other`` keep.
@@ -165,8 +182,9 @@ class Analysis[Result, State](ABC):
         """Perform steps one after another, starting from a state."""
         for step in steps:
             if isinstance(step, Combination):
-                left = self._perform(step.left.steps, target, state)
-                right = self._perform(step.right.steps, target, state)
+                start = self._restart(state)
+                left = self._perform(step.left.steps, target, start)
+                right = self._perform(step.right.steps, target, start)
                 state = self._combine(target, step.kind, left, right)
             else:
                 state = self._operate(target, state, step)
@@ -185,6 +203,22 @@ class Analysis[Result, State](ABC):
                 f"{type(self).__name__} combines only with another {type(self).__name__} "
                 f"through {operator!r}, not with {type(other).__name__}."
             )
+
+    def _accepts(self, step: object) -> bool:
+        """Return whether a step is an operation this kind of analysis performs."""
+        return False
+
+    def _restart_steps(self) -> tuple[object, ...]:
+        """Return the steps that bring this analysis back to where an analysis starts.
+
+        ``then`` puts them between two analyses, so that the second one starts
+        where it would on its own. None are needed when the analysis is there.
+        """
+        return ()
+
+    def _restart(self, state: State) -> State:
+        """Return a state brought back to where an analysis starts, keeping what it kept."""
+        return state
 
     @abstractmethod
     def _target(self, source: Any) -> Any:

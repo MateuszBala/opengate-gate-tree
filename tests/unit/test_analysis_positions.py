@@ -266,17 +266,18 @@ def test_a_position_is_a_whole_number_other_than_zero(build: object, message: st
 def test_a_position_is_shown_as_written_and_described() -> None:
     """And says that a condition there decides about the parent."""
     # ARRANGE
-    analysis = Analysis().track(1).hit(-1)
+    analysis = Analysis().track(1).events().hit(-1)
 
     # ACT
     shown = repr(analysis)
     described = analysis.describe().splitlines()
 
     # ASSERT
-    assert shown == "EventTrackHitAnalysis().track(1).hit(-1)"
+    assert shown == "EventTrackHitAnalysis().track(1).events().hit(-1)"
     assert described == [
         "1. Move to track 1 of every event; a condition there decides about the event.",
-        "2. Move to hit 1 from the end of every track; a condition there decides about the track.",
+        "2. Move to the events.",
+        "3. Move to hit 1 from the end of every track; a condition there decides about the track.",
     ]
 
 
@@ -296,3 +297,66 @@ def test_a_condition_at_a_position_is_described_as_deciding_about_the_parent() -
         "4. Keep the events whose track 1 from the end has a number of hits passing eq=2, "
         "and move to their hits."
     )
+
+
+@pytest.mark.parametrize("move", [lambda a: a.hits(), lambda a: a.hit(1)])
+def test_hits_cannot_be_moved_to_from_one_track(move: object) -> None:
+    """Positions do not nest: hit 1 after track 1 would be hit 1 of every track."""
+    # ARRANGE
+    analysis = Analysis().track(1)
+
+    # ACT
+    with pytest.raises(ValueError) as raised:
+        move(analysis)  # type: ignore[operator]
+
+    # ASSERT
+    assert "after track(1) would stand at the hits of every track" in str(raised.value)
+
+
+def test_a_count_of_hits_at_one_track_is_still_allowed(ops_prompt: EventTrackHit) -> None:
+    """It decides about the event, and then stands at the hits of every track of it."""
+    # ARRANGE
+    analysis = Analysis().track(1).hits(2).process(Process.PHOTOELECTRIC)
+
+    # ACT
+    result = analysis.apply(ops_prompt)
+
+    # ASSERT
+    assert set(result.values("processName").tolist()) == {"PhotoElectric"}
+
+
+def test_positions_counted_in_a_condition_are_the_kept_ones(
+    a1_frame: pd.DataFrame, a1: EventTrackHit
+) -> None:
+    """where() on hitCount or hitNumber counts what the analysis kept, as hits(n) does."""
+    # ARRANGE
+    compton = Analysis().hits().process(Process.COMPTON)
+
+    # ACT
+    by_where = compton.tracks().where("hitCount", eq=1).apply(a1)
+    by_count = compton.hits(eq=1).apply(a1)
+    second_by_where = compton.where("hitNumber", eq=2).apply(a1)
+    second_by_position = compton.hit(2).where("edep", ge=0.0).apply(a1)
+
+    # ASSERT
+    assert by_where.track_count == by_count.track_count
+    assert by_where.track_count > 0
+    assert second_by_where.hit_count == second_by_where.track_count
+    assert second_by_where.track_count == second_by_position.track_count
+
+
+def test_track_counts_and_numbers_in_a_condition_are_the_kept_ones(
+    ops_prompt: EventTrackHit,
+) -> None:
+    """trackCount and trackNumber after keeping the annihilation gammas."""
+    # ARRANGE
+    annihilation = Analysis().tracks().gamma_type(GammaType.ANNIHILATION)
+
+    # ACT
+    three = annihilation.where("trackCount", eq=3).apply(ops_prompt)
+    first = annihilation.where("trackNumber", eq=1).apply(ops_prompt)
+
+    # ASSERT
+    assert three.event_count == annihilation.tracks(3).apply(ops_prompt).event_count == 79
+    # Track 2 in every full event; the cut last event kept only its track 4.
+    assert sorted(first.values("trackID").tolist()) == [2] * 79 + [4]
