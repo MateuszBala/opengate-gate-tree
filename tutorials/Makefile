@@ -40,12 +40,20 @@ lab:
 # Executed copies go to .tmp/, never back into the notebook: what is committed
 # is what its author published. The first failure stops the run, and its
 # traceback is the report.
+#
+# Every tutorial starts from an empty directory of its own, as it would on a
+# fresh clone, so that nothing an earlier run left behind reaches its outputs.
+# The kernel is the one of this environment, not the one `make kernel`
+# registers for the user: that one points at whichever clone registered it
+# last, and would run the notebooks against that clone's code.
 verify:
 	@test -d $(VENV) || { echo "no environment yet; run: make init"; exit 1; }
+	@rm -rf notebooks/.tmp/tutorial-*
 	@mkdir -p $(VERIFY_DIR)
-	@set -e; for notebook in notebooks/*.ipynb; do \
+	@set -e; for notebook in notebooks/tutorial-*.ipynb; do \
 		echo "running $$notebook"; \
 		$(JUPYTER) nbconvert --to notebook --execute \
+			--ExecutePreprocessor.kernel_name=python3 \
 			--output-dir $(VERIFY_DIR) "$$notebook" >/dev/null; \
 	done; \
 	echo "every notebook ran"

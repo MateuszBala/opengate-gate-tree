@@ -64,11 +64,12 @@ test of the package rather than a description of it.
 | `make install` | install the requirements again, into an existing `.venv` |
 | `make kernel` | register the environment with Jupyter as `opengate-gate-tree-tutorials` |
 | `make lab` | start JupyterLab in `notebooks/` |
-| `make verify` | run every notebook start to finish and fail on the first error |
+| `make verify` | run every tutorial start to finish, each from an empty output directory, and fail on the first error |
 | `make clean` | remove `.venv`, the checkpoints and everything under `.tmp/` |
 
 `make verify` is the author's job before pushing, and again after every change
-made in answer to a review. It does not run in CI: executing a notebook needs
+made in answer to a review. It runs the notebooks with the kernel of `.venv`
+itself, so it needs no `make kernel` and always checks the code of this clone. It does not run in CI: executing a notebook needs
 data that CI does not have, and a green build that skipped the notebooks would
 say more than it knows.
 
