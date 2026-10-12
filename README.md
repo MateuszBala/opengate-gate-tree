@@ -274,6 +274,30 @@ detector leaves to work with, and the polarization of a scattered photon is
 estimated from the plane it scattered in. Every formula is written out in the
 [guide](https://opengate-gate-tree.readthedocs.io/en/latest/guide/vectors.html).
 
+### Events, Tracks And Hits
+
+A row of the "Hits" tree is one hit; an analysis usually asks about events and
+the gammas in them. `EventTrackHit` groups the rows once into events, the
+tracks recorded in them and the hits every track left, and reads everything
+else when it is asked for - as arrays, as tables with a row per event, track
+or hit, or as objects made one at a time:
+
+```python
+from opengate_gate_tree import EventTrackHit, GammaType, Process
+
+representation = EventTrackHit(read_tree(Path("simulation.root"), GateTree.HITS))
+pairs = representation.with_gamma_type(GammaType.ANNIHILATION).with_track_count(2)
+first_hits = pairs.first_hits().hits_frame(["edep", "processName"])
+track = pairs.events[0].tracks[0]
+```
+
+Tracks are counted in the order of their identifiers and hits in the order of
+their time, from 1. A selection keeps what it is asked to, and leaves out the
+tracks and events it empties. The representation is written as a flat tree
+with columns saying where every hit stands, `<title>.eth.<format>`, and read
+back. See the
+[guide](https://opengate-gate-tree.readthedocs.io/en/latest/guide/event-track-hit.html).
+
 ### Reading What A Gamma Was
 
 The branches a `PositroniumSource` writes hold integers saying what each gamma

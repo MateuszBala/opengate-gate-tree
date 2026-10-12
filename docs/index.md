@@ -40,6 +40,7 @@ guide/library
 guide/loading
 guide/hits
 guide/events
+guide/event-track-hit
 guide/positronium
 guide/merging
 guide/representations
@@ -59,6 +60,7 @@ api/io
 api/tree
 api/units
 api/geometry
+api/representation
 api/cli
 ```
 
