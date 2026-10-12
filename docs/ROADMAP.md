@@ -120,7 +120,12 @@ Add physical unit converters and vector functionality:
 - all tests pass
 - user documentation (ReadTheDocs) clearly and comprehensively covers the added representations and features
 
-## Version 0.7.0 (status: completed)
+## Version 0.8.0 (status: completed)
+
+There is no version 0.7.0. This stage was planned as 0.7.0, but its release
+was published as 0.8.0, and PyPI never takes a version number a second time,
+so the stage keeps the number it was released under and the stages after it
+move on by one.
 
 Add a representation of the "Hits" tree using the Event, Track, and Hit concepts:
 
@@ -135,7 +140,7 @@ Add a representation of the "Hits" tree using the Event, Track, and Hit concepts
 - all tests pass
 - user documentation (ReadTheDocs) clearly and comprehensively covers the added representations and features
 
-## Version 0.8.0 (status: planned)
+## Version 0.9.0 (status: planned)
 
 Add a lazy Event-Track-Hit analysis:
 
@@ -149,7 +154,7 @@ Add a lazy Event-Track-Hit analysis:
 - multiple analyses can be combined into one
 - analyses performed using an `Analysis` object produce the same results as reference analyses performed using methods outside the package
 
-## Version 0.9.0 (status: planned)
+## Version 0.10.0 (status: planned)
 
 Add lazy Event-Track-Hit data smearing:
 
