@@ -102,7 +102,9 @@ The index, with what each one shows, is in
 - `tutorial-12-units.ipynb` - the units GATE writes and the conversions to the
   ones an analysis reads;
 - `tutorial-13-vectors-from-columns.ipynb` - vectors read from three columns,
-  and the angles and components they give.
+  and the angles and components they give;
+- `tutorial-14-compton-scattering.ipynb` - Compton scattering from the hits of
+  a track to the polarization.
 
 ## Writing A Tutorial
 
