@@ -196,7 +196,8 @@ def test_the_variables_have_to_be_in_order(pps: EventTrackHit) -> None:
         EXAMPLE_ONE.extract(pps, variables)  # type: ignore[arg-type]
 
     # ASSERT
-    assert "a set has none" in str(raised.value)
+    assert "as a list or a tuple" in str(raised.value)
+    assert "got a set" in str(raised.value)
 
 
 def test_the_event_key_comes_first_and_once(pps: EventTrackHit) -> None:
@@ -230,7 +231,7 @@ def test_a_variable_of_several_components_has_a_column_per_component(
 
 
 def test_an_analysis_that_keeps_nothing_gives_an_empty_table(pps: EventTrackHit) -> None:
-    """With the columns of the event key, and nothing to widen it."""
+    """With the event key alone, as no event gives the table a width."""
     # ARRANGE
     analysis = Analysis().tracks(9)
 
@@ -241,6 +242,23 @@ def test_an_analysis_that_keeps_nothing_gives_an_empty_table(pps: EventTrackHit)
     assert table.empty
     assert list(table.columns) == ["runID", "eventID"]
     assert isinstance(table, pd.DataFrame)
+
+
+def test_an_empty_table_can_be_given_the_width_it_would_have(pps: EventTrackHit) -> None:
+    """So that code reading its columns finds them whether anything passed or not."""
+    # ARRANGE
+    analysis = Analysis().tracks(9)
+
+    # ACT
+    table = analysis.extract(pps, [Field.EDEP, Field.TRACK_ID], max_tracks=2, max_hits=2)
+
+    # ASSERT
+    assert table.empty
+    assert list(table.columns) == list(
+        EXAMPLE_ONE.extract(pps, [Field.EDEP, Field.TRACK_ID]).columns
+    )
+    assert table["t1_trackID"].dtype == np.int32
+    assert table["t1h1_edep"].dtype == np.float32
 
 
 def test_a_branch_no_field_names_is_a_variable_of_hits(pps: EventTrackHit) -> None:

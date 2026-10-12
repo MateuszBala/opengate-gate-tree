@@ -19,6 +19,10 @@ table has no empty cell and every column keeps the type of its branch. What
 does not fit is left out, and the log says how much. An analysis that ends
 with fixed counts, such as ``tracks(2)`` and ``hits(2)``, loses nothing.
 
+When no event passed, there is no narrowest event to take a width from: the
+table is as wide as ``max_tracks`` and ``max_hits`` say, and empty, so code
+reading its columns finds them whether anything passed or not.
+
 Public objects:
 
 extract_table(representation, variables, max_tracks, max_hits) -> pandas.DataFrame
@@ -28,6 +32,7 @@ EVENT_KEY
 """
 
 from collections.abc import Sequence, Set
+from dataclasses import dataclass
 from typing import Any, Final
 
 import numpy as np
@@ -65,7 +70,8 @@ def extract_table(
         come first, whether asked for or not.
     max_tracks, max_hits : int | None
         Narrower widths than the ones the data allows, to keep fewer tracks
-        per event or hits per track.
+        per event or hits per track; for a result with no event, the widths
+        of the empty table.
 
     Returns
     -------
@@ -82,8 +88,8 @@ def extract_table(
     """
     if isinstance(variables, Set | str) or not isinstance(variables, Sequence):
         raise ValueError(
-            "The variables of a table are a list or a tuple: their order is the order of the "
-            f"columns, and a {type(variables).__name__} has none."
+            "The variables of a table are given as a list or a tuple, whose order is the order "
+            f"of the columns; got a {type(variables).__name__}."
         )
     index = representation.index
     track_numbers = representation.values(EventTrackHitField.TRACK_NUMBER)
@@ -96,11 +102,35 @@ def extract_table(
     )
     _report_left_out(representation, tracks_wide, hits_wide, entering)
 
+    places = _Places(
+        event_of_track=index.event_of_track(),
+        track_numbers=track_numbers,
+        event_of_hit=np.repeat(index.event_of_track(), index.hits_per_track()),
+        hit_tracks=representation.values(EventTrackHitField.TRACK_NUMBER, ElementLevel.HIT),
+        hit_numbers=representation.values(EventTrackHitField.HIT_NUMBER),
+        events=index.event_count,
+        tracks_wide=tracks_wide,
+        hits_wide=hits_wide,
+    )
     columns: dict[str, npt.NDArray[Any]] = {}
     chosen = [*EVENT_KEY, *(field for field in variables if _resolve(field) not in EVENT_KEY)]
     for field in dict.fromkeys(_resolve(field) for field in chosen):
-        _add(columns, representation, field, tracks_wide, hits_wide)
+        _add(columns, representation, field, places)
     return pd.DataFrame(columns, index=pd.RangeIndex(index.event_count))
+
+
+@dataclass(frozen=True, eq=False)
+class _Places:
+    """Where every track and hit goes in the table, worked out once for all variables."""
+
+    event_of_track: npt.NDArray[np.int64]
+    track_numbers: npt.NDArray[np.int64]
+    event_of_hit: npt.NDArray[np.int64]
+    hit_tracks: npt.NDArray[np.int64]
+    hit_numbers: npt.NDArray[np.int64]
+    events: int
+    tracks_wide: int
+    hits_wide: int
 
 
 def _width(
@@ -113,11 +143,13 @@ def _width(
     ValueError
         If the width asked for is negative, or wider than the data allows.
     """
-    allowed = int(counts.min()) if parents else 0
+    if asked is not None and asked < 0:
+        raise ValueError(f"A table cannot hold {asked} {elements} per {parent}.")
+    if not parents:
+        return 0 if asked is None else asked
+    allowed = int(counts.min())
     if asked is None:
         return allowed
-    if asked < 0:
-        raise ValueError(f"A table cannot hold {asked} {elements} per {parent}.")
     if asked > allowed:
         raise ValueError(
             f"A table of {asked} {elements} per {parent} would leave cells empty: at least one "
@@ -157,37 +189,33 @@ def _add(
     columns: dict[str, npt.NDArray[Any]],
     representation: EventTrackHit,
     field: FieldLike,
-    tracks_wide: int,
-    hits_wide: int,
+    places: _Places,
 ) -> None:
     """Add the columns of one variable, track after track, hit after hit."""
     name = field.value if isinstance(field, EventTrackHitField) else field
     level = field.level if isinstance(field, EventTrackHitField) else ElementLevel.HIT
     values = representation.values(field)
-    index = representation.index
     if level is ElementLevel.EVENT:
         _put(columns, name, values)
         return
 
-    track_numbers = representation.values(EventTrackHitField.TRACK_NUMBER)
     if level is ElementLevel.TRACK:
-        kept = track_numbers <= tracks_wide
-        table = np.empty((index.event_count, tracks_wide, *values.shape[1:]), dtype=values.dtype)
-        table[index.event_of_track()[kept], track_numbers[kept] - 1] = values[kept]
-        for track in range(tracks_wide):
+        kept = places.track_numbers <= places.tracks_wide
+        table = np.empty((places.events, places.tracks_wide, *values.shape[1:]), dtype=values.dtype)
+        table[places.event_of_track[kept], places.track_numbers[kept] - 1] = values[kept]
+        for track in range(places.tracks_wide):
             _put(columns, f"t{track + 1}_{name}", table[:, track])
         return
 
-    hit_tracks = representation.values(EventTrackHitField.TRACK_NUMBER, ElementLevel.HIT)
-    hit_numbers = representation.values(EventTrackHitField.HIT_NUMBER)
-    event_of_hit = np.repeat(index.event_of_track(), index.hits_per_track())
-    kept = (hit_tracks <= tracks_wide) & (hit_numbers <= hits_wide)
+    kept = (places.hit_tracks <= places.tracks_wide) & (places.hit_numbers <= places.hits_wide)
     table = np.empty(
-        (index.event_count, tracks_wide, hits_wide, *values.shape[1:]), dtype=values.dtype
+        (places.events, places.tracks_wide, places.hits_wide, *values.shape[1:]), dtype=values.dtype
     )
-    table[event_of_hit[kept], hit_tracks[kept] - 1, hit_numbers[kept] - 1] = values[kept]
-    for track in range(tracks_wide):
-        for hit in range(hits_wide):
+    table[places.event_of_hit[kept], places.hit_tracks[kept] - 1, places.hit_numbers[kept] - 1] = (
+        values[kept]
+    )
+    for track in range(places.tracks_wide):
+        for hit in range(places.hits_wide):
             _put(columns, f"t{track + 1}h{hit + 1}_{name}", table[:, track, hit])
 
 
