@@ -1,14 +1,16 @@
 repos:
   # A ROOT file carried in the repository has to stay small: the tutorials keep
   # examples of 500 kB or less, and anything larger belongs in
-  # tutorials/simulations/ as the macros that produce it.
+  # tutorials/simulations/ as the macros that produce it. The cases of the
+  # analysis consistency tests carry their input and reference under the same
+  # limit.
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v5.0.0
     hooks:
       - id: check-added-large-files
-        name: Refuse a large file under tutorials/data
+        name: Refuse a large file under tutorials/data or tests/consistency/cases
         args: ["--maxkb=500", "--enforce-all"]
-        files: ^tutorials/data/
+        files: ^(tutorials/data|tests/consistency/cases)/
 
   - repo: local
     hooks:

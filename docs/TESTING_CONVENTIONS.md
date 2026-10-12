@@ -17,12 +17,13 @@ This document is a reusable template for test-writing rules. Copy it into a new 
 3. [Test Structure](#test-structure)
 4. [Running Tests](#running-tests)
 5. [Pytest Or Equivalent Configuration](#pytest-or-equivalent-configuration)
-6. [Fixtures And Setup](#fixtures-and-setup)
-7. [Parameterized Tests](#parameterized-tests)
-8. [Mocking](#mocking)
-9. [Coverage](#coverage)
-10. [Best Practices](#best-practices)
-11. [Examples](#examples)
+6. [Analysis Consistency Tests](#analysis-consistency-tests)
+7. [Fixtures And Setup](#fixtures-and-setup)
+8. [Parameterized Tests](#parameterized-tests)
+9. [Mocking](#mocking)
+10. [Coverage](#coverage)
+11. [Best Practices](#best-practices)
+12. [Examples](#examples)
 
 ---
 
@@ -232,6 +233,53 @@ precision = 2
 ```
 
 ---
+
+## Analysis Consistency Tests
+
+An **analysis consistency test** compares an analysis written with this
+package against the same analysis made independently of it - by other code,
+often in another language - on the same input. It is what tells that the
+package answers a physics question the way the analyses it is meant to
+replace answer it, which no test written against the package's own idea of
+the answer can tell.
+
+### What A Case Holds
+
+Each case is a directory under `tests/consistency/cases/`:
+
+| File | What it is |
+| --- | --- |
+| `input.root` | the GATE output both analyses read, 500 kB or less |
+| `reference.csv` | the output of the outside analysis: one row per event, `runID` and `eventID` first, the other columns named as `EventTrackHitAnalysis.extract` names them (`t1h2_edep`) |
+| `analysis.py` | the same analysis written with the package: `ANALYSIS`, `VARIABLES`, and optionally `RTOL` |
+| `README.md` | the tool and version the reference was made with, the commit of its code, what the analysis asks, and why the tolerance is what it is |
+
+### When Two Tables Agree
+
+They hold the same events, the same columns, equal whole numbers and text,
+and floating point values within the relative tolerance of the case - `1e-6`
+unless the case says otherwise, since GATE writes single precision and the
+other analysis may compute in double. Every difference is reported, both
+ways: an event the package keeps and the reference does not is as much a
+failure as the reverse.
+
+### Who Provides A Case, And When
+
+The developer of the outside analysis provides the input, the reference and
+its code. The `analysis.py` is written by that developer, or by someone else
+and approved by them, since they know what their analysis asks. A branch
+adding a feature an outside analysis checks is not opened as a pull request
+until every case passes. A disagreement is explained before anything changes:
+a defect of the package is fixed with a unit test, a difference of definition
+is written in the README of the case, and an error of the reference is the
+developer's to settle.
+
+The harness is tested on its own by a self-check whose reference is computed
+by pandas in the test. That self-check is not an analysis consistency test,
+and is not counted as one.
+
+The cases run in `make check`, marked `consistency`; `uv run pytest -m
+consistency` runs them alone.
 
 ## Fixtures And Setup
 
