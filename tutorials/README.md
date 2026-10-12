@@ -90,7 +90,9 @@ The index, with what each one shows, is in
 - `tutorial-06-split-hits-trees.ipynb` - a file whose hits are split per run or
   per detector, read as one dataset;
 - `tutorial-07-statistics-report.ipynb` - the statistics report written beside
-  the data.
+  the data;
+- `tutorial-08-positronium-source-values.ipynb` - what the values a
+  `PositroniumSource` writes mean.
 
 ## Writing A Tutorial
 
