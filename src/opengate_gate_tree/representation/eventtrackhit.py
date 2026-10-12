@@ -38,6 +38,7 @@ INDEX_BRANCHES
     Branches the representation is built from.
 """
 
+import operator
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any, ClassVar, Final
@@ -55,6 +56,8 @@ from opengate_gate_tree.representation.index import (
     build_event_track_hit_index,
 )
 from opengate_gate_tree.representation.reduce import (
+    position_in_event,
+    position_in_track,
     reduce_hits_to_tracks,
     reduce_tracks_to_events,
 )
@@ -533,6 +536,146 @@ class EventTrackHit(DataRepresentation):
             return self.select_tracks(mask, keep_empty)
         return self.select_hits(mask, keep_empty)
 
+    def is_track_count(
+        self,
+        eq: int | None = None,
+        *,
+        ne: int | None = None,
+        ge: int | None = None,
+        le: int | None = None,
+        gt: int | None = None,
+        lt: int | None = None,
+    ) -> npt.NDArray[np.bool_]:
+        """Return which events have a number of tracks asked for.
+
+        The tracks counted are the ones the representation holds, so a count
+        asked for after a selection counts what the selection kept.
+
+        Parameters
+        ----------
+        eq : int | None
+            Number of tracks an event has to have; it cannot be combined with
+            the other comparisons.
+        ne, ge, le, gt, lt : int | None
+            Comparisons the number has to pass, all of them at once.
+
+        Returns
+        -------
+        numpy.ndarray
+            One boolean per event.
+
+        Raises
+        ------
+        ValueError
+            If no comparison is given, or ``eq`` is given with another one.
+        """
+        return _count_mask(self.track_counts(), eq=eq, ne=ne, ge=ge, le=le, gt=gt, lt=lt)
+
+    def is_hit_count(
+        self,
+        eq: int | None = None,
+        *,
+        ne: int | None = None,
+        ge: int | None = None,
+        le: int | None = None,
+        gt: int | None = None,
+        lt: int | None = None,
+    ) -> npt.NDArray[np.bool_]:
+        """Return which tracks have a number of hits asked for.
+
+        See :meth:`is_track_count` for the parameters; this one counts the
+        hits of every track.
+        """
+        return _count_mask(self.hit_counts(), eq=eq, ne=ne, ge=ge, le=le, gt=gt, lt=lt)
+
+    def is_nth_track(self, position: int) -> npt.NDArray[np.bool_]:
+        """Return which tracks stand at a position in their event.
+
+        Parameters
+        ----------
+        position : int
+            Position from 1, in the order of the track identifiers; a negative
+            one counts from the last track, -1 being the last.
+
+        Returns
+        -------
+        numpy.ndarray
+            One boolean per track; an event with fewer tracks has none.
+
+        Raises
+        ------
+        ValueError
+            If the position is 0.
+        """
+        every_track = np.ones(self.track_count, dtype=bool)
+        return _at_position(position_in_event, self._index, every_track, position)
+
+    def is_nth_hit(self, position: int) -> npt.NDArray[np.bool_]:
+        """Return which hits stand at a position in their track.
+
+        See :meth:`is_nth_track` for the parameter; hits are in the order of
+        their time.
+        """
+        every_hit = np.ones(self.hit_count, dtype=bool)
+        return _at_position(position_in_track, self._index, every_hit, position)
+
+    def with_track_count(
+        self,
+        eq: int | None = None,
+        *,
+        ne: int | None = None,
+        ge: int | None = None,
+        le: int | None = None,
+        gt: int | None = None,
+        lt: int | None = None,
+    ) -> "EventTrackHit":
+        """Return the events that have a number of tracks asked for.
+
+        See :meth:`is_track_count` for the parameters.
+        """
+        return self.select_events(self.is_track_count(eq, ne=ne, ge=ge, le=le, gt=gt, lt=lt))
+
+    def with_hit_count(
+        self,
+        eq: int | None = None,
+        *,
+        ne: int | None = None,
+        ge: int | None = None,
+        le: int | None = None,
+        gt: int | None = None,
+        lt: int | None = None,
+        keep_empty: bool = False,
+    ) -> "EventTrackHit":
+        """Return the tracks that have a number of hits asked for.
+
+        See :meth:`is_track_count` for the parameters; ``keep_empty`` keeps
+        an event whose tracks were all left out.
+        """
+        mask = self.is_hit_count(eq, ne=ne, ge=ge, le=le, gt=gt, lt=lt)
+        return self.select_tracks(mask, keep_empty)
+
+    def nth_track(self, position: int, keep_empty: bool = False) -> "EventTrackHit":
+        """Return the track at a position of every event.
+
+        See :meth:`is_nth_track` for the parameter.
+        """
+        return self.select_tracks(self.is_nth_track(position), keep_empty)
+
+    def nth_hit(self, position: int, keep_empty: bool = False) -> "EventTrackHit":
+        """Return the hit at a position of every track.
+
+        See :meth:`is_nth_track` for the parameter.
+        """
+        return self.select_hits(self.is_nth_hit(position), keep_empty)
+
+    def first_hits(self) -> "EventTrackHit":
+        """Return the first hit of every track."""
+        return self.nth_hit(1)
+
+    def last_hits(self) -> "EventTrackHit":
+        """Return the last hit of every track."""
+        return self.nth_hit(-1)
+
     def events_frame(self, fields: Sequence[FieldLike] = DEFAULT_EVENT_FIELDS) -> pd.DataFrame:
         """Return a table with a row per event.
 
@@ -727,6 +870,58 @@ class EventTrackHit(DataRepresentation):
         if field.level is ElementLevel.TRACK:
             return per_track
         return reduce_tracks_to_events(index, per_track, "any")
+
+
+def _count_mask(
+    counts: npt.NDArray[np.int64],
+    eq: int | None,
+    ne: int | None,
+    ge: int | None,
+    le: int | None,
+    gt: int | None,
+    lt: int | None,
+) -> npt.NDArray[np.bool_]:
+    """Return which counts pass every comparison given.
+
+    Raises
+    ------
+    ValueError
+        If no comparison is given, or ``eq`` is given with another one.
+    """
+    comparisons = {"ne": ne, "ge": ge, "le": le, "gt": gt, "lt": lt}
+    given = {name: value for name, value in comparisons.items() if value is not None}
+    if eq is not None:
+        if given:
+            raise ValueError(
+                f"A count equal to {eq} cannot also be compared with {sorted(given)}; "
+                "give either eq or the other comparisons."
+            )
+        return np.asarray(counts == eq, dtype=bool)
+    if not given:
+        raise ValueError("Selecting by a count needs eq, ne, ge, le, gt or lt.")
+    passed = np.ones(len(counts), dtype=bool)
+    for name, value in given.items():
+        passed &= getattr(operator, name)(counts, value)
+    return passed
+
+
+def _at_position(
+    number: Callable[..., npt.NDArray[np.int64]],
+    index: EventTrackHitIndex,
+    kept: npt.NDArray[np.bool_],
+    position: int,
+) -> npt.NDArray[np.bool_]:
+    """Return which elements stand at a position from 1, or from the end when negative.
+
+    Raises
+    ------
+    ValueError
+        If the position is 0.
+    """
+    if position == 0:
+        raise ValueError("Positions count from 1, and from -1 backwards; 0 is neither.")
+    positions = number(index, kept, from_end=position < 0)
+    return np.asarray(positions == abs(position), dtype=bool)
 
 
 def _as_mask(mask: MaskLike) -> npt.NDArray[Any]:
