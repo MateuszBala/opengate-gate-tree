@@ -124,6 +124,17 @@ TEXT_BRANCHES: Final[frozenset[str]] = frozenset(
 # Branches GATE writes as a fixed-width array, mapped to their width.
 ARRAY_BRANCH_WIDTHS: Final[Mapping[str, int]] = MappingProxyType({"volumeID": 10})
 
+# The triples of branches that hold one vector each. A tree writes a vector as
+# three columns side by side, and these are the names it writes them under.
+POSITION_BRANCHES: Final[tuple[str, str, str]] = ("posX", "posY", "posZ")
+LOCAL_POSITION_BRANCHES: Final[tuple[str, str, str]] = ("localPosX", "localPosY", "localPosZ")
+SOURCE_POSITION_BRANCHES: Final[tuple[str, str, str]] = (
+    "sourcePosX",
+    "sourcePosY",
+    "sourcePosZ",
+)
+MOMENTUM_DIRECTION_BRANCHES: Final[tuple[str, str, str]] = ("momDirX", "momDirY", "momDirZ")
+
 # Stands in a branch list for the block of system identifier branches.
 SYSTEM_ID_PLACEHOLDER: Final[str] = "<system identifiers>"
 

@@ -1,0 +1,20 @@
+# The environment the notebooks run in.
+.venv/
+
+# What a notebook or a simulation writes while it runs. Nothing here is
+# committed, and every one of these directories is made when it is first used.
+.tmp/
+notebooks/.tmp/
+simulations/.tmp/
+
+# What a GATE simulation writes. A reader generates these from the macros
+# beside them, so they are not carried in the repository. Ignored by path
+# rather than by extension: data/input-examples holds ROOT files that are.
+simulations/**/*.root
+simulations/**/*.log
+simulations/**/output/
+
+# Jupyter and Python leftovers.
+.ipynb_checkpoints/
+__pycache__/
+*.py[cod]

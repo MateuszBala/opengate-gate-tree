@@ -75,6 +75,7 @@ from opengate_gate_tree.tree.hits.positronium import (
     SourceType,
     has_positronium_metadata,
 )
+from opengate_gate_tree.tree.hits.schema import POSITION_BRANCHES
 
 # Which ends of a range belong to it, in the vocabulary of ``pandas.Series.between``.
 InclusiveSide = Literal["both", "neither", "left", "right"]
@@ -86,7 +87,8 @@ EVENT_COLUMN: Final[str] = "eventID"
 # Columns holding the position of a hit, used by the shape filters unless the
 # caller names others. A "Hits" tree carries three such triples: where the hit
 # happened, where it happened inside its volume, and where the gamma was born.
-POSITION_COLUMNS: Final[tuple[str, str, str]] = ("posX", "posY", "posZ")
+# The names live with the rest of the branch names, in the schema.
+POSITION_COLUMNS: Final[tuple[str, str, str]] = POSITION_BRANCHES
 
 
 def is_in_range(

@@ -157,6 +157,11 @@ with the type of every branch. Structures that use a system are shown with the
 `cylindricalPET` naming scheme; another system changes those six names and
 nothing else.
 
+Four of the triples in these lists are vectors written as three branches each -
+`pos`, `localPos`, `sourcePos` and `momDir` - and are read as vectors by the
+methods named after them; see [Vectors And Angles](vectors.md). The units are
+the ones GATE writes: MeV, mm and s, as [Units](units.md) lists per branch.
+
 ### A1 — No system (40 branches)
 
 ```text

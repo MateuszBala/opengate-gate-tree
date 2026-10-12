@@ -5,10 +5,13 @@ import subprocess
 import sys
 from collections.abc import Mapping, Sequence
 from pathlib import Path
+from types import ModuleType
 
 import pandas as pd
 import pytest
 
+from opengate_gate_tree import units
+from opengate_gate_tree.geometry.vectorview import VectorView
 from opengate_gate_tree.io.reader import read_hits_trees, read_tree
 from opengate_gate_tree.tree import filters
 from opengate_gate_tree.tree.accessors import ACCESSOR_NAME
@@ -50,6 +53,38 @@ FRAME_CALLS: list[tuple[str, str, tuple[object, ...]]] = [
     ("with_decay_metadata", "positronium", ()),
 ]
 
+# Every conversion, with a column written in the unit it converts from. The
+# angle pair has no branch of its own: GATE writes no angle, and radians are
+# what this package computes in.
+CONVERSION_CALLS: list[tuple[str, str]] = [
+    ("MeV_to_keV", "edep"),
+    ("keV_to_MeV", "edep"),
+    ("mm_to_cm", "posX"),
+    ("cm_to_mm", "posX"),
+    ("mm_to_m", "posX"),
+    ("m_to_mm", "posX"),
+    ("cm_to_m", "posX"),
+    ("m_to_cm", "posX"),
+    ("s_to_ms", "time"),
+    ("ms_to_s", "time"),
+    ("s_to_ns", "time"),
+    ("ns_to_s", "time"),
+    ("ms_to_ns", "time"),
+    ("ns_to_ms", "time"),
+    ("rad_to_deg", "posX"),
+    ("deg_to_rad", "posX"),
+]
+
+# What the namespace offers beyond the functions of the same name: the triples
+# of a "Hits" tree, read as vectors.
+VECTOR_ENTRY_POINTS: set[str] = {
+    "vector",
+    "position",
+    "local_position",
+    "source_position",
+    "momentum_direction",
+}
+
 
 @pytest.fixture(scope="module")
 def hits(positronium_files: Mapping[str, Path]) -> pd.DataFrame:
@@ -80,14 +115,14 @@ def _selected(answer: pd.Series | pd.DataFrame) -> int:
     return len(answer)
 
 
-def public_filters() -> list[str]:
-    """Return the names of the filters the package offers."""
+def public_functions(module: ModuleType) -> list[str]:
+    """Return the names of the functions a module offers."""
     return [
         name
-        for name, value in vars(filters).items()
+        for name, value in vars(module).items()
         if not name.startswith("_")
         and inspect.isfunction(value)
-        and value.__module__ == filters.__name__
+        and value.__module__ == module.__name__
     ]
 
 
@@ -158,8 +193,13 @@ def test_a_frame_method_answers_what_its_function_answers(
     assert 0 < _selected(from_method) < len(frame)
 
 
-def test_every_filter_is_reachable_through_the_namespace() -> None:
-    """A filter added without its method would be reachable one way only."""
+def test_everything_offered_is_reachable_through_the_namespace() -> None:
+    """A function added without its method would be reachable one way only.
+
+    The equality holds both ways round, so it also catches a method that no
+    function stands behind - apart from the five that read vectors, which are
+    named for the triples of columns they know and are listed here.
+    """
     # ARRANGE
     from opengate_gate_tree.tree.accessors import GateFrameAccessor, GateSeriesAccessor
 
@@ -171,7 +211,7 @@ def test_every_filter_is_reachable_through_the_namespace() -> None:
     }
 
     # ACT
-    offered = set(public_filters())
+    offered = set(public_functions(filters)) | set(public_functions(units)) | VECTOR_ENTRY_POINTS
 
     # ASSERT
     assert offered == reachable
@@ -275,10 +315,11 @@ def test_the_arguments_of_a_method_are_the_arguments_of_its_function() -> None:
     # ACT
     for accessor, first in ((GateSeriesAccessor, "values"), (GateFrameAccessor, "frame")):
         for name in vars(accessor):
-            if name.startswith("_"):
+            if name.startswith("_") or name in VECTOR_ENTRY_POINTS:
                 continue
+            behind = filters if hasattr(filters, name) else units
             method = list(inspect.signature(getattr(accessor, name)).parameters.values())[1:]
-            function = list(inspect.signature(getattr(filters, name)).parameters.values())[1:]
+            function = list(inspect.signature(getattr(behind, name)).parameters.values())[1:]
             if method != function:
                 mismatched.append(f"{first}.{name}: {method} against {function}")
 
@@ -297,3 +338,94 @@ def test_a_sequence_of_columns_is_still_accepted(hits: pd.DataFrame) -> None:
 
     # ASSERT
     assert list(from_method) == list(from_function)
+
+
+@pytest.mark.parametrize(
+    ("name", "column"), CONVERSION_CALLS, ids=[name for name, _ in CONVERSION_CALLS]
+)
+def test_a_conversion_method_answers_what_its_function_answers(
+    name: str,
+    column: str,
+    hits: pd.DataFrame,
+) -> None:
+    """A conversion converts every value, so there is nothing to select here."""
+    # ARRANGE
+    values = hits[column]
+
+    # ACT
+    from_method = getattr(values.gate, name)()
+    from_function = getattr(units, name)(values)
+
+    # ASSERT
+    assert from_method.equals(from_function)
+    assert from_method.name == values.name
+
+
+@pytest.mark.parametrize(
+    ("name", "columns"),
+    [
+        ("position", ("posX", "posY", "posZ")),
+        ("local_position", ("localPosX", "localPosY", "localPosZ")),
+        ("source_position", ("sourcePosX", "sourcePosY", "sourcePosZ")),
+        ("momentum_direction", ("momDirX", "momDirY", "momDirZ")),
+    ],
+    ids=["position", "local_position", "source_position", "momentum_direction"],
+)
+def test_a_named_view_reads_the_triple_it_is_named_after(
+    name: str,
+    columns: tuple[str, str, str],
+    hits: pd.DataFrame,
+) -> None:
+    """Knowing which columns a triple lives in is what the accessor adds."""
+    # ARRANGE
+    # No additional setup required.
+
+    # ACT
+    view = getattr(hits.gate, name)()
+
+    # ASSERT
+    assert isinstance(view, VectorView)
+    assert view.names == columns
+    assert view.index.equals(hits.index)
+    assert view.array == pytest.approx(VectorView.from_frame(hits, columns).array)
+
+
+def test_any_three_columns_are_read_as_vectors(hits: pd.DataFrame) -> None:
+    """A tree of another shape still has vectors in it somewhere."""
+    # ARRANGE
+    # No additional setup required.
+
+    # ACT
+    view = hits.gate.vector("posX", "posY", "posZ")
+
+    # ASSERT
+    assert view.names == ("posX", "posY", "posZ")
+    assert view.array == pytest.approx(hits.gate.position().array)
+
+
+def test_a_conversion_chains_onto_a_filter(hits: pd.DataFrame) -> None:
+    """The two halves of this version meet on one column."""
+    # ARRANGE
+    # No additional setup required.
+
+    # ACT
+    energies = hits["edep"].gate.in_range(0.2, 0.4).gate.MeV_to_keV()
+
+    # ASSERT
+    assert isinstance(energies, pd.Series)
+    assert 0 < len(energies) < len(hits)
+    assert energies.between(200.0, 400.0).all()
+
+
+def test_vectors_are_read_from_the_rows_a_filter_left(hits: pd.DataFrame) -> None:
+    """Selection first, then the vectors of what is left."""
+    # ARRANGE
+    selected = hits.gate.in_sphere((0, 0, 0), 215.0)
+
+    # ACT
+    view = selected.gate.position()
+
+    # ASSERT
+    assert 0 < len(view) < len(hits)
+    assert view.index.equals(selected.index)
+    assert view.norm().max() <= 215.0

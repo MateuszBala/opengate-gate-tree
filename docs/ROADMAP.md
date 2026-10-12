@@ -104,7 +104,7 @@ Selecting by the detector identifier hierarchy, which is what `volumeID`
 holds, is deliberately not here: it belongs with the geometry of version 1.1.0,
 where a detector is described rather than guessed at from identifiers.
 
-## Version 0.6.0 (status: planned)
+## Version 0.6.0 (status: completed)
 
 Add physical unit converters and vector functionality:
 - reconstruction of polarization from hit-position vectors

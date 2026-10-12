@@ -91,6 +91,20 @@ Document what should be run before a change is merged.
 - keep terminology consistent across the repository
 - document assumptions that future contributors need to know
 
+## Tutorials
+
+- a pull request that adds a feature a user will reach for carries a tutorial
+  showing it, as a notebook in
+  [`tutorials/notebooks/`](https://github.com/MateuszBala/opengate-gate-tree/tree/main/tutorials/notebooks)
+- copy `template.ipynb` and follow the sections it carries; the conventions
+  behind them are in [Tutorial conventions](TUTORIALS_CONVENTIONS.md)
+- run `make verify` from `tutorials/` before pushing, and again after every
+  change made in answer to a review: a tutorial that stops running is a bug
+  report about the package
+- data of 500 kB or less goes to `tutorials/data/input-examples/`; anything
+  larger is given as the GATE macros that produce it, under
+  `tutorials/simulations/`
+
 ## Reporting Issues
 
 Explain where contributors should report bugs, propose improvements, or ask questions.

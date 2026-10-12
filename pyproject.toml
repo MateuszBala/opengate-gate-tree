@@ -85,8 +85,10 @@ module = ["uproot.*", "awkward.*", "h5py.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
-addopts = "--cov=opengate_gate_tree --cov-report=term-missing"
+# The source is collected as well as the tests, for the examples in the
+# docstrings: they are published on the API pages, and nothing else runs them.
+testpaths = ["tests", "src"]
+addopts = "--cov=opengate_gate_tree --cov-report=term-missing --doctest-modules"
 
 [tool.coverage.report]
 show_missing = true

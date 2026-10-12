@@ -40,5 +40,12 @@ intersphinx_mapping = {
 # Headings up to this depth get an anchor, so cross-file links keep working.
 myst_heading_anchors = 3
 
+# The geometry pages carry the formulas the code implements, written between
+# dollar signs. MyST renders none of that unless it is asked to: without
+# "dollarmath" the formulas would reach the page as literal text, and a build
+# with -W would not complain, because nothing went wrong. "amsmath" is for the
+# environments a case distinction needs.
+myst_enable_extensions = ["dollarmath", "amsmath"]
+
 html_theme = "furo"
 html_title = f"{project} {release}"

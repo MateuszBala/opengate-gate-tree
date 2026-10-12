@@ -1,4 +1,15 @@
 repos:
+  # A ROOT file carried in the repository has to stay small: the tutorials keep
+  # examples of 500 kB or less, and anything larger belongs in
+  # tutorials/simulations/ as the macros that produce it.
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: check-added-large-files
+        name: Refuse a large file under tutorials/data
+        args: ["--maxkb=500", "--enforce-all"]
+        files: ^tutorials/data/
+
   - repo: local
     hooks:
       - id: make-check

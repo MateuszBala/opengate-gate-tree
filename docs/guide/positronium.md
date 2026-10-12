@@ -69,13 +69,13 @@ frame = data.to_dataframe()
 prompt_rows = frame[frame["gammaType"] == GammaType.PROMPT]   # pandas
 ```
 
-```{warning}
+### Warning
+
 An enum written by hand for the same purpose will not work, and will not say
 so. A plain `enum.Enum` compared against a column yields a mask of `False`
 rather than an error, because its members are not integers. That is why the
 classes here derive from `enum.IntEnum`, and why they are worth importing
 instead of retyping.
-```
 
 ## Selecting By What A Gamma Was
 
@@ -153,13 +153,6 @@ carries no decay metadata at all: for a gamma from another kind of source, and
 for a particle the metadata never reached. The function is named after what the
 value guarantees rather than after what it usually means.
 
-```{note}
-A `PositroniumSource` writes that metadata for every gamma it emits, including
-the ones from a direct annihilation component, since it numbers those like the
-rest. So the mask holds `True` for gammas that formed no positronium. What a
-gamma itself was is said by `sourceType`.
-```
-
 The deprecated `ExtendedVSource` never fills `decayIndex` at all, so a file
 written by it holds `-1` everywhere.
 
@@ -172,6 +165,13 @@ from opengate_gate_tree import positronium_enum
 positronium_enum("gammaType")     # GammaType
 positronium_enum(DECAY_INDEX_BRANCH)   # None
 ```
+
+### Note
+
+A `PositroniumSource` writes that metadata for every gamma it emits, including
+the ones from a direct annihilation component, since it numbers those like the
+rest. So the mask holds `True` for gammas that formed no positronium. What a
+gamma itself was is said by `sourceType`.
 
 ## In A Report
 
