@@ -9,7 +9,7 @@ from opengate_gate_tree.analysis.eventtrackhit import EventTrackHitAnalysis
 from opengate_gate_tree.io.reader import read_tree
 from opengate_gate_tree.representation.eventtrackhit import EventTrackHit
 from opengate_gate_tree.tree.gatetree import GateTree
-from opengate_gate_tree.tree.hits.positronium import GammaType, SourceType
+from opengate_gate_tree.tree.hits.positronium import DecayType, GammaType, SourceType
 from opengate_gate_tree.tree.hits.processes import Process
 
 Analysis = EventTrackHitAnalysis
@@ -78,3 +78,102 @@ def test_after_a_combination_the_analysis_stands_at_the_events() -> None:
     # ASSERT
     assert "stands at the events" in str(raised.value)
     assert combined.describe().startswith("1. Keep what EventTrackHitAnalysis().tracks() and")
+
+
+@pytest.fixture(scope="module")
+def pps(positronium_files: Mapping[str, Path]) -> EventTrackHit:
+    """Return the pPs scene as events, tracks and hits."""
+    return EventTrackHit(read_tree(positronium_files["pps"], GateTree.HITS))
+
+
+def concept_parts() -> tuple[EventTrackHitAnalysis, EventTrackHitAnalysis, EventTrackHitAnalysis]:
+    """Return the three analyses of the second example of the analysis concept."""
+    two_tracks_from_source = (
+        Analysis()
+        .tracks(2)
+        .gamma_type(GammaType.ANNIHILATION)
+        .decay_type(DecayType.STANDARD)
+        .source_type(SourceType.PARA_POSITRONIUM)
+    )
+    first_compton = Analysis().hits(eq=2).hit(1).process(Process.COMPTON)
+    second_absorbed = Analysis().hit(2).process(Process.PHOTOELECTRIC)
+    return two_tracks_from_source, first_compton, second_absorbed
+
+
+def test_the_three_writings_of_the_second_example_agree(pps: EventTrackHit) -> None:
+    """However the three analyses are grouped, they keep the same hits."""
+    # ARRANGE
+    first, second, third = concept_parts()
+
+    # ACT
+    flat = hits_kept(first & second & third, pps)
+    left = hits_kept((first & second) & third, pps)
+    right = hits_kept(first & (second & third), pps)
+    swapped = hits_kept(third & first & second, pps)
+
+    # ASSERT
+    assert flat == left == right == swapped
+
+
+def test_the_second_example_is_the_first_one_written_in_parts(pps: EventTrackHit) -> None:
+    """None of the parts counts what another kept, so & and the chain agree here."""
+    # ARRANGE
+    first, second, third = concept_parts()
+    chain = first.then(second).then(third)
+
+    # ACT
+    combined = (first & second & third).then(Analysis().tracks(2)).apply(pps)
+    chained = chain.tracks(2).apply(pps)
+
+    # ASSERT
+    assert hits_kept(first & second & third, pps) == hits_kept(chain, pps)
+    assert combined.event_count == chained.event_count == 18
+
+
+def test_and_differs_from_then_when_a_count_follows_a_filter(
+    positronium_files: Mapping[str, Path],
+) -> None:
+    """Two tracks at all, or two annihilation tracks: & counts before the other side filters."""
+    # ARRANGE
+    representation = EventTrackHit(read_tree(positronium_files["ops-prompt"], GateTree.HITS))
+    annihilation = Analysis().tracks().gamma_type(GammaType.ANNIHILATION)
+    three = Analysis().tracks(3)
+
+    # ACT
+    together = (annihilation & three).apply(representation)
+    after = annihilation.then(three).apply(representation)
+
+    # ASSERT
+    assert together.event_count == 0
+    assert after.event_count == 79
+
+
+def test_a_mixed_combination_keeps_what_its_grouping_says(pps: EventTrackHit) -> None:
+    """(a & b) | c keeps the hits (a ∩ b) ∪ c keeps."""
+    # ARRANGE
+    first, second, third = concept_parts()
+
+    # ACT
+    mixed = hits_kept((first & second) | third, pps)
+    swapped = hits_kept(third | (second & first), pps)
+
+    # ASSERT
+    expected = (hits_kept(first, pps) & hits_kept(second, pps)) | hits_kept(third, pps)
+    assert mixed == swapped == expected
+
+
+def test_a_combination_is_shown_with_brackets() -> None:
+    """So that the grouping is read as it was written."""
+    # ARRANGE
+    first = Analysis().tracks(2)
+    second = Analysis().hits(2)
+    third = Analysis().hit(1).process(Process.COMPTON)
+
+    # ACT
+    shown = repr((first & second) | third)
+
+    # ASSERT
+    assert shown == (
+        "((EventTrackHitAnalysis().tracks(2) & EventTrackHitAnalysis().hits(2)) | "
+        "EventTrackHitAnalysis().hit(1).process(Process.COMPTON))"
+    )
