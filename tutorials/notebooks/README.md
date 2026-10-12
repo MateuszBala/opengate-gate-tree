@@ -23,6 +23,7 @@ answered.
 | [`tutorial-13-vectors-from-columns.ipynb`](tutorial-13-vectors-from-columns.ipynb) | 1 | three columns read as a `VectorView`, the shape each answer takes, the distance from the source, the scattering angle at the first hit, components along and across an axis, spherical components, and why views of different rows are refused | — | `positronium-source-all-variants.root` |
 | [`tutorial-14-compton-scattering.ipynb`](tutorial-14-compton-scattering.ipynb) | 1 | the hits of a track put in order, the directions before and after a scattering rebuilt from positions, the scattering angle checked against the Compton formula, and the polarization estimated from the plane of scattering | — | `hits-a1-no-system.root` |
 | [`tutorial-15-angle-ranges.ipynb`](tutorial-15-angle-ranges.ipynb) | 1 | angles read into ranges: a full turn rewrites a direction while a narrower range merges a direction with its reverse; shown on the azimuthal difference of back-to-back pairs, with why the ranges are half-open | — | `positronium-source-all-variants.root` |
+| [`tutorial-16-rows-without-an-answer.ipynb`](tutorial-16-rows-without-an-answer.ipynb) | 1 | which calculations answer `nan` for a row, turning the log on, counting such rows yourself, where the rule stops, unknown positronium values read as `None`, and non-finite values in a statistics report | — | `positronium-source-all-variants.root`, `hits-a1-no-system.root` |
 
 Every new notebook adds a row. A tutorial nobody can find is a tutorial nobody
 reads.

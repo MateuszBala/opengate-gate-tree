@@ -106,7 +106,9 @@ The index, with what each one shows, is in
 - `tutorial-14-compton-scattering.ipynb` - Compton scattering from the hits of
   a track to the polarization;
 - `tutorial-15-angle-ranges.ipynb` - angle ranges, and how a range is part of
-  the question.
+  the question;
+- `tutorial-16-rows-without-an-answer.ipynb` - rows a calculation cannot
+  answer, and what the package reports about them.
 
 ## Writing A Tutorial
 
