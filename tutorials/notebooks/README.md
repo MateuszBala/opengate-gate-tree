@@ -24,6 +24,7 @@ answered.
 | [`tutorial-14-compton-scattering.ipynb`](tutorial-14-compton-scattering.ipynb) | 1 | the hits of a track put in order, the directions before and after a scattering rebuilt from positions, the scattering angle checked against the Compton formula, and the polarization estimated from the plane of scattering | — | `hits-a1-no-system.root` |
 | [`tutorial-15-angle-ranges.ipynb`](tutorial-15-angle-ranges.ipynb) | 1 | angles read into ranges: a full turn rewrites a direction while a narrower range merges a direction with its reverse; shown on the azimuthal difference of back-to-back pairs, with why the ranges are half-open | — | `positronium-source-all-variants.root` |
 | [`tutorial-16-rows-without-an-answer.ipynb`](tutorial-16-rows-without-an-answer.ipynb) | 1 | which calculations answer `nan` for a row, turning the log on, counting such rows yourself, where the rule stops, unknown positronium values read as `None`, and non-finite values in a statistics report | — | `positronium-source-all-variants.root`, `hits-a1-no-system.root` |
+| [`tutorial-17-whole-analysis-in-one-chain.ipynb`](tutorial-17-whole-analysis-in-one-chain.ipynb) | 1 | a whole analysis of a cylindricalPET file in one chain - structure, a geometric filter, selection by process and hit order, vectors, units, a plot, an HDF5 file and a statistics report - then the same in one cell | — | `hits-a2-cylindrical-pet.root` |
 
 Every new notebook adds a row. A tutorial nobody can find is a tutorial nobody
 reads.
