@@ -104,7 +104,9 @@ The index, with what each one shows, is in
 - `tutorial-13-vectors-from-columns.ipynb` - vectors read from three columns,
   and the angles and components they give;
 - `tutorial-14-compton-scattering.ipynb` - Compton scattering from the hits of
-  a track to the polarization.
+  a track to the polarization;
+- `tutorial-15-angle-ranges.ipynb` - angle ranges, and how a range is part of
+  the question.
 
 ## Writing A Tutorial
 
