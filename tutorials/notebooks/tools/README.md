@@ -150,7 +150,9 @@ plot_bar(values, counts, xtitle="trackID", ytitle="hits")
 - **Values that are not finite are left out, and counted in a warning.** A
   column of angles from this package holds `nan` wherever a row had no answer,
   and a plot that quietly drops them tells the reader there was less data than
-  there was.
+  there was. That holds for every function that draws values - histograms,
+  series of points with their error bars, bars - while a pie chart refuses
+  them, since a share of an unknown whole is no share.
 
 ## Adding A Tool
 
