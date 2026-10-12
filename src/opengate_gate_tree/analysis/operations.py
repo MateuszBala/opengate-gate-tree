@@ -9,6 +9,8 @@ Public objects:
 
 Navigate
     Move to the events, the tracks or the hits, or to one position of them.
+CountCondition
+    Keep the parents whose number of selected children passes comparisons.
 ValueTest
     Comparisons a value has to pass.
 FieldCondition
@@ -68,6 +70,37 @@ class Navigate:
 
     def __repr__(self) -> str:
         """Return the call that asked for the move."""
+        return self.call
+
+
+@dataclass(frozen=True)
+class CountCondition:
+    """Keep the parents whose number of selected children passes comparisons.
+
+    Attributes
+    ----------
+    counted : ElementLevel
+        Level whose elements are counted: tracks for an event, hits for a
+        track.
+    comparisons : tuple[tuple[str, int], ...]
+        Comparisons the count has to pass, all of them.
+    call : str
+        The call that asked for it.
+    """
+
+    counted: ElementLevel
+    comparisons: tuple[tuple[str, int], ...]
+    call: str
+
+    def passes(self, counts: npt.NDArray[np.int64]) -> npt.NDArray[np.bool_]:
+        """Return which counts pass every comparison."""
+        passed = np.ones(len(counts), dtype=bool)
+        for name, bound in self.comparisons:
+            passed &= _BOUND_COMPARISONS[name](counts, bound)
+        return passed
+
+    def __repr__(self) -> str:
+        """Return the call that asked for the condition."""
         return self.call
 
 

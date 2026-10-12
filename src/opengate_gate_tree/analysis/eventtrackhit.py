@@ -3,7 +3,8 @@
 An analysis stands at one level at a time - the events, the tracks or the
 hits - and every condition is asked of the elements of that level. It starts
 at the events. ``tracks()`` and ``hits()`` move it down; ``events()`` moves it
-back.
+back. Given a count - ``tracks(2)``, ``hits(ge=2)`` - they first keep the
+events, or the tracks, with that number of tracks, or hits, kept so far.
 
 A condition keeps the elements that pass it and leaves out the rest: it is a
 filter. A track whose hits were all left out is left out with them, and an
@@ -36,6 +37,7 @@ import pandas as pd
 from opengate_gate_tree.analysis.base import Analysis, Combination
 from opengate_gate_tree.analysis.operations import (
     COMPARISONS,
+    CountCondition,
     FieldCondition,
     FieldLike,
     Navigate,
@@ -129,13 +131,70 @@ class EventTrackHitAnalysis(Analysis[EventTrackHit, Selection]):
         """Move to the events."""
         return self._appended(Navigate(ElementLevel.EVENT, None, "events()"))
 
-    def tracks(self) -> Self:
-        """Move to the tracks of every event."""
-        return self._appended(Navigate(ElementLevel.TRACK, None, "tracks()"))
+    def tracks(
+        self,
+        count: int | None = None,
+        *,
+        eq: int | None = None,
+        ne: int | None = None,
+        ge: int | None = None,
+        le: int | None = None,
+        gt: int | None = None,
+        lt: int | None = None,
+    ) -> Self:
+        """Move to the tracks of every event, keeping the events with a number of them.
 
-    def hits(self) -> Self:
-        """Move to the hits of every track."""
-        return self._appended(Navigate(ElementLevel.HIT, None, "hits()"))
+        Without a count, only moves. With one, keeps the events whose number
+        of tracks kept so far passes it, then moves to their tracks.
+
+        Parameters
+        ----------
+        count : int | None
+            Number of tracks an event has to have; the same as ``eq``.
+        eq : int | None
+            Number of tracks an event has to have; it cannot be combined with
+            the other comparisons.
+        ne, ge, le, gt, lt : int | None
+            Comparisons the number has to pass, all of them at once.
+
+        Raises
+        ------
+        ValueError
+            If ``eq`` (or ``count``) is given with another comparison.
+        """
+        comparisons = _count_comparisons(count, eq, ne, ge, le, gt, lt)
+        if not comparisons:
+            return self._appended(Navigate(ElementLevel.TRACK, None, "tracks()"))
+        call = _count_call("tracks", count, comparisons)
+        return self._appended(CountCondition(ElementLevel.TRACK, comparisons, call))
+
+    def hits(
+        self,
+        count: int | None = None,
+        *,
+        eq: int | None = None,
+        ne: int | None = None,
+        ge: int | None = None,
+        le: int | None = None,
+        gt: int | None = None,
+        lt: int | None = None,
+    ) -> Self:
+        """Move to the hits of every track, keeping the tracks with a number of them.
+
+        Without a count, only moves. With one, keeps the tracks whose number
+        of hits kept so far passes it, then moves to their hits. See
+        :meth:`tracks` for the parameters.
+
+        Raises
+        ------
+        ValueError
+            If ``eq`` (or ``count``) is given with another comparison.
+        """
+        comparisons = _count_comparisons(count, eq, ne, ge, le, gt, lt)
+        if not comparisons:
+            return self._appended(Navigate(ElementLevel.HIT, None, "hits()"))
+        call = _count_call("hits", count, comparisons)
+        return self._appended(CountCondition(ElementLevel.HIT, comparisons, call))
 
     def source_type(self, *types: SourceType) -> Self:
         """Keep the events emitted with one of the given source models.
@@ -321,6 +380,16 @@ class EventTrackHitAnalysis(Analysis[EventTrackHit, Selection]):
             return Selection(
                 state.events, state.tracks, state.hits, operation.level, operation.position
             )
+        if isinstance(operation, CountCondition):
+            index = target.representation.index
+            if operation.counted is ElementLevel.TRACK:
+                counts = reduce_tracks_to_events(index, state.tracks, "count")
+                parent = ElementLevel.EVENT
+            else:
+                counts = reduce_hits_to_tracks(index, state.hits, "count")
+                parent = ElementLevel.TRACK
+            kept = self._kept(target, state, parent, operation.passes(counts))
+            return Selection(kept.events, kept.tracks, kept.hits, operation.counted, None)
         assert isinstance(operation, FieldCondition)
         passed = operation.test.passes(target.values(operation.field))
         return self._kept(target, state, _level_of(operation.field), passed)
@@ -389,9 +458,49 @@ def _standing_after(steps: Sequence[object]) -> tuple[ElementLevel, int | None]:
     for step in steps:
         if isinstance(step, Navigate):
             level, position = step.level, step.position
+        elif isinstance(step, CountCondition):
+            level, position = step.counted, None
         elif isinstance(step, Combination):
             level, position = ElementLevel.EVENT, None
     return level, position
+
+
+def _count_comparisons(
+    count: int | None,
+    eq: int | None,
+    ne: int | None,
+    ge: int | None,
+    le: int | None,
+    gt: int | None,
+    lt: int | None,
+) -> tuple[tuple[str, int], ...]:
+    """Return the comparisons a count is asked to pass.
+
+    Raises
+    ------
+    ValueError
+        If ``eq`` or ``count`` is given with another comparison.
+    """
+    if count is not None and eq is not None:
+        raise ValueError(f"A count of {count} and eq={eq} say the same thing twice; give one.")
+    equal = count if count is not None else eq
+    others = {"ne": ne, "ge": ge, "le": le, "gt": gt, "lt": lt}
+    given = tuple((name, bound) for name, bound in others.items() if bound is not None)
+    if equal is not None:
+        if given:
+            raise ValueError(
+                f"A count equal to {equal} cannot also be compared with "
+                f"{[name for name, _ in given]}; give either eq or the other comparisons."
+            )
+        return (("eq", equal),)
+    return given
+
+
+def _count_call(name: str, count: int | None, comparisons: tuple[tuple[str, int], ...]) -> str:
+    """Return the call that asked for a count, as it was written."""
+    if count is not None:
+        return f"{name}({count})"
+    return f"{name}({', '.join(f'{key}={bound}' for key, bound in comparisons)})"
 
 
 def _value_test(comparisons: Mapping[str, Any]) -> ValueTest:
@@ -438,6 +547,13 @@ def _describe(step: object) -> str:
     """Return one step of an analysis in words."""
     if isinstance(step, Navigate):
         return f"Move to the {_PLURAL[step.level]}."
+    if isinstance(step, CountCondition):
+        parent = ElementLevel.EVENT if step.counted is ElementLevel.TRACK else ElementLevel.TRACK
+        counted = ", ".join(f"{name}={bound}" for name, bound in step.comparisons)
+        return (
+            f"Keep the {_PLURAL[parent]} whose number of {_PLURAL[step.counted]} passes "
+            f"{counted}, and move to their {_PLURAL[step.counted]}."
+        )
     if isinstance(step, FieldCondition):
         level = _level_of(step.field)
         return (
