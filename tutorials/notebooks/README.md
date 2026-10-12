@@ -8,7 +8,7 @@ answered.
 
 | Notebook | Version | What it shows | Simulation | Data |
 | --- | --- | --- | --- | --- |
-| [`tutorial-01-tools-plotting.ipynb`](tutorial-01-tools-plotting.ipynb) | 1 | every plot `tools.plotting` draws, and which form suits a discrete column and which a continuous one | — | `positronium-source-all-variants.root` |
+| [`tutorial-01-tools-plotting.ipynb`](tutorial-01-tools-plotting.ipynb) | 2 | every plot `tools.plotting` draws, and which form suits a discrete column and which a continuous one | — | `positronium-source-all-variants.root` |
 | [`tutorial-02-reading-writing-root-file.ipynb`](tutorial-02-reading-writing-root-file.ipynb) | 1 | what a GATE ROOT file holds, reading chosen branches, selecting rows in pandas, writing them to a ROOT file and reading that file back | — | `positronium-source-all-variants.root` |
 
 Every new notebook adds a row. A tutorial nobody can find is a tutorial nobody
