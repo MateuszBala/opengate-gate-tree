@@ -23,9 +23,10 @@ Selecting follows the convention of the filters of the pandas view: a method
 named ``is_*`` answers with a mask of the level it asks about, and one named
 ``select_*`` or ``with_*`` answers with a new representation of what was kept.
 A selection never changes the representation it was made on, and shares its
-columns. Leaving out every hit of a track leaves out the track, and leaving
-out every track of an event leaves out the event, unless ``keep_empty`` says
-otherwise. A count asked for after a selection counts what the selection kept,
+columns. A selection that leaves out every hit of a track leaves out the
+track, and one that leaves out every track of an event leaves out the event,
+unless ``keep_empty`` says otherwise; what an earlier selection kept empty
+stays. A count asked for after a selection counts what the selection kept,
 so the order of the calls is part of what they ask.
 
 Public objects:
@@ -57,6 +58,7 @@ from opengate_gate_tree.representation.fields import ElementLevel, EventTrackHit
 from opengate_gate_tree.representation.index import (
     EventTrackHitIndex,
     build_event_track_hit_index,
+    segment_of,
 )
 from opengate_gate_tree.representation.reduce import (
     position_in_event,
@@ -303,6 +305,8 @@ class EventTrackHit(DataRepresentation):
         ------
         ValueError
             If the field describes a level below the one of the element.
+        IndexError
+            If no element of the level stands at the position.
         BranchNotFoundError
             If the data does not hold the branch of the field.
         """
@@ -313,16 +317,25 @@ class EventTrackHit(DataRepresentation):
                 f"so a {level.value} has no single value of it."
             )
         index = self._index
+        count = {
+            ElementLevel.EVENT: index.event_count,
+            ElementLevel.TRACK: index.track_count,
+            ElementLevel.HIT: index.hit_count,
+        }[level]
+        if not 0 <= position < count:
+            raise IndexError(f"Position {position} is outside the {count} {level.value}(s).")
         track = position
         if level is ElementLevel.HIT:
             if resolved is EventTrackHitField.HIT_NUMBER:
                 return (
-                    position - int(index.track_offsets[_parent(index.track_offsets, position)]) + 1
+                    position
+                    - int(index.track_offsets[segment_of(index.track_offsets, position)])
+                    + 1
                 )
             if own_level is ElementLevel.HIT:
                 return self.data[_name(resolved)][index.hit_rows[position]]
-            track = _parent(index.track_offsets, position)
-        event = track if level is ElementLevel.EVENT else _parent(index.event_offsets, track)
+            track = segment_of(index.track_offsets, position)
+        event = track if level is ElementLevel.EVENT else segment_of(index.event_offsets, track)
 
         if resolved is EventTrackHitField.TRACK_COUNT:
             return int(index.event_offsets[event + 1] - index.event_offsets[event])
@@ -340,11 +353,12 @@ class EventTrackHit(DataRepresentation):
         Parameters
         ----------
         mask : numpy.ndarray | pandas.Series
-            One boolean per event, in the order of the events; a column of the
-            events table works as well.
+            One boolean per event, in the order of the events. A column is
+            read by its labels, which have to be the positions of the events,
+            as in a column of :meth:`events_frame`.
         keep_empty : bool
-            Accepted for every selection alike; leaving out events leaves no
-            track or event empty.
+            Accepted for every selection alike; leaving out events empties no
+            track or event.
 
         Returns
         -------
@@ -356,7 +370,8 @@ class EventTrackHit(DataRepresentation):
         ValueError
             If the mask is not one boolean per event.
         """
-        return self._selected(event_mask=_as_mask(mask), keep_empty=keep_empty)
+        labels = pd.RangeIndex(self.event_count)
+        return self._selected(event_mask=_as_mask(mask, labels, "event"), keep_empty=keep_empty)
 
     def select_tracks(self, mask: MaskLike, keep_empty: bool = False) -> "EventTrackHit":
         """Return the tracks a mask keeps, with their hits.
@@ -364,9 +379,11 @@ class EventTrackHit(DataRepresentation):
         Parameters
         ----------
         mask : numpy.ndarray | pandas.Series
-            One boolean per track, in the order of the tracks.
+            One boolean per track, in the order of the tracks. A column is
+            read by its labels, which have to be the positions of the tracks,
+            as in a column of :meth:`tracks_frame`.
         keep_empty : bool
-            Keep an event whose tracks were all left out.
+            Keep an event whose tracks this selection left out.
 
         Returns
         -------
@@ -378,7 +395,8 @@ class EventTrackHit(DataRepresentation):
         ValueError
             If the mask is not one boolean per track.
         """
-        return self._selected(track_mask=_as_mask(mask), keep_empty=keep_empty)
+        labels = pd.RangeIndex(self.track_count)
+        return self._selected(track_mask=_as_mask(mask, labels, "track"), keep_empty=keep_empty)
 
     def select_hits(self, mask: MaskLike, keep_empty: bool = False) -> "EventTrackHit":
         """Return the hits a mask keeps.
@@ -386,10 +404,14 @@ class EventTrackHit(DataRepresentation):
         Parameters
         ----------
         mask : numpy.ndarray | pandas.Series
-            One boolean per hit, in the order of the hits.
+            One boolean per hit, in the order of the hits. A column is read
+            by its labels, which are the rows of the data, so a mask built on
+            the frame the representation was made from, or on
+            :meth:`hits_frame`, selects the hits of its rows; it has to label
+            every hit.
         keep_empty : bool
-            Keep a track whose hits were all left out, and an event whose
-            tracks were.
+            Keep a track whose hits this selection left out, and an event
+            whose tracks it left out.
 
         Returns
         -------
@@ -399,9 +421,11 @@ class EventTrackHit(DataRepresentation):
         Raises
         ------
         ValueError
-            If the mask is not one boolean per hit.
+            If the mask is not one boolean per hit, or a column does not label
+        every hit.
         """
-        return self._selected(hit_mask=_as_mask(mask), keep_empty=keep_empty)
+        labels = self.row_labels[self._index.hit_rows]
+        return self._selected(hit_mask=_as_mask(mask, labels, "hit"), keep_empty=keep_empty)
 
     def is_source_type(self, *types: SourceType) -> npt.NDArray[np.bool_]:
         """Return which events a PositroniumSource emitted with one of the given models.
@@ -489,7 +513,8 @@ class EventTrackHit(DataRepresentation):
         Raises
         ------
         ValueError
-            If not exactly one of ``eq``, ``isin`` and ``between`` is given.
+            If not exactly one of ``eq``, ``isin`` and ``between`` is given,
+            or the field holds several components per element.
         """
         asked = [
             name
@@ -502,6 +527,11 @@ class EventTrackHit(DataRepresentation):
                 f"got {asked or 'none'}."
             )
         values = self.values(field)
+        if values.ndim != 1:
+            raise ValueError(
+                f"'{_name(_resolve(field)[0])}' holds {values.shape[1]} components per element; "
+                "test one of them instead."
+            )
         if eq is not None:
             return np.asarray(values == eq, dtype=bool)
         if isin is not None:
@@ -800,6 +830,18 @@ class EventTrackHit(DataRepresentation):
             for name, column in self.data.columns.items()
             if name not in STRUCTURE_COLUMNS
         }
+        columns.update(self.structure_columns())
+        return TreeData(self.TREE, columns)
+
+    def structure_columns(self) -> dict[str, npt.NDArray[np.integer[Any]]]:
+        """Return the columns saying where every hit stands, in the order of the hits.
+
+        Returns
+        -------
+        dict[str, numpy.ndarray]
+            The columns in :data:`STRUCTURE_COLUMNS`, in the types listed there.
+        """
+        index = self._index
         derived = {
             EVENT_INDEX_COLUMN: np.repeat(index.event_of_track(), index.hits_per_track()),
             EventTrackHitField.TRACK_NUMBER.value: self.values(
@@ -813,9 +855,7 @@ class EventTrackHit(DataRepresentation):
                 EventTrackHitField.HIT_COUNT, ElementLevel.HIT
             ),
         }
-        for name, values in derived.items():
-            columns[name] = values.astype(STRUCTURE_COLUMNS[name])
-        return TreeData(self.TREE, columns)
+        return {name: values.astype(STRUCTURE_COLUMNS[name]) for name, values in derived.items()}
 
     def check_consistency(self, fields: Sequence[FieldLike] | None = None) -> ConsistencyReport:
         """Check that track and event fields agree within their track and event.
@@ -989,9 +1029,29 @@ def _at_position(
     return np.asarray(positions == abs(position), dtype=bool)
 
 
-def _as_mask(mask: MaskLike) -> npt.NDArray[Any]:
-    """Return a mask as an array; a column is read by position, not by label."""
-    return mask.to_numpy() if isinstance(mask, pd.Series) else np.asarray(mask)
+def _as_mask(mask: MaskLike, labels: pd.Index, level: str) -> npt.NDArray[Any]:
+    """Return a mask as an array in the order of a level.
+
+    An array is read by position. A column is read by its labels, so that a
+    mask built in the order of the rows of the data does not select the hits
+    that happen to stand at its positions.
+
+    Raises
+    ------
+    ValueError
+        If a column does not label every element of the level.
+    """
+    if not isinstance(mask, pd.Series):
+        return np.asarray(mask)
+    if mask.index.equals(labels):
+        return mask.to_numpy()
+    if not mask.index.is_unique or not labels.isin(mask.index).all():
+        raise ValueError(
+            f"A column selecting {level}s has to label every {level} once: "
+            f"{'the rows of the data' if level == 'hit' else f'the positions of the {level}s'}, "
+            f"{len(labels)} in all."
+        )
+    return mask.reindex(labels).to_numpy()
 
 
 def _mask_of(
@@ -1044,8 +1104,3 @@ def _numbers(offsets: npt.NDArray[np.int64]) -> npt.NDArray[np.int64]:
     """Return the position of every element within its segment, from 1."""
     counts = np.diff(offsets)
     return np.arange(int(offsets[-1]), dtype=np.int64) - np.repeat(offsets[:-1], counts) + 1
-
-
-def _parent(offsets: npt.NDArray[np.int64], position: int) -> int:
-    """Return the segment of the offsets a position falls in."""
-    return int(np.searchsorted(offsets, position, side="right")) - 1

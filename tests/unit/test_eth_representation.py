@@ -342,3 +342,30 @@ def test_an_empty_frame_is_represented_as_no_events() -> None:
     assert len(representation) == 0
     assert representation.events_frame().empty
     assert representation.hits_frame().empty
+
+
+@pytest.mark.parametrize("position", [-1, 150])
+def test_a_position_outside_the_elements_is_refused(a1: EventTrackHit, position: int) -> None:
+    """A value is read for an element that exists, or not at all."""
+    # ARRANGE
+    # No additional setup required.
+
+    # ACT
+    with pytest.raises(IndexError) as raised:
+        a1.element_value(Field.TRACK_COUNT, ElementLevel.EVENT, position)
+
+    # ASSERT
+    assert "outside the 150 event(s)" in str(raised.value)
+
+
+def test_a_field_of_several_components_is_not_tested_whole(a1: EventTrackHit) -> None:
+    """Ten numbers per hit cannot equal one."""
+    # ARRANGE
+    # No additional setup required.
+
+    # ACT
+    with pytest.raises(ValueError) as raised:
+        a1.is_value(Field.VOLUME_ID, eq=1)
+
+    # ASSERT
+    assert "10 components per element" in str(raised.value)

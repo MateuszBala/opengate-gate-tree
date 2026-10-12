@@ -289,3 +289,78 @@ def test_selections_follow_one_another(all_variants: EventTrackHit) -> None:
     assert set(selected.values(Field.SOURCE_TYPE).tolist()) == {SourceType.PARA_POSITRONIUM}
     assert set(selected.values(Field.GAMMA_TYPE).tolist()) == {GammaType.ANNIHILATION}
     assert set(selected.values(Field.PROCESS_NAME).tolist()) == {"Compton"}
+
+
+def test_a_column_of_the_source_frame_selects_the_hits_of_its_rows(
+    all_variants: EventTrackHit, all_variants_frame: pd.DataFrame
+) -> None:
+    """GATE writes tracks from the last one, so positions and rows differ."""
+    # ARRANGE
+    large = all_variants_frame["edep"] > 0.4
+
+    # ACT
+    selected = all_variants.select_hits(large)
+
+    # ASSERT
+    assert selected.hit_count == int(large.sum())
+    assert set(selected.hits_frame([Field.EDEP]).index) == set(large[large].index)
+
+
+def test_a_column_of_a_selected_frame_selects_the_hits_it_labels(
+    all_variants: EventTrackHit, all_variants_frame: pd.DataFrame
+) -> None:
+    """A mask of the whole frame applies to a representation of a part of it."""
+    # ARRANGE
+    compton = all_variants.with_process(Process.COMPTON)
+    large = all_variants_frame["edep"] > 0.2
+
+    # ACT
+    selected = compton.select_hits(large)
+
+    # ASSERT
+    expected = (all_variants_frame["processName"] == "Compton") & large
+    assert selected.hit_count == int(expected.sum())
+
+
+def test_a_column_that_misses_hits_is_refused(
+    all_variants: EventTrackHit, all_variants_frame: pd.DataFrame
+) -> None:
+    """A hit the column does not label would be selected by guesswork."""
+    # ARRANGE
+    partial = (all_variants_frame["edep"] > 0.2).iloc[:10]
+
+    # ACT
+    with pytest.raises(ValueError) as raised:
+        all_variants.select_hits(partial)
+
+    # ASSERT
+    assert "label every hit once" in str(raised.value)
+
+
+def test_a_column_of_events_has_to_be_labelled_by_their_positions(
+    all_variants: EventTrackHit,
+) -> None:
+    """A column labelled by something else is not a column of the events table."""
+    # ARRANGE
+    mask = pd.Series(np.ones(all_variants.event_count, dtype=bool), index=np.arange(1, 116))
+
+    # ACT
+    with pytest.raises(ValueError) as raised:
+        all_variants.select_events(mask)
+
+    # ASSERT
+    assert "the positions of the events" in str(raised.value)
+
+
+def test_events_kept_empty_survive_a_later_selection(all_variants: EventTrackHit) -> None:
+    """And can be counted: an event without tracks has zero of them."""
+    # ARRANGE
+    electrons = all_variants.with_particle(11, keep_empty=True)
+
+    # ACT
+    without_tracks = electrons.with_track_count(0)
+    with_tracks = electrons.with_track_count(ge=1)
+
+    # ASSERT
+    assert without_tracks.event_count == all_variants.event_count
+    assert with_tracks.event_count == 0
