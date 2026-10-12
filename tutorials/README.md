@@ -116,7 +116,8 @@ The index, with what each one shows, is in
   the tracks in them and the hits they left;
 - `tutorial-19-analysis-as-a-description.ipynb` - an analysis as a description;
 - `tutorial-20-order-of-operations-and-positions.ipynb` - the order of operations, and positions;
-- `tutorial-21-combining-analyses.ipynb` - combining analyses.
+- `tutorial-21-combining-analyses.ipynb` - combining analyses;
+- `tutorial-22-one-row-per-event.ipynb` - one row per event of an analysis.
 
 ## Writing A Tutorial
 
