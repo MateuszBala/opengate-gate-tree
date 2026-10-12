@@ -80,7 +80,9 @@ The index, with what each one shows, is in
 - `tutorial-01-tools-plotting.ipynb` - the plots `tools.plotting` draws, and
   which form suits a discrete column and which a continuous one;
 - `tutorial-02-reading-writing-root-file.ipynb` - what a GATE ROOT file holds,
-  reading chosen branches, and writing a selection of rows to a ROOT file.
+  reading chosen branches, and writing a selection of rows to a ROOT file;
+- `tutorial-03-representations-and-formats.ipynb` - what a `TreeData` holds
+  beside its pandas view, and what ROOT, HDF5 and CSV keep of it.
 
 ## Writing A Tutorial
 

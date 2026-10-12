@@ -10,6 +10,7 @@ answered.
 | --- | --- | --- | --- | --- |
 | [`tutorial-01-tools-plotting.ipynb`](tutorial-01-tools-plotting.ipynb) | 2 | every plot `tools.plotting` draws, and which form suits a discrete column and which a continuous one | — | `positronium-source-all-variants.root` |
 | [`tutorial-02-reading-writing-root-file.ipynb`](tutorial-02-reading-writing-root-file.ipynb) | 1 | what a GATE ROOT file holds, reading chosen branches, selecting rows in pandas, writing them to a ROOT file and reading that file back | — | `positronium-source-all-variants.root` |
+| [`tutorial-03-representations-and-formats.ipynb`](tutorial-03-representations-and-formats.ipynb) | 1 | what a `TreeData` holds beside its pandas view - array branches, `select` without copying, why `==` checks identity - and which of ROOT, HDF5 and CSV keeps `volumeID` and the 32-bit types | — | `hits-a2-cylindrical-pet.root` |
 
 Every new notebook adds a row. A tutorial nobody can find is a tutorial nobody
 reads.

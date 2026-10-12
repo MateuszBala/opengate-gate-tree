@@ -15,6 +15,7 @@ that reads it.
 | File | Size | What it holds | Written by | Read by |
 | --- | --- | --- | --- | --- |
 | `positronium-source-all-variants.root` | 80 kB | 500 hits of a "Hits" tree, from a scene with a `PositroniumSource` configured with every component at once beside a back-to-back source, so the file holds annihilation, prompt and unknown gammas | a GATE simulation of a spherical shell detector with an inner radius of 200 mm | `tutorial-01-tools-plotting.ipynb`, `tutorial-02-reading-writing-root-file.ipynb` |
+| `hits-a2-cylindrical-pet.root` | 86 kB | 500 hits of a "Hits" tree of the A2 structure - a `cylindricalPET` system, 46 branches - with every hit between 410 and 431 mm from the axis | a GATE simulation of a cylindricalPET scanner; the first 500 entries of `tests/fixtures/hits-variants/a2-system.root`, whose README gives the provenance | `tutorial-03-representations-and-formats.ipynb` |
 
 ## imgs
 
