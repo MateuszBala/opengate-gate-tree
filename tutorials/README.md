@@ -113,7 +113,8 @@ The index, with what each one shows, is in
 - `tutorial-17-whole-analysis-in-one-chain.ipynb` - a whole analysis in one
   chain;
 - `tutorial-18-events-tracks-and-hits.ipynb` - a "Hits" tree read as events,
-  the tracks in them and the hits they left.
+  the tracks in them and the hits they left;
+- `tutorial-19-analysis-as-a-description.ipynb` - an analysis as a description.
 
 ## Writing A Tutorial
 
