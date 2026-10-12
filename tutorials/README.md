@@ -92,7 +92,9 @@ The index, with what each one shows, is in
 - `tutorial-07-statistics-report.ipynb` - the statistics report written beside
   the data;
 - `tutorial-08-positronium-source-values.ipynb` - what the values a
-  `PositroniumSource` writes mean.
+  `PositroniumSource` writes mean;
+- `tutorial-09-selecting-rows.ipynb` - selecting rows: masks, ranges and
+  chains.
 
 ## Writing A Tutorial
 

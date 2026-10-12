@@ -16,6 +16,7 @@ answered.
 | [`tutorial-06-split-hits-trees.ipynb`](tutorial-06-split-hits-trees.ipynb) | 1 | a file whose hits are split per run or per detector: the warning and the refusal when no tree can be chosen, reading one tree by name, reading all of them as one dataset, and what `sourceTreeName` records | — | `hits-one-tree-per-run.root`, `hits-one-tree-per-detector.root` |
 | [`tutorial-07-statistics-report.ipynb`](tutorial-07-statistics-report.ipynb) | 1 | the report `compute_statistics` makes, printed, read from Python and saved as JSON; events counted by `(runID, eventID)`, named positronium values, non-finite values, and why a report on a selection describes the selection | — | `positronium-source-all-variants.root`, `hits-one-tree-per-run.root` |
 | [`tutorial-08-positronium-source-values.ipynb`](tutorial-08-positronium-source-values.ipynb) | 1 | what the values of `sourceType`, `decayType`, `gammaType` and `decayIndex` mean, reading them as names, why the classes are integers, and why carrying decay metadata is not the same as coming from positronium | — | `positronium-source-all-variants.root` |
+| [`tutorial-09-selecting-rows.ipynb`](tutorial-09-selecting-rows.ipynb) | 1 | what pandas already answers and what the package adds: the two forms of every filter, which ends of a range belong to it, combining masks, selectors for processes and kinds of gamma, and chains through the `gate` namespace | — | `positronium-source-all-variants.root` |
 
 Every new notebook adds a row. A tutorial nobody can find is a tutorial nobody
 reads.
