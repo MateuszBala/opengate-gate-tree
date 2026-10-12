@@ -43,12 +43,13 @@ event, with the energy and the time of all four hits. It works on the
 representation of [Events, Tracks And Hits](event-track-hit.md), and follows
 its order: tracks by their identifier, hits by their time.
 
-Four notebooks go through this page on a real GATE output, with the answers
+Five notebooks go through this page on a real GATE output, with the answers
 kept in them:
 [an analysis as a description](https://github.com/MateuszBala/opengate-gate-tree/blob/main/tutorials/notebooks/tutorial-19-analysis-as-a-description.ipynb),
 [the order of operations and positions](https://github.com/MateuszBala/opengate-gate-tree/blob/main/tutorials/notebooks/tutorial-20-order-of-operations-and-positions.ipynb),
-[combining analyses](https://github.com/MateuszBala/opengate-gate-tree/blob/main/tutorials/notebooks/tutorial-21-combining-analyses.ipynb) and
-[one row per event](https://github.com/MateuszBala/opengate-gate-tree/blob/main/tutorials/notebooks/tutorial-22-one-row-per-event.ipynb).
+[combining analyses](https://github.com/MateuszBala/opengate-gate-tree/blob/main/tutorials/notebooks/tutorial-21-combining-analyses.ipynb),
+[one row per event](https://github.com/MateuszBala/opengate-gate-tree/blob/main/tutorials/notebooks/tutorial-22-one-row-per-event.ipynb) and
+[a window on the deposited energy](https://github.com/MateuszBala/opengate-gate-tree/blob/main/tutorials/notebooks/tutorial-23-energy-window.ipynb).
 
 ## A Description, Not A Computation
 
