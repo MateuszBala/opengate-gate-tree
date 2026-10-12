@@ -21,7 +21,10 @@ Compton scattering is left out with all its hits, and so is a track that has
 no first hit left.
 
 Every operation acts on what the operations before it kept, so their order is
-part of the question. Nothing is read until the analysis is given data.
+part of the question. Nothing is read until the analysis is given data:
+:meth:`EventTrackHitAnalysis.apply` returns the events, tracks and hits it
+kept, and :meth:`EventTrackHitAnalysis.extract` a table with one row per
+event and the variables asked for of its tracks and hits.
 
 Public objects:
 
@@ -41,6 +44,7 @@ import numpy.typing as npt
 import pandas as pd
 
 from opengate_gate_tree.analysis.base import Analysis, Combination
+from opengate_gate_tree.analysis.extract import extract_table
 from opengate_gate_tree.analysis.operations import (
     COMPARISONS,
     CountCondition,
@@ -349,6 +353,47 @@ class EventTrackHitAnalysis(Analysis[EventTrackHit, Selection]):
             else repr(field)
         )
         return self._field_condition(field, test, f"where({shown}, {test.arguments()})")
+
+    def extract(
+        self,
+        source: Source,
+        variables: Sequence[FieldLike],
+        *,
+        max_tracks: int | None = None,
+        max_hits: int | None = None,
+    ) -> pd.DataFrame:
+        """Perform the analysis and return one row per event that passed it.
+
+        Parameters
+        ----------
+        source : EventTrackHit | TreeData | pandas.DataFrame
+            Events, tracks and hits, or the data to build them from.
+        variables : Sequence[EventTrackHitField | str]
+            Fields to put in the table, in order. An event field is one column;
+            a track field one per track, ``t1_<name>``…; a hit field one per
+            hit of every track, ``t1h1_<name>``…. ``runID`` and ``eventID``
+            always come first.
+        max_tracks, max_hits : int | None
+            Narrower widths than the ones the result allows.
+
+        Returns
+        -------
+        pandas.DataFrame
+            One row per event, columns in the order variable, track, hit. The
+            table is as wide as the event with the fewest tracks and the track
+            with the fewest hits allow; what does not fit is left out and
+            reported in the log.
+
+        Raises
+        ------
+        ValueError
+            If the variables are not an ordered sequence, or a width asked
+            for is wider than the result allows.
+        BranchNotFoundError
+            If the data does not hold the branch of a field the analysis or
+            the table needs.
+        """
+        return extract_table(self.apply(source), variables, max_tracks, max_hits)
 
     def describe(self) -> str:
         """Return the analysis as numbered steps, one per line."""

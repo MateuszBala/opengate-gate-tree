@@ -99,6 +99,7 @@ EXPECTED_EXPORTS = {
     "dot",
     "ensure_vectors",
     "expected_branches",
+    "extract_table",
     "format_statistics",
     "has_decay_metadata",
     "has_positronium_metadata",

@@ -125,6 +125,7 @@ import logging  # noqa: E402
 
 from opengate_gate_tree.analysis.base import Analysis, Combination  # noqa: E402
 from opengate_gate_tree.analysis.eventtrackhit import EventTrackHitAnalysis  # noqa: E402
+from opengate_gate_tree.analysis.extract import extract_table  # noqa: E402
 from opengate_gate_tree.errors import (  # noqa: E402
     AmbiguousTreeError,
     BranchNotFoundError,
@@ -393,6 +394,7 @@ __all__ = [
     "dot",
     "ensure_vectors",
     "expected_branches",
+    "extract_table",
     "format_statistics",
     "has_decay_metadata",
     "has_positronium_metadata",
