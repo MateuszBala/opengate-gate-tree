@@ -305,7 +305,7 @@ written once as a chain of operations, kept as a description, and answered on
 any data:
 
 ```python
-from opengate_gate_tree import EventTrackHitAnalysis, EventTrackHitField
+from opengate_gate_tree import EventTrackHitAnalysis, EventTrackHitField, GammaType, Process
 
 analysis = (
     EventTrackHitAnalysis()

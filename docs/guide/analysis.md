@@ -61,8 +61,10 @@ absorbed_at_once = pairs.hits(1).process(Process.PHOTOELECTRIC)
 ```
 
 An analysis prints as the chain it was written as, says its steps in words
-with `describe()`, compares equal to one of the same steps, and survives
-`pickle`.
+with `describe()`, and survives `pickle`. Two analyses asking the same
+question compare equal however they were written - `tracks(2)` and
+`tracks(eq=2)`, a field by member or by name - but equality does not reorder
+a combination: `a & b` and `b & a` keep the same, and are two objects.
 
 ## Where An Analysis Stands
 
@@ -85,6 +87,12 @@ level: `tracks().source_type(...)` keeps the events of a source model. A field
 of a level below has to be moved to first - a track has no single energy
 deposit - and the analysis says so where the call is written.
 
+Positions do not nest. `track(1).hit(1)` would read as the first hit of the
+first track, but would stand at the first hit of every track, so moving to
+the hits right after `track(i)` is refused. A count is allowed there:
+`track(1).hits(2)` keeps the events whose first track has two hits, and then
+stands at the hits of every track of those events.
+
 ## Conditions Are Filters
 
 A condition keeps the elements that pass it and leaves out the rest:
@@ -97,12 +105,20 @@ A condition keeps the elements that pass it and leaves out the rest:
 | `where(field, **comparisons)` | the level of the field |
 
 The comparisons are `eq`, `ne`, `ge`, `le`, `gt` and `lt` against one value,
-`isin` against several and `between` against a pair of ends that belong to the
-range; a value has to pass all of them. Energies are in MeV and times in s, as
-GATE writes them.
+`isin` against several and `between` against a pair of ends, both of which
+belong to the range unless `inclusive` says otherwise, as with the selectors
+of the representation; a value has to pass all of them. Energies are in MeV
+and times in s, as GATE writes them. A bound that would select by mistake - a
+string given to `isin`, a range given backwards, a number that is not a
+number, a count no number passes - is refused where it is written.
+
+`where` also tests the counts and positions - `hitCount`, `trackCount`,
+`hitNumber`, `trackNumber` - and counts them among what is kept so far, as
+`hits(n)` and `hit(j)` do.
 
 A track whose hits were all left out is left out with them, and an event whose
-tracks were all left out is left out too.
+tracks were all left out is left out too. An analysis keeps no empty track or
+event, also none that the representation it was given held empty.
 
 ### Positions decide about the parent
 
@@ -143,16 +159,17 @@ either = first | second      # what either keeps
 after = first.then(second)   # second, performed on what first kept
 ```
 
-`&` and `|` perform each analysis on its own, from the same starting point, and
-combine what they kept, level by level: events, tracks and hits. Both are
-associative and commutative, so `a & b & c` means the same however it is
-grouped. After a combination, the analysis stands at the events.
+`&` and `|` perform each analysis on its own, from the events, and combine
+what they kept, level by level: events, tracks and hits. Both are associative
+and commutative, so `a & b & c` means the same however it is grouped. After a
+combination, the analysis stands at the events.
 
-`then` is different: it appends the operations of the second analysis to the
-first, so a count in the second counts what the first kept. The two agree
-whenever no count of one side follows a filter of the other, which is the
-usual case - the three analyses below keep what the example at the top keeps
-before its last `tracks(2)` - and part ways otherwise:
+`then` is different: it performs the second analysis on what the first kept,
+so a count or a position in the second counts what the first kept. The second
+analysis starts at the events, as it does on its own: when the first ends
+elsewhere, `then` puts `events()` between them, and the printed chain shows
+it. `&` and `then` agree whenever no count or position of one side follows a
+filter of the other, which is the usual case, and part ways otherwise:
 
 ```python
 annihilation = EventTrackHitAnalysis().tracks().gamma_type(GammaType.ANNIHILATION)
@@ -203,7 +220,10 @@ A table of 2 track(s) per event and 1 hit(s) per track left out 81 track(s) of 6
 
 An analysis that ends with fixed counts, as the example at the top does, loses
 nothing. `max_tracks` and `max_hits` narrow the table further; a width the
-result does not allow is refused, since it would leave cells empty.
+result does not allow is refused, since it would leave cells empty. When no
+event passed, there is no width to take: `max_tracks` and `max_hits` give the
+width of the empty table, so its columns are there whether anything passed or
+not.
 
 ## Checked Against Analyses Made Outside The Package
 
