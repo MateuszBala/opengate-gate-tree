@@ -9,6 +9,10 @@ should not land on the same name.
 The report of a run, when one is asked for, goes next to the data under the
 same title: ``patient_01.hits.stats.json``.
 
+The hits written as events, tracks and hits take ``eth`` in place of the
+tree, ``patient_01.eth.root``, since the rows of such a file are grouped and
+carry columns a plain tree of hits does not.
+
 Naming lives here rather than in the command line, so that code using the
 package as a library lands on the same names without repeating the rule.
 
@@ -20,6 +24,8 @@ build_output_file_path(directory, title, tree, file_format) -> Path
     Path of the file holding an extracted tree.
 build_statistics_file_path(directory, title, tree) -> Path
     Path of the report describing an extracted tree.
+build_event_track_hit_file_path(directory, title, file_format) -> Path
+    Path of the file holding hits written as events, tracks and hits.
 """
 
 from pathlib import Path
@@ -30,6 +36,9 @@ from opengate_gate_tree.tree.gatetree import GateTree
 
 # Ending of the file holding the report of a run.
 STATISTICS_SUFFIX: Final[str] = "stats.json"
+
+# Part of the name standing for hits written as events, tracks and hits.
+EVENT_TRACK_HIT_SUFFIX: Final[str] = "eth"
 
 
 def build_output_file_name(
@@ -101,3 +110,25 @@ def build_statistics_file_path(directory: Path, title: str, tree: GateTree) -> P
         Path of the report file.
     """
     return directory / f"{title}.{tree.value.lower()}.{STATISTICS_SUFFIX}"
+
+
+def build_event_track_hit_file_path(
+    directory: Path, title: str, file_format: OutputFileFormat
+) -> Path:
+    """Return the path of the file holding hits written as events, tracks and hits.
+
+    Parameters
+    ----------
+    directory : Path
+        Directory the file is written to.
+    title : str
+        Title of the run.
+    file_format : OutputFileFormat
+        Format the data is written in.
+
+    Returns
+    -------
+    Path
+        Path in the form ``<directory>/<title>.eth.<format>``.
+    """
+    return directory / f"{title}.{EVENT_TRACK_HIT_SUFFIX}.{file_format.value}"

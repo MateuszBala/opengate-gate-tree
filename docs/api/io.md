@@ -32,6 +32,13 @@ data to the supported output formats.
    :members:
 ```
 
+## Events, tracks and hits files
+
+```{eval-rst}
+.. automodule:: opengate_gate_tree.io.eth
+   :members:
+```
+
 ## Statistics files
 
 ```{eval-rst}

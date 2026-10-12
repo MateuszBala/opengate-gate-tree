@@ -274,6 +274,30 @@ detector leaves to work with, and the polarization of a scattered photon is
 estimated from the plane it scattered in. Every formula is written out in the
 [guide](https://opengate-gate-tree.readthedocs.io/en/latest/guide/vectors.html).
 
+### Events, Tracks And Hits
+
+A row of the "Hits" tree is one hit; an analysis usually asks about events and
+the gammas in them. `EventTrackHit` groups the rows once into events, the
+tracks recorded in them and the hits every track left, and reads everything
+else when it is asked for - as arrays, as tables with a row per event, track
+or hit, or as objects made one at a time:
+
+```python
+from opengate_gate_tree import EventTrackHit, GammaType, Process
+
+representation = EventTrackHit(read_tree(Path("simulation.root"), GateTree.HITS))
+pairs = representation.with_gamma_type(GammaType.ANNIHILATION).with_track_count(2)
+first_hits = pairs.first_hits().hits_frame(["edep", "processName"])
+track = pairs.events[0].tracks[0]
+```
+
+Tracks are counted in the order of their identifiers and hits in the order of
+their time, from 1. A selection keeps what it is asked to, and leaves out the
+tracks and events it empties itself. The representation is written as a flat tree
+with columns saying where every hit stands, `<title>.eth.<format>`, and read
+back. See the
+[guide](https://opengate-gate-tree.readthedocs.io/en/latest/guide/event-track-hit.html).
+
 ### Reading What A Gamma Was
 
 The branches a `PositroniumSource` writes hold integers saying what each gamma
@@ -334,6 +358,7 @@ Available capabilities:
 - 0.4.0: the branches a PositroniumSource writes are described by enum classes whose members are the integers GATE wrote, so a column compares against them as it was read; their values can be read as names, rows carrying the decay metadata of such a source are told from the rest, and a statistics report names those values instead of printing numbers.
 - 0.5.0: rows of a "Hits" tree are picked out by what the data means - a closed range, a box, a sphere or a ring in the geometry of the detector, the run and event a hit belongs to, the decay metadata it carries, and the meaning of the codes a PositroniumSource wrote - as functions and as a `gate` namespace on a pandas column and frame, each filter answering either with a mask that combines with others or with the rows themselves.
 - 0.6.0: quantities are converted between the units GATE writes and the ones an analysis uses - energy, length, time and angle, each family closed - and the triples of columns a tree writes a vector in are read as vectors: lengths, products, angles, the decomposition of a vector along an axis and across it, its spherical components, the plane two directions span and the angle between two such planes, a momentum direction rebuilt from the places a particle was, and the polarization a scattering leaves behind.
+- 0.7.0: a "Hits" tree is read as events, the tracks recorded in them and the hits every track left, grouped once without copying the data - tracks in the order of their identifiers, hits in the order of their time - and read on request as arrays, as tables with a row per event, track or hit that lead back to the rows of the file, or as Event, Track and Hit objects; events, tracks and hits are selected by what they carry, by how many there are and by position, every question also answering with a mask, and a representation is written as a flat tree with columns saying where every hit stands, `<title>.eth.<format>`, and read back checked against its rows.
 
 
 
