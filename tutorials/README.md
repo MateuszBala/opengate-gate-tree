@@ -75,8 +75,12 @@ say more than it knows.
 ## The Tutorials
 
 The index, with what each one shows, is in
-[notebooks/README.md](notebooks/README.md). Nothing is listed there yet - the
-first tutorials come with the pull requests that introduce them.
+[notebooks/README.md](notebooks/README.md):
+
+- `tutorial-01-tools-plotting.ipynb` - the plots `tools.plotting` draws, and
+  which form suits a discrete column and which a continuous one;
+- `tutorial-02-reading-writing-root-file.ipynb` - what a GATE ROOT file holds,
+  reading chosen branches, and writing a selection of rows to a ROOT file.
 
 ## Writing A Tutorial
 
