@@ -8,9 +8,17 @@ three output formats takes it, and a reader that knows nothing of this
 package still sees which rows make one track and one event.
 
 Reading a file back groups its rows again and compares the grouping with the
-columns the file carries. A file whose columns disagree with its rows - edited
-by hand, cut in the middle of a track, or written by something else - is
-refused rather than read as a grouping it does not hold.
+order of the rows and the columns the file carries. A file whose rows are out
+of order, or whose columns disagree with them - an identifier, a time or a
+position changed by hand, a file cut in the middle of a track, or one written
+by something else - is refused rather than read as a grouping it does not
+hold. Nothing checks the other values: an energy changed by hand is read as
+it stands.
+
+CSV keeps no types and no arrays. Reading one back gives every branch the
+type the "Hits" tree schema gives it, folds the ``volumeID_0`` to
+``volumeID_9`` columns back into ``volumeID``, and reads any other column in
+the type pandas infers.
 
 Public objects:
 
@@ -34,6 +42,12 @@ from opengate_gate_tree.io.reader import read_tree
 from opengate_gate_tree.io.writers import write_tree
 from opengate_gate_tree.representation.eventtrackhit import STRUCTURE_COLUMNS, EventTrackHit
 from opengate_gate_tree.tree.gatetree import GateTree
+from opengate_gate_tree.tree.hits.schema import (
+    ARRAY_BRANCH_WIDTHS,
+    VARIANT_BRANCHES,
+    BranchKind,
+    branch_spec,
+)
 from opengate_gate_tree.tree.treedata import TreeData
 
 
@@ -102,9 +116,16 @@ def read_event_track_hit(path: Path) -> EventTrackHit:
 
     branches = [name for name in data.branch_names if name not in STRUCTURE_COLUMNS]
     representation = EventTrackHit(data.select(branches))
-    written = representation.to_tree_data()
-    for name in STRUCTURE_COLUMNS:
-        if not np.array_equal(data[name], written[name]):
+    # A written file stands in the order of its representation. Rows that would
+    # be put in another order were changed after writing - a time, a track or
+    # an event identifier - whatever the five columns say.
+    if not np.array_equal(representation.index.hit_rows, np.arange(len(data))):
+        raise RepresentationError(
+            f"The rows of {path} are not in the order of their events, tracks and times; "
+            "the file was changed after it was written, or not written by this package."
+        )
+    for name, values in representation.structure_columns().items():
+        if not np.array_equal(data[name], values):
             raise RepresentationError(
                 f"The '{name}' column of {path} disagrees with the grouping of its rows; "
                 "the file was changed after it was written, or not written by this package."
@@ -134,9 +155,38 @@ def _read_columns(path: Path) -> TreeData:
     try:
         if file_format is OutputFileFormat.HDF5:
             return _read_hdf5(path)
-        return TreeData.from_dataframe(GateTree.HITS, pd.read_csv(path))
+        return _typed(pd.read_csv(path))
     except (OSError, KeyError, ValueError) as err:
         raise RepresentationError(f"{path} could not be read: {err}") from err
+
+
+def _typed(frame: pd.DataFrame) -> TreeData:
+    """Return the columns of a CSV file in the types the package writes them in."""
+    gate_branches = {name for branches in VARIANT_BRANCHES.values() for name in branches}
+    columns: dict[str, npt.NDArray[Any]] = {}
+    folded: set[str] = set()
+    for name, width in ARRAY_BRANCH_WIDTHS.items():
+        parts = [f"{name}_{component}" for component in range(width)]
+        if name not in frame.columns and all(part in frame.columns for part in parts):
+            columns[name] = frame[parts].to_numpy().astype(np.int32)
+            folded.update(parts)
+    for name in frame.columns:
+        if name in folded:
+            continue
+        column = frame[name].to_numpy()
+        if name in STRUCTURE_COLUMNS:
+            column = column.astype(STRUCTURE_COLUMNS[name])
+        elif name in gate_branches and branch_spec(name).kind is not BranchKind.TEXT:
+            column = column.astype(branch_spec(name).dtype)
+        columns[str(name)] = column
+    # A folded array goes where its first component stood.
+    order: list[str] = []
+    for name in frame.columns:
+        if name not in folded:
+            order.append(str(name))
+        elif str(name).endswith("_0"):
+            order.append(str(name)[: -len("_0")])
+    return TreeData(GateTree.HITS, {name: columns[name] for name in order})
 
 
 def _read_hdf5(path: Path) -> TreeData:

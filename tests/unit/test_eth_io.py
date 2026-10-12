@@ -94,12 +94,12 @@ def test_a_written_file_is_read_back_as_it_was(
     assert np.array_equal(read.index.track_offsets, multi_sd.index.track_offsets)
     assert np.array_equal(read.index.event_offsets, multi_sd.index.event_offsets)
     assert not set(STRUCTURE_COLUMNS) & set(read.data.branch_names)
-    original = multi_sd.hits_frame([Field.EDEP, Field.TIME, Field.PROCESS_NAME, "sourceTreeName"])
-    again = read.hits_frame([Field.EDEP, Field.TIME, Field.PROCESS_NAME, "sourceTreeName"])
-    # CSV keeps no types: single precision comes back as double, to the digits written.
-    pd.testing.assert_frame_equal(
-        again.reset_index(drop=True), original.reset_index(drop=True), check_dtype=False, rtol=1e-6
-    )
+    fields = [Field.EDEP, Field.TIME, Field.PROCESS_NAME, Field.VOLUME_ID, "sourceTreeName"]
+    original = multi_sd.hits_frame(fields).reset_index(drop=True)
+    again = read.hits_frame(fields).reset_index(drop=True)
+    pd.testing.assert_frame_equal(again, original)
+    for name in ("runID", "eventID", "trackID", "edep", "time", "volumeID"):
+        assert read.data[name].dtype == multi_sd.data[name].dtype
 
 
 def test_a_written_file_is_read_in_order_without_sorting(
@@ -207,3 +207,60 @@ def test_a_file_that_cannot_be_read_is_reported(tmp_path: Path) -> None:
 
     # ASSERT
     assert "could not be read" in str(raised.value)
+
+
+def written_csv(representation: EventTrackHit, directory: Path) -> tuple[Path, pd.DataFrame]:
+    """Write a representation as CSV and return its path and contents."""
+    path = write_event_track_hit(representation, directory / "scene.eth.csv", OutputFileFormat.CSV)
+    return path, pd.read_csv(path)
+
+
+def test_a_file_whose_times_were_changed_is_refused(
+    ops_prompt: EventTrackHit, tmp_path: Path
+) -> None:
+    """A later time puts a hit after its neighbour, whatever its hitNumber says."""
+    # ARRANGE
+    path, frame = written_csv(ops_prompt, tmp_path)
+    first_of_a_long_track = int(frame.index[(frame["hitNumber"] == 1) & (frame["hitCount"] > 1)][0])
+    frame.loc[first_of_a_long_track, "time"] = frame["time"].max() + 1.0
+    frame.to_csv(path, index=False)
+
+    # ACT
+    with pytest.raises(RepresentationError) as raised:
+        read_event_track_hit(path)
+
+    # ASSERT
+    assert "not in the order" in str(raised.value)
+
+
+def test_a_file_whose_track_identifiers_were_swapped_is_refused(
+    ops_prompt: EventTrackHit, tmp_path: Path
+) -> None:
+    """Swapping two tracks of an event attaches every value to the other one."""
+    # ARRANGE
+    path, frame = written_csv(ops_prompt, tmp_path)
+    first_event = frame["eventIndex"] == 0
+    swapped = frame.loc[first_event, "trackID"].map({1: 2, 2: 1, 3: 3, 4: 4})
+    frame.loc[first_event, "trackID"] = swapped
+    frame.to_csv(path, index=False)
+
+    # ACT
+    with pytest.raises(RepresentationError) as raised:
+        read_event_track_hit(path)
+
+    # ASSERT
+    assert "not in the order" in str(raised.value)
+
+
+def test_the_structure_columns_are_the_ones_written(ops_prompt: EventTrackHit) -> None:
+    """What the reader compares against is what the writer wrote."""
+    # ARRANGE
+    written = ops_prompt.to_tree_data()
+
+    # ACT
+    structure = ops_prompt.structure_columns()
+
+    # ASSERT
+    assert list(structure) == list(STRUCTURE_COLUMNS)
+    for name, values in structure.items():
+        assert np.array_equal(values, written[name])
