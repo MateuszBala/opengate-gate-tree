@@ -18,6 +18,7 @@ answered.
 | [`tutorial-08-positronium-source-values.ipynb`](tutorial-08-positronium-source-values.ipynb) | 1 | what the values of `sourceType`, `decayType`, `gammaType` and `decayIndex` mean, reading them as names, why the classes are integers, and why carrying decay metadata is not the same as coming from positronium | — | `positronium-source-all-variants.root` |
 | [`tutorial-09-selecting-rows.ipynb`](tutorial-09-selecting-rows.ipynb) | 1 | what pandas already answers and what the package adds: the two forms of every filter, which ends of a range belong to it, combining masks, selectors for processes and kinds of gamma, and chains through the `gate` namespace | — | `positronium-source-all-variants.root` |
 | [`tutorial-10-shapes-and-detector-geometry.ipynb`](tutorial-10-shapes-and-detector-geometry.ipynb) | 1 | the size of a cylindricalPET scanner and its crystals read off the hits; rings, layers and ends selected with `in_cylinder`; why surfaces belong to a shape; and one question asked in `pos`, `localPos` and `sourcePos` | — | `hits-a2-cylindrical-pet.root` |
+| [`tutorial-11-events-and-tracks.ipynb`](tutorial-11-events-and-tracks.ipynb) | 1 | why an event is the pair `(runID, eventID)` and a track the triple; selecting with `by_run`, `by_event` and `is_from_event`; counting by the wrong key and by the right one; numbering the hits of a track | — | `hits-one-tree-per-run.root` |
 
 Every new notebook adds a row. A tutorial nobody can find is a tutorial nobody
 reads.

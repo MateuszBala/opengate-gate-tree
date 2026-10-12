@@ -96,7 +96,9 @@ The index, with what each one shows, is in
 - `tutorial-09-selecting-rows.ipynb` - selecting rows: masks, ranges and
   chains;
 - `tutorial-10-shapes-and-detector-geometry.ipynb` - solid shapes and the
-  geometry of a cylindricalPET scanner.
+  geometry of a cylindricalPET scanner;
+- `tutorial-11-events-and-tracks.ipynb` - events and tracks, and why an event
+  is the pair `(runID, eventID)`.
 
 ## Writing A Tutorial
 
