@@ -7,7 +7,7 @@ repos:
     hooks:
       - id: check-added-large-files
         name: Refuse a large file under tutorials/data
-        args: ["--maxkb=500"]
+        args: ["--maxkb=500", "--enforce-all"]
         files: ^tutorials/data/
 
   - repo: local
