@@ -117,7 +117,8 @@ The index, with what each one shows, is in
 - `tutorial-19-analysis-as-a-description.ipynb` - an analysis as a description;
 - `tutorial-20-order-of-operations-and-positions.ipynb` - the order of operations, and positions;
 - `tutorial-21-combining-analyses.ipynb` - combining analyses;
-- `tutorial-22-one-row-per-event.ipynb` - one row per event of an analysis.
+- `tutorial-22-one-row-per-event.ipynb` - one row per event of an analysis;
+- `tutorial-23-energy-window.ipynb` - a window on the deposited energy.
 
 ## Writing A Tutorial
 
