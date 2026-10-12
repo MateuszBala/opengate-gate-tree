@@ -36,6 +36,8 @@ def small_index() -> EventTrackHitIndex:
         hit_rows=np.arange(4, dtype=np.int64),
         track_offsets=np.array([0, 3, 3, 4], dtype=np.int64),
         event_offsets=np.array([0, 2, 3], dtype=np.int64),
+        track_rows=np.array([0, 3, 3], dtype=np.int64),
+        event_rows=np.array([0, 3], dtype=np.int64),
     )
 
 

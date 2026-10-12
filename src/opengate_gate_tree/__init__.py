@@ -254,6 +254,7 @@ from opengate_gate_tree.tree.hits.positronium import (  # noqa: E402
     has_positronium_metadata,
     positronium_enum,
 )
+from opengate_gate_tree.tree.hits.processes import Process  # noqa: E402
 from opengate_gate_tree.tree.hits.schema import (  # noqa: E402
     BranchKind,
     BranchSpec,
@@ -336,6 +337,7 @@ __all__ = [
     "OutputFileFormat",
     "POSITION_COLUMNS",
     "POSITRONIUM_BRANCHES",
+    "Process",
     "REDUCTIONS",
     "RUN_COLUMN",
     "RepresentationError",

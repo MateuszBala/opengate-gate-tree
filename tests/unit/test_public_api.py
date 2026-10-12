@@ -52,6 +52,7 @@ EXPECTED_EXPORTS = {
     "OutputFileFormat",
     "POSITION_COLUMNS",
     "POSITRONIUM_BRANCHES",
+    "Process",
     "REDUCTIONS",
     "RUN_COLUMN",
     "RepresentationError",

@@ -86,9 +86,8 @@ def reduce_hits_to_tracks(
     Examples
     --------
     >>> import numpy as np
-    >>> index = EventTrackHitIndex(
-    ...     hit_rows=np.arange(3), track_offsets=np.array([0, 2, 3]), event_offsets=np.array([0, 2])
-    ... )
+    >>> from opengate_gate_tree import build_event_track_hit_index
+    >>> index = build_event_track_hit_index([0, 0, 0], [0, 0, 0], [1, 1, 2], [0.0, 1.0, 0.0])
     >>> reduce_hits_to_tracks(index, np.array([True, False, True]), "count").tolist()
     [1, 1]
     """
@@ -200,9 +199,8 @@ def position_in_track(
     Examples
     --------
     >>> import numpy as np
-    >>> index = EventTrackHitIndex(
-    ...     hit_rows=np.arange(4), track_offsets=np.array([0, 3, 4]), event_offsets=np.array([0, 2])
-    ... )
+    >>> from opengate_gate_tree import build_event_track_hit_index
+    >>> index = build_event_track_hit_index([0] * 4, [0] * 4, [1, 1, 1, 2], [0.0, 1.0, 2.0, 0.0])
     >>> position_in_track(index, np.array([True, False, True, True])).tolist()
     [1, 0, 2, 1]
     """

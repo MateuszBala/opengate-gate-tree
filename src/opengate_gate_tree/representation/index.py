@@ -8,7 +8,11 @@ has to be grouped again later:
 - ``hit_rows`` - the row of the data every hit was read from, hits in order;
 - ``track_offsets`` - where the hits of every track begin and end in
   ``hit_rows``, as ``track_offsets[k]:track_offsets[k + 1]``;
-- ``event_offsets`` - the same for the tracks of every event.
+- ``event_offsets`` - the same for the tracks of every event;
+- ``track_rows`` and ``event_rows`` - the row a track or an event reads its
+  own values from: the first row of the track, and of the first track of the
+  event, when the data was grouped. They are kept when a selection removes
+  hits or tracks, so a track left without hits is still the track it was.
 
 This is the layout sparse matrices use. The hits of a track, and the tracks of
 an event, are neighbours, so a question asked of every track at once - how
@@ -37,6 +41,10 @@ EventTrackHitIndex
     Hits, tracks and events of a "Hits" tree, as positions in its rows.
 build_event_track_hit_index(run_ids, event_ids, track_ids, times, force_sort) -> EventTrackHitIndex
     Group the rows of a "Hits" tree into hits, tracks and events.
+
+Selecting hits, tracks or events gives another index of the same rows, in
+the same order. A track whose hits were all left out, and an event whose
+tracks were, are removed with them unless the selection keeps them empty.
 """
 
 from dataclasses import dataclass
@@ -65,22 +73,34 @@ class EventTrackHitIndex:
     event_offsets : numpy.ndarray
         Boundaries of the tracks of every event in the track arrays; one more
         entry than there are events.
+    track_rows : numpy.ndarray
+        Row every track reads its own values from.
+    event_rows : numpy.ndarray
+        Row every event reads its own values from.
 
     Raises
     ------
     ValueError
         If the offsets do not start at zero, decrease, or do not end at the
-        number of elements they divide.
+        number of elements they divide, or there is not one row per track and
+        per event.
     """
 
     hit_rows: IndexArray
     track_offsets: IndexArray
     event_offsets: IndexArray
+    track_rows: IndexArray
+    event_rows: IndexArray
 
     def __post_init__(self) -> None:
         """Check that the offsets divide the levels below them."""
         _validate_offsets("track", self.track_offsets, len(self.hit_rows))
         _validate_offsets("event", self.event_offsets, len(self.track_offsets) - 1)
+        if len(self.track_rows) != self.track_count or len(self.event_rows) != self.event_count:
+            raise ValueError(
+                f"Expected one row per track and per event ({self.track_count} and "
+                f"{self.event_count}), got {len(self.track_rows)} and {len(self.event_rows)}."
+            )
 
     @property
     def event_count(self) -> int:
@@ -113,32 +133,57 @@ class EventTrackHitIndex:
         """Return the track every hit belongs to."""
         return np.repeat(np.arange(self.track_count, dtype=np.int64), self.hits_per_track())
 
-    def first_hit_rows(self) -> IndexArray:
-        """Return the row of the first hit of every track.
+    def select(
+        self,
+        event_mask: npt.ArrayLike | None = None,
+        track_mask: npt.ArrayLike | None = None,
+        hit_mask: npt.ArrayLike | None = None,
+        keep_empty: bool = False,
+    ) -> "EventTrackHitIndex":
+        """Return the index of the hits, tracks and events the masks keep.
 
-        A track without hits, which only a selection keeping empty tracks
-        leaves, has no first hit.
+        An element is kept when its own mask and the masks of every level
+        above it keep it: leaving out an event leaves out its tracks and hits.
+
+        Parameters
+        ----------
+        event_mask, track_mask, hit_mask : numpy.typing.ArrayLike | None
+            Which events, tracks and hits to keep, one value per element of
+            the level; ``None`` keeps every element of it.
+        keep_empty : bool
+            Keep a track whose hits were all left out, and an event whose
+            tracks were. By default they are left out with them.
+
+        Returns
+        -------
+        EventTrackHitIndex
+            Index of what was kept, in the same order.
 
         Raises
         ------
         ValueError
-            If a track has no hits.
+            If a mask is not a mask, or not one value per element of its level.
         """
-        if np.any(self.hits_per_track() == 0):
-            raise ValueError("A track without hits has no first hit to read its values from.")
-        return self.hit_rows[self.track_offsets[:-1]]
+        events = _mask("event", event_mask, self.event_count)
+        tracks = _mask("track", track_mask, self.track_count)
+        tracks &= np.repeat(events, self.tracks_per_event())
+        hits = _mask("hit", hit_mask, self.hit_count)
+        hits &= np.repeat(tracks, self.hits_per_track())
 
-    def first_track_rows(self) -> IndexArray:
-        """Return the row of the first hit of the first track of every event.
+        hits_kept = _kept_per_segment(hits, self.track_offsets)
+        if not keep_empty:
+            tracks &= hits_kept > 0
+        tracks_kept = _kept_per_segment(tracks, self.event_offsets)
+        if not keep_empty:
+            events &= tracks_kept > 0
 
-        Raises
-        ------
-        ValueError
-            If an event has no tracks, or its first track has no hits.
-        """
-        if np.any(self.tracks_per_event() == 0):
-            raise ValueError("An event without tracks has no first track to read its values from.")
-        return self.first_hit_rows()[self.event_offsets[:-1]]
+        return EventTrackHitIndex(
+            hit_rows=self.hit_rows[hits],
+            track_offsets=_offsets(hits_kept[tracks]),
+            event_offsets=_offsets(tracks_kept[events]),
+            track_rows=self.track_rows[tracks],
+            event_rows=self.event_rows[events],
+        )
 
     def __repr__(self) -> str:
         """Return a compact representation that does not render the arrays."""
@@ -275,11 +320,45 @@ def _index_from_rows(
 
     track_starts = np.flatnonzero(new_track)
     event_starts = np.flatnonzero(new_event[track_starts])
+    track_rows = rows[track_starts]
     return EventTrackHitIndex(
         hit_rows=rows,
         track_offsets=np.append(track_starts, count).astype(np.int64),
         event_offsets=np.append(event_starts, len(track_starts)).astype(np.int64),
+        track_rows=track_rows,
+        event_rows=track_rows[event_starts],
     )
+
+
+def _mask(level: str, mask: npt.ArrayLike | None, expected: int) -> npt.NDArray[np.bool_]:
+    """Return a mask of a level as an array of its own, keeping everything by default.
+
+    Raises
+    ------
+    ValueError
+        If the values are not booleans, or not one per element of the level.
+    """
+    if mask is None:
+        return np.ones(expected, dtype=bool)
+    kept = np.array(mask)
+    if kept.dtype != np.bool_ or kept.ndim != 1 or len(kept) != expected:
+        raise ValueError(
+            f"A selection of {level}s needs one boolean per {level}, {expected} in all, "
+            f"but got an array of type {kept.dtype} and shape {kept.shape}."
+        )
+    return kept
+
+
+def _kept_per_segment(mask: npt.NDArray[np.bool_], offsets: IndexArray) -> IndexArray:
+    """Return how many elements of every segment a mask keeps."""
+    running = np.concatenate(([0], np.cumsum(mask, dtype=np.int64)))
+    kept: IndexArray = running[offsets[1:]] - running[offsets[:-1]]
+    return kept
+
+
+def _offsets(counts: IndexArray) -> IndexArray:
+    """Return the offsets of consecutive segments of the given sizes."""
+    return np.concatenate(([0], np.cumsum(counts, dtype=np.int64))).astype(np.int64)
 
 
 def _validate_offsets(level: str, offsets: IndexArray, divided: int) -> None:

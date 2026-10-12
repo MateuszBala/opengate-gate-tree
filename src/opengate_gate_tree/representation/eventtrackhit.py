@@ -19,6 +19,15 @@ Everything else is read on request, in one of three shapes:
 - :attr:`EventTrackHit.events` - the events as objects, made one at a time,
   for looking at the data the way it is thought of.
 
+Selecting follows the convention of the filters of the pandas view: a method
+named ``is_*`` answers with a mask of the level it asks about, and one named
+``select_*`` or ``with_*`` answers with a new representation of what was kept.
+A selection never changes the representation it was made on, and shares its
+columns. Leaving out every hit of a track leaves out the track, and leaving
+out every track of an event leaves out the event, unless ``keep_empty`` says
+otherwise. A count asked for after a selection counts what the selection kept,
+so the order of the calls is part of what they ask.
+
 Public objects:
 
 EventTrackHit
@@ -29,7 +38,7 @@ INDEX_BRANCHES
     Branches the representation is built from.
 """
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any, ClassVar, Final
 
@@ -49,10 +58,21 @@ from opengate_gate_tree.representation.reduce import (
     reduce_hits_to_tracks,
     reduce_tracks_to_events,
 )
+from opengate_gate_tree.tree.filters import (
+    InclusiveSide,
+    is_decay_type,
+    is_gamma_type,
+    is_in_range,
+    is_process,
+    is_source_type,
+)
 from opengate_gate_tree.tree.gatetree import GateTree
+from opengate_gate_tree.tree.hits.positronium import DecayType, GammaType, SourceType
+from opengate_gate_tree.tree.hits.processes import Process
 from opengate_gate_tree.tree.treedata import TreeData
 
 FieldLike = EventTrackHitField | str
+MaskLike = npt.NDArray[np.bool_] | pd.Series
 
 # Branches the representation is built from.
 INDEX_BRANCHES: Final[tuple[str, ...]] = ("runID", "eventID", "trackID", "time")
@@ -154,6 +174,17 @@ class EventTrackHit(DataRepresentation):
         self._index = build_event_track_hit_index(
             self.data["runID"], self.data["eventID"], self.data["trackID"], self.data["time"]
         )
+
+    @classmethod
+    def _from_index(
+        cls, data: TreeData, row_labels: pd.Index, index: EventTrackHitIndex
+    ) -> "EventTrackHit":
+        """Return a representation of the same data under another index."""
+        representation = cls.__new__(cls)
+        representation._data = data
+        representation._row_labels = row_labels
+        representation._index = index
+        return representation
 
     @property
     def index(self) -> EventTrackHitIndex:
@@ -282,8 +313,225 @@ class EventTrackHit(DataRepresentation):
         if resolved is EventTrackHitField.TRACK_NUMBER:
             return track - int(index.event_offsets[event]) + 1
         if own_level is ElementLevel.EVENT:
-            track = int(index.event_offsets[event])
-        return self.data[_name(resolved)][index.hit_rows[index.track_offsets[track]]]
+            return self.data[_name(resolved)][index.event_rows[event]]
+        return self.data[_name(resolved)][index.track_rows[track]]
+
+    def select_events(self, mask: MaskLike, keep_empty: bool = False) -> "EventTrackHit":
+        """Return the events a mask keeps, with their tracks and hits.
+
+        Parameters
+        ----------
+        mask : numpy.ndarray | pandas.Series
+            One boolean per event, in the order of the events; a column of the
+            events table works as well.
+        keep_empty : bool
+            Accepted for every selection alike; leaving out events leaves no
+            track or event empty.
+
+        Returns
+        -------
+        EventTrackHit
+            Representation of the same data, reduced to the events kept.
+
+        Raises
+        ------
+        ValueError
+            If the mask is not one boolean per event.
+        """
+        return self._selected(event_mask=_as_mask(mask), keep_empty=keep_empty)
+
+    def select_tracks(self, mask: MaskLike, keep_empty: bool = False) -> "EventTrackHit":
+        """Return the tracks a mask keeps, with their hits.
+
+        Parameters
+        ----------
+        mask : numpy.ndarray | pandas.Series
+            One boolean per track, in the order of the tracks.
+        keep_empty : bool
+            Keep an event whose tracks were all left out.
+
+        Returns
+        -------
+        EventTrackHit
+            Representation of the same data, reduced to the tracks kept.
+
+        Raises
+        ------
+        ValueError
+            If the mask is not one boolean per track.
+        """
+        return self._selected(track_mask=_as_mask(mask), keep_empty=keep_empty)
+
+    def select_hits(self, mask: MaskLike, keep_empty: bool = False) -> "EventTrackHit":
+        """Return the hits a mask keeps.
+
+        Parameters
+        ----------
+        mask : numpy.ndarray | pandas.Series
+            One boolean per hit, in the order of the hits.
+        keep_empty : bool
+            Keep a track whose hits were all left out, and an event whose
+            tracks were.
+
+        Returns
+        -------
+        EventTrackHit
+            Representation of the same data, reduced to the hits kept.
+
+        Raises
+        ------
+        ValueError
+            If the mask is not one boolean per hit.
+        """
+        return self._selected(hit_mask=_as_mask(mask), keep_empty=keep_empty)
+
+    def is_source_type(self, *types: SourceType) -> npt.NDArray[np.bool_]:
+        """Return which events a PositroniumSource emitted with one of the given models.
+
+        Raises
+        ------
+        ValueError
+            If no model is given, or a value is not a :class:`SourceType`.
+        """
+        return _mask_of(is_source_type, self.values(EventTrackHitField.SOURCE_TYPE), types)
+
+    def is_gamma_type(self, *types: GammaType) -> npt.NDArray[np.bool_]:
+        """Return which tracks are one of the given kinds of gamma.
+
+        Raises
+        ------
+        ValueError
+            If no kind is given, or a value is not a :class:`GammaType`.
+        """
+        return _mask_of(is_gamma_type, self.values(EventTrackHitField.GAMMA_TYPE), types)
+
+    def is_decay_type(self, *types: DecayType) -> npt.NDArray[np.bool_]:
+        """Return which tracks came through one of the given decay channels.
+
+        Raises
+        ------
+        ValueError
+            If no channel is given, or a value is not a :class:`DecayType`.
+        """
+        return _mask_of(is_decay_type, self.values(EventTrackHitField.DECAY_TYPE), types)
+
+    def is_particle(self, *pdg_codes: int) -> npt.NDArray[np.bool_]:
+        """Return which tracks are one of the given particles, by PDG code.
+
+        Raises
+        ------
+        ValueError
+            If no code is given.
+        """
+        if not pdg_codes:
+            raise ValueError("Selecting by particle needs at least one PDG code to select.")
+        return np.isin(self.values(EventTrackHitField.PDG_ENCODING), pdg_codes)
+
+    def is_process(self, *processes: Process | str) -> npt.NDArray[np.bool_]:
+        """Return which hits were made by one of the given processes.
+
+        Raises
+        ------
+        ValueError
+            If no process is given.
+        """
+        return _mask_of(is_process, self.values(EventTrackHitField.PROCESS_NAME), processes)
+
+    def is_value(
+        self,
+        field: FieldLike,
+        *,
+        eq: Any = None,
+        isin: Sequence[Any] | None = None,
+        between: tuple[float, float] | None = None,
+        inclusive: InclusiveSide = "both",
+    ) -> npt.NDArray[np.bool_]:
+        """Return which elements of the level of a field hold a value asked for.
+
+        Exactly one of ``eq``, ``isin`` and ``between`` says what is asked for.
+
+        Parameters
+        ----------
+        field : EventTrackHitField | str
+            Field to test, at the level it describes.
+        eq : Any
+            Value the field has to equal.
+        isin : Sequence[Any] | None
+            Values one of which the field has to equal.
+        between : tuple[float, float] | None
+            Range the field has to fall in; a missing value falls outside.
+        inclusive : {"both", "neither", "left", "right"}
+            Which ends of ``between`` belong to the range.
+
+        Returns
+        -------
+        numpy.ndarray
+            One boolean per element of the level of the field.
+
+        Raises
+        ------
+        ValueError
+            If not exactly one of ``eq``, ``isin`` and ``between`` is given.
+        """
+        asked = [
+            name
+            for name, given in (("eq", eq), ("isin", isin), ("between", between))
+            if given is not None
+        ]
+        if len(asked) != 1:
+            raise ValueError(
+                "Say what a field is tested for with exactly one of eq, isin and between; "
+                f"got {asked or 'none'}."
+            )
+        values = self.values(field)
+        if eq is not None:
+            return np.asarray(values == eq, dtype=bool)
+        if isin is not None:
+            return np.isin(values, list(isin))
+        low, high = between  # type: ignore[misc]
+        return is_in_range(pd.Series(values), low, high, inclusive).to_numpy()
+
+    def with_source_type(self, *types: SourceType, keep_empty: bool = False) -> "EventTrackHit":
+        """Return the events emitted with one of the given source models."""
+        return self.select_events(self.is_source_type(*types), keep_empty)
+
+    def with_gamma_type(self, *types: GammaType, keep_empty: bool = False) -> "EventTrackHit":
+        """Return the tracks that are one of the given kinds of gamma."""
+        return self.select_tracks(self.is_gamma_type(*types), keep_empty)
+
+    def with_decay_type(self, *types: DecayType, keep_empty: bool = False) -> "EventTrackHit":
+        """Return the tracks that came through one of the given decay channels."""
+        return self.select_tracks(self.is_decay_type(*types), keep_empty)
+
+    def with_particle(self, *pdg_codes: int, keep_empty: bool = False) -> "EventTrackHit":
+        """Return the tracks of the given particles, by PDG code."""
+        return self.select_tracks(self.is_particle(*pdg_codes), keep_empty)
+
+    def with_process(self, *processes: Process | str, keep_empty: bool = False) -> "EventTrackHit":
+        """Return the hits made by one of the given processes."""
+        return self.select_hits(self.is_process(*processes), keep_empty)
+
+    def with_value(
+        self,
+        field: FieldLike,
+        *,
+        eq: Any = None,
+        isin: Sequence[Any] | None = None,
+        between: tuple[float, float] | None = None,
+        inclusive: InclusiveSide = "both",
+        keep_empty: bool = False,
+    ) -> "EventTrackHit":
+        """Return the elements of the level of a field that hold a value asked for.
+
+        See :meth:`is_value` for the parameters.
+        """
+        mask = self.is_value(field, eq=eq, isin=isin, between=between, inclusive=inclusive)
+        level = _resolve(field)[1]
+        if level is ElementLevel.EVENT:
+            return self.select_events(mask, keep_empty)
+        if level is ElementLevel.TRACK:
+            return self.select_tracks(mask, keep_empty)
+        return self.select_hits(mask, keep_empty)
 
     def events_frame(self, fields: Sequence[FieldLike] = DEFAULT_EVENT_FIELDS) -> pd.DataFrame:
         """Return a table with a row per event.
@@ -414,6 +662,17 @@ class EventTrackHit(DataRepresentation):
             f"tracks={self.track_count}, hits={self.hit_count})"
         )
 
+    def _selected(
+        self,
+        event_mask: npt.NDArray[Any] | None = None,
+        track_mask: npt.NDArray[Any] | None = None,
+        hit_mask: npt.NDArray[Any] | None = None,
+        keep_empty: bool = False,
+    ) -> "EventTrackHit":
+        """Return the representation of what the masks keep."""
+        index = self._index.select(event_mask, track_mask, hit_mask, keep_empty)
+        return type(self)._from_index(self.data, self.row_labels, index)
+
     def _own_level_values(self, field: FieldLike, level: ElementLevel) -> npt.NDArray[Any]:
         """Return a field at the level it describes."""
         index = self._index
@@ -429,8 +688,8 @@ class EventTrackHit(DataRepresentation):
         if level is ElementLevel.HIT:
             return column[index.hit_rows]
         if level is ElementLevel.TRACK:
-            return column[index.first_hit_rows()]
-        return column[index.first_track_rows()]
+            return column[index.track_rows]
+        return column[index.event_rows]
 
     def _add_fields(
         self, columns: dict[str, npt.NDArray[Any]], fields: Sequence[FieldLike], level: ElementLevel
@@ -468,6 +727,18 @@ class EventTrackHit(DataRepresentation):
         if field.level is ElementLevel.TRACK:
             return per_track
         return reduce_tracks_to_events(index, per_track, "any")
+
+
+def _as_mask(mask: MaskLike) -> npt.NDArray[Any]:
+    """Return a mask as an array; a column is read by position, not by label."""
+    return mask.to_numpy() if isinstance(mask, pd.Series) else np.asarray(mask)
+
+
+def _mask_of(
+    test: Callable[..., pd.Series], values: npt.NDArray[Any], wanted: Sequence[Any]
+) -> npt.NDArray[np.bool_]:
+    """Return what a filter of the pandas view answers about an array of values."""
+    return np.asarray(test(pd.Series(values), *wanted).to_numpy(), dtype=bool)
 
 
 def _checkable(field: FieldLike) -> EventTrackHitField:

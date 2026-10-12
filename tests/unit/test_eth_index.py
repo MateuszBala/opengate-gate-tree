@@ -145,7 +145,7 @@ def test_tracks_follow_their_identifier_and_hits_their_time(
     index = index_of(frame)
 
     # ASSERT
-    track_ids = frame["trackID"].to_numpy()[index.first_hit_rows()]
+    track_ids = frame["trackID"].to_numpy()[index.track_rows]
     first_event = track_ids[index.event_offsets[0] : index.event_offsets[1]]
     assert first_event.tolist() == [1, 2, 3, 4]
     times = frame["time"].to_numpy()[index.hit_rows]
@@ -164,7 +164,7 @@ def test_events_follow_their_run_and_their_identifier(
     index = index_of(frame)
 
     # ASSERT
-    first_rows = index.first_track_rows()
+    first_rows = index.event_rows
     runs = frame["runID"].to_numpy()[first_rows]
     events = frame["eventID"].to_numpy()[first_rows]
     keys = list(zip(runs, events, strict=True))
@@ -261,6 +261,8 @@ def test_the_parents_of_tracks_and_hits_are_named() -> None:
         hit_rows=np.arange(4, dtype=np.int64),
         track_offsets=np.array([0, 1, 3, 4], dtype=np.int64),
         event_offsets=np.array([0, 2, 3], dtype=np.int64),
+        track_rows=np.array([0, 1, 3], dtype=np.int64),
+        event_rows=np.array([0, 3], dtype=np.int64),
     )
 
     # ACT
@@ -273,38 +275,17 @@ def test_the_parents_of_tracks_and_hits_are_named() -> None:
     assert repr(index) == "EventTrackHitIndex(events=2, tracks=3, hits=4)"
 
 
-def test_a_track_without_hits_has_no_first_hit() -> None:
-    """Only a selection keeping empty tracks leaves one."""
+def test_one_row_per_track_and_per_event_is_required() -> None:
+    """Every track and every event reads its values from a row."""
     # ARRANGE
-    index = EventTrackHitIndex(
-        hit_rows=np.arange(1, dtype=np.int64),
-        track_offsets=np.array([0, 1, 1], dtype=np.int64),
-        event_offsets=np.array([0, 2], dtype=np.int64),
-    )
+    offsets = np.array([0, 1], dtype=np.int64)
 
     # ACT
     with pytest.raises(ValueError) as raised:
-        index.first_hit_rows()
+        EventTrackHitIndex(np.zeros(1, dtype=np.int64), offsets, offsets, offsets, offsets[:1])
 
     # ASSERT
-    assert "without hits" in str(raised.value)
-
-
-def test_an_event_without_tracks_has_no_first_track() -> None:
-    """Only a selection keeping empty events leaves one."""
-    # ARRANGE
-    index = EventTrackHitIndex(
-        hit_rows=np.arange(1, dtype=np.int64),
-        track_offsets=np.array([0, 1], dtype=np.int64),
-        event_offsets=np.array([0, 0, 1], dtype=np.int64),
-    )
-
-    # ACT
-    with pytest.raises(ValueError) as raised:
-        index.first_track_rows()
-
-    # ASSERT
-    assert "without tracks" in str(raised.value)
+    assert "one row per track and per event (1 and 1), got 2 and 1" in str(raised.value)
 
 
 @pytest.mark.parametrize(
@@ -326,7 +307,9 @@ def test_offsets_that_do_not_divide_the_hits_are_refused(
 
     # ACT
     with pytest.raises(ValueError) as raised:
-        EventTrackHitIndex(hit_rows, track_offsets, np.array([0, 1], dtype=np.int64))
+        EventTrackHitIndex(
+            hit_rows, track_offsets, np.array([0, 1], dtype=np.int64), hit_rows[:1], hit_rows[:1]
+        )
 
     # ASSERT
     assert message in str(raised.value)
@@ -346,3 +329,98 @@ def test_a_frame_left_by_a_selection_is_indexed_by_position(
     # ASSERT
     assert index.hit_count == 200
     assert int(index.hit_rows.max()) == 199
+
+
+def two_events() -> EventTrackHitIndex:
+    """Return event 0 of tracks [h0 h1] [h2], and event 1 of track [h3 h4]."""
+    return build_event_track_hit_index(
+        [0] * 5, [0, 0, 0, 1, 1], [1, 1, 2, 1, 1], [0.0, 1.0, 0.0, 0.0, 1.0]
+    )
+
+
+def test_selecting_hits_keeps_their_order_and_their_tracks() -> None:
+    """The second hit of every track, and nothing of the track that has one."""
+    # ARRANGE
+    index = two_events()
+
+    # ACT
+    selected = index.select(hit_mask=np.array([False, True, False, False, True]))
+
+    # ASSERT
+    assert selected.hit_rows.tolist() == [1, 4]
+    assert selected.hits_per_track().tolist() == [1, 1]
+    assert selected.tracks_per_event().tolist() == [1, 1]
+    assert selected.track_rows.tolist() == [0, 3]
+    assert selected.event_rows.tolist() == [0, 3]
+
+
+def test_a_track_left_without_hits_can_be_kept() -> None:
+    """It is still the track it was, and reads its values from the same row."""
+    # ARRANGE
+    index = two_events()
+
+    # ACT
+    selected = index.select(hit_mask=np.array([True, True, False, False, False]), keep_empty=True)
+
+    # ASSERT
+    assert selected.hits_per_track().tolist() == [2, 0, 0]
+    assert selected.track_rows.tolist() == [0, 2, 3]
+    assert selected.event_count == 2
+
+
+def test_leaving_out_an_event_leaves_out_its_tracks_and_hits() -> None:
+    """A level keeps only what the levels above it keep."""
+    # ARRANGE
+    index = two_events()
+
+    # ACT
+    selected = index.select(event_mask=np.array([False, True]), keep_empty=True)
+
+    # ASSERT
+    assert selected.hit_rows.tolist() == [3, 4]
+    assert selected.event_rows.tolist() == [3]
+
+
+def test_an_event_left_without_tracks_is_removed_unless_kept() -> None:
+    """Removing its only track removes the event, unless it is kept empty."""
+    # ARRANGE
+    index = two_events()
+    mask = np.array([True, True, False])
+
+    # ACT
+    removed = index.select(track_mask=mask)
+    kept = index.select(track_mask=mask, keep_empty=True)
+
+    # ASSERT
+    assert removed.event_count == 1
+    assert kept.tracks_per_event().tolist() == [2, 0]
+    assert kept.event_rows.tolist() == [0, 3]
+
+
+@pytest.mark.parametrize(
+    "mask",
+    [np.array([1, 0]), np.array([True]), np.array([[True, False]])],
+)
+def test_a_selection_needs_one_boolean_per_element(mask: np.ndarray) -> None:
+    """A mask of the wrong kind or length selects nothing that can be told."""
+    # ARRANGE
+    index = two_events()
+
+    # ACT
+    with pytest.raises(ValueError) as raised:
+        index.select(event_mask=mask)
+
+    # ASSERT
+    assert "one boolean per event, 2 in all" in str(raised.value)
+
+
+def test_selecting_nothing_leaves_nothing(fixture_frames: Mapping[str, pd.DataFrame]) -> None:
+    """An empty index is still an index."""
+    # ARRANGE
+    index = index_of(fixture_frames["a1"])
+
+    # ACT
+    selected = index.select(event_mask=np.zeros(index.event_count, dtype=bool))
+
+    # ASSERT
+    assert (selected.event_count, selected.track_count, selected.hit_count) == (0, 0, 0)
