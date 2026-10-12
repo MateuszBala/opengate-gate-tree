@@ -115,7 +115,8 @@ The index, with what each one shows, is in
 - `tutorial-18-events-tracks-and-hits.ipynb` - a "Hits" tree read as events,
   the tracks in them and the hits they left;
 - `tutorial-19-analysis-as-a-description.ipynb` - an analysis as a description;
-- `tutorial-20-order-of-operations-and-positions.ipynb` - the order of operations, and positions.
+- `tutorial-20-order-of-operations-and-positions.ipynb` - the order of operations, and positions;
+- `tutorial-21-combining-analyses.ipynb` - combining analyses.
 
 ## Writing A Tutorial
 
