@@ -17,6 +17,11 @@ annihilation = representation.with_gamma_type(GammaType.ANNIHILATION).with_track
 first_interactions = annihilation.first_hits().hits_frame(["edep", "processName"])
 ```
 
+The notebook
+[`tutorial-18-events-tracks-and-hits.ipynb`](https://github.com/MateuszBala/opengate-gate-tree/blob/main/tutorials/notebooks/tutorial-18-events-tracks-and-hits.ipynb)
+goes through everything on this page on a real GATE output, with the answers
+kept in it.
+
 ## What The Representation Holds
 
 Building a representation reads four branches - `runID`, `eventID`, `trackID`
