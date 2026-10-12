@@ -399,9 +399,11 @@ class EventTrackHitAnalysis(Analysis[EventTrackHit, Selection]):
         """Return the analysis as numbered steps, one per line."""
         if not self.steps:
             return "Keep every event, track and hit."
-        return "\n".join(
-            f"{number}. {_describe(step)}" for number, step in enumerate(self.steps, start=1)
-        )
+        lines = []
+        for number, step in enumerate(self.steps, start=1):
+            standing = _standing_after(self.steps[: number - 1])
+            lines.append(f"{number}. {_describe(step, standing)}")
+        return "\n".join(lines)
 
     def _enum_condition(
         self,
@@ -633,6 +635,13 @@ def _count_call(name: str, count: int | None, comparisons: tuple[tuple[str, int]
     return f"{name}({', '.join(f'{key}={bound}' for key, bound in comparisons)})"
 
 
+def _place(level: ElementLevel, position: int | None) -> str:
+    """Return a position of a level in words: "hit 1", "track 1 from the end"."""
+    element = "track" if level is ElementLevel.TRACK else "hit"
+    assert position is not None
+    return f"{element} {position}" if position > 0 else f"{element} {abs(position)} from the end"
+
+
 def _value_test(comparisons: Mapping[str, Any]) -> ValueTest:
     """Return a value test from the keyword arguments that ask for it.
 
@@ -673,31 +682,40 @@ def _name(field: FieldLike) -> str:
     return field.value if isinstance(field, EventTrackHitField) else field
 
 
-def _describe(step: object) -> str:
-    """Return one step of an analysis in words."""
+def _describe(step: object, standing: tuple[ElementLevel, int | None]) -> str:
+    """Return one step of an analysis in words, knowing where the analysis stands."""
     if isinstance(step, Navigate):
         if step.position is None:
             return f"Move to the {_PLURAL[step.level]}."
         holder = "event" if step.level is ElementLevel.TRACK else "track"
-        element = "track" if step.level is ElementLevel.TRACK else "hit"
-        place = (
-            f"{element} {step.position}"
-            if step.position > 0
-            else f"{element} {abs(step.position)} from the end"
+        return (
+            f"Move to {_place(step.level, step.position)} of every {holder}; "
+            f"a condition there decides about the {holder}."
         )
-        return f"Move to {place} of every {holder}; a condition there decides about the {holder}."
+    level, position = standing
     if isinstance(step, CountCondition):
         parent = ElementLevel.EVENT if step.counted is ElementLevel.TRACK else ElementLevel.TRACK
         counted = ", ".join(f"{name}={bound}" for name, bound in step.comparisons)
+        if parent is level and position is not None:
+            return (
+                f"Keep the events whose {_place(level, position)} has a number of "
+                f"{_PLURAL[step.counted]} passing {counted}, and move to their "
+                f"{_PLURAL[step.counted]}."
+            )
         return (
             f"Keep the {_PLURAL[parent]} whose number of {_PLURAL[step.counted]} passes "
             f"{counted}, and move to their {_PLURAL[step.counted]}."
         )
     if isinstance(step, FieldCondition):
-        level = _level_of(step.field)
-        return (
-            f"Keep the {_PLURAL[level]} whose {_name(step.field)} passes {step.test.arguments()}."
-        )
+        own = _level_of(step.field)
+        arguments = step.test.arguments()
+        if own is level and position is not None:
+            decided = ElementLevel.EVENT if level is ElementLevel.TRACK else ElementLevel.TRACK
+            return (
+                f"Keep the {_PLURAL[decided]} whose {_place(level, position)} has "
+                f"{_name(step.field)} passing {arguments}."
+            )
+        return f"Keep the {_PLURAL[own]} whose {_name(step.field)} passes {arguments}."
     assert isinstance(step, Combination)
     joined = "and" if step.kind == "and" else "or"
     return f"Keep what {step.left!r} {joined} {step.right!r} keep."

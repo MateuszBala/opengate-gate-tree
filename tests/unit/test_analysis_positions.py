@@ -278,3 +278,21 @@ def test_a_position_is_shown_as_written_and_described() -> None:
         "1. Move to track 1 of every event; a condition there decides about the event.",
         "2. Move to hit 1 from the end of every track; a condition there decides about the track.",
     ]
+
+
+def test_a_condition_at_a_position_is_described_as_deciding_about_the_parent() -> None:
+    """Words that match what the condition does."""
+    # ARRANGE
+    analysis = Analysis().hit(1).process(Process.COMPTON).track(-1).hits(2)
+
+    # ACT
+    described = analysis.describe().splitlines()
+
+    # ASSERT
+    assert (
+        described[1] == "2. Keep the tracks whose hit 1 has processName passing isin=('Compton',)."
+    )
+    assert described[3] == (
+        "4. Keep the events whose track 1 from the end has a number of hits passing eq=2, "
+        "and move to their hits."
+    )
