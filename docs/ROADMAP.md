@@ -120,7 +120,7 @@ Add physical unit converters and vector functionality:
 - all tests pass
 - user documentation (ReadTheDocs) clearly and comprehensively covers the added representations and features
 
-## Version 0.7.0 (status: planned)
+## Version 0.7.0 (status: completed)
 
 Add a representation of the "Hits" tree using the Event, Track, and Hit concepts:
 
