@@ -95,6 +95,17 @@ conversions to the units an analysis uses are named after what they do::
     energies = MeV_to_keV(frame["edep"])
     resolution = s_to_ns(frame["time"])
 
+An analysis often asks about events and the tracks in them rather than about
+rows. :class:`EventTrackHit` reads a "Hits" tree that way without copying it:
+it groups the rows once into events, tracks and hits, and reads every value
+when it is asked for - as an array per level, as a table with a row per event,
+track or hit, or as :class:`Event`, :class:`Track` and :class:`Hit` objects
+made one at a time::
+
+    representation = EventTrackHit(read_tree(Path("simulation.root"), GateTree.HITS))
+    tracks = representation.tracks_frame()
+    first = representation.events[0].tracks[0].hits[0]
+
 The package does not configure logging on import. Applications decide that for
 themselves; :func:`opengate_gate_tree.logging_setup.configure_logging` is
 available for the ones that want the defaults used by the command line.
@@ -172,6 +183,29 @@ from opengate_gate_tree.io.statistics import write_statistics  # noqa: E402
 from opengate_gate_tree.io.writers import write_tree  # noqa: E402
 from opengate_gate_tree.logging_setup import LOGGER_NAME  # noqa: E402
 from opengate_gate_tree.representation.base import DataRepresentation  # noqa: E402
+from opengate_gate_tree.representation.elements import Event, Hit, Track  # noqa: E402
+from opengate_gate_tree.representation.eventtrackhit import (  # noqa: E402
+    INDEX_BRANCHES,
+    ConsistencyReport,
+    EventTrackHit,
+)
+from opengate_gate_tree.representation.fields import (  # noqa: E402
+    ElementLevel,
+    EventTrackHitField,
+)
+from opengate_gate_tree.representation.index import (  # noqa: E402
+    EventTrackHitIndex,
+    build_event_track_hit_index,
+)
+from opengate_gate_tree.representation.reduce import (  # noqa: E402
+    REDUCTIONS,
+    broadcast_events_to_tracks,
+    broadcast_tracks_to_hits,
+    position_in_event,
+    position_in_track,
+    reduce_hits_to_tracks,
+    reduce_tracks_to_events,
+)
 from opengate_gate_tree.tree.accessors import ACCESSOR_NAME  # noqa: E402
 from opengate_gate_tree.tree.filters import (  # noqa: E402
     EVENT_COLUMN,
@@ -274,32 +308,42 @@ __all__ = [
     "BranchNotFoundError",
     "BranchSpec",
     "BranchStatistics",
+    "ConsistencyReport",
     "DECAY_INDEX_BRANCH",
     "DataRepresentation",
     "DecayType",
     "EVENT_COLUMN",
+    "ElementLevel",
+    "Event",
+    "EventTrackHit",
+    "EventTrackHitField",
+    "EventTrackHitIndex",
     "ExportError",
     "GATE_UNITS",
     "GammaType",
     "GateSystemType",
     "GateTree",
     "GateTreeError",
+    "Hit",
     "HitsSummary",
     "HitsTreeDetection",
     "HitsTreeValidationError",
     "HitsTreeVariant",
+    "INDEX_BRANCHES",
     "InclusiveSide",
     "MeV_to_keV",
     "NO_POSITRONIUM_METADATA",
     "OutputFileFormat",
     "POSITION_COLUMNS",
     "POSITRONIUM_BRANCHES",
+    "REDUCTIONS",
     "RUN_COLUMN",
     "RepresentationError",
     "RootFile",
     "RootFileError",
     "SOURCE_TREE_BRANCH",
     "SourceType",
+    "Track",
     "TreeData",
     "TreeMergeError",
     "TreeNotFoundError",
@@ -312,6 +356,9 @@ __all__ = [
     "angle_between_normals",
     "angle_between_planes",
     "as_vectors",
+    "broadcast_events_to_tracks",
+    "broadcast_tracks_to_hits",
+    "build_event_track_hit_index",
     "build_output_file_name",
     "build_output_file_path",
     "build_statistics_file_path",
@@ -366,10 +413,14 @@ __all__ = [
     "perpendicular_component",
     "plane_normal",
     "polarization_direction",
+    "position_in_event",
+    "position_in_track",
     "positronium_enum",
     "rad_to_deg",
     "read_hits_trees",
     "read_tree",
+    "reduce_hits_to_tracks",
+    "reduce_tracks_to_events",
     "s_to_ms",
     "s_to_ns",
     "select_by_decay_type",
