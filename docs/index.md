@@ -41,6 +41,7 @@ guide/loading
 guide/hits
 guide/events
 guide/event-track-hit
+guide/analysis
 guide/positronium
 guide/merging
 guide/representations
@@ -61,6 +62,7 @@ api/tree
 api/units
 api/geometry
 api/representation
+api/analysis
 api/cli
 ```
 

@@ -298,6 +298,33 @@ with columns saying where every hit stands, `<title>.eth.<format>`, and read
 back. See the
 [guide](https://opengate-gate-tree.readthedocs.io/en/latest/guide/event-track-hit.html).
 
+### Analysis Of Events, Tracks And Hits
+
+A question about events - which ones to keep, and what to read of them - is
+written once as a chain of operations, kept as a description, and answered on
+any data:
+
+```python
+from opengate_gate_tree import EventTrackHitAnalysis, EventTrackHitField
+
+analysis = (
+    EventTrackHitAnalysis()
+    .tracks(2)
+    .gamma_type(GammaType.ANNIHILATION)
+    .hits(eq=2)
+    .hit(1).process(Process.COMPTON)
+    .hit(2).process(Process.PHOTOELECTRIC)
+    .tracks(2)
+)
+table = analysis.extract(data, [EventTrackHitField.EDEP, EventTrackHitField.TIME])
+# runID, eventID, t1h1_edep, t1h2_edep, t2h1_edep, t2h2_edep, t1h1_time, ...
+```
+
+Conditions keep what passes and leave out what they empty, so the order of
+operations is part of the question. Analyses combine with `&`, `|` and
+`then`. See the
+[guide](https://opengate-gate-tree.readthedocs.io/en/latest/guide/analysis.html).
+
 ### Reading What A Gamma Was
 
 The branches a `PositroniumSource` writes hold integers saying what each gamma
