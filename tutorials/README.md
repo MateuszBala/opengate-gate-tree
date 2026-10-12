@@ -86,7 +86,9 @@ The index, with what each one shows, is in
 - `tutorial-04-command-line.ipynb` - the command line: every option, its output
   files and exit codes, and the same run in Python;
 - `tutorial-05-hits-tree-variants.ipynb` - which structure a "Hits" tree has,
-  and how a tree is checked against it.
+  and how a tree is checked against it;
+- `tutorial-06-split-hits-trees.ipynb` - a file whose hits are split per run or
+  per detector, read as one dataset.
 
 ## Writing A Tutorial
 
