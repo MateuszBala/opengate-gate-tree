@@ -106,6 +106,19 @@ made one at a time::
     tracks = representation.tracks_frame()
     first = representation.events[0].tracks[0].hits[0]
 
+A question about events is written once as an :class:`EventTrackHitAnalysis`
+- a lazy chain of operations kept as a description - and answered on any data:
+``apply`` returns the events, tracks and hits it kept, and ``extract`` a table
+with one row per event and the variables asked for of its tracks and hits::
+
+    analysis = (
+        EventTrackHitAnalysis().tracks(2).gamma_type(GammaType.ANNIHILATION)
+        .hit(1).process(Process.COMPTON).tracks(2)
+    )
+    table = analysis.extract(data, [EventTrackHitField.EDEP])
+
+Analyses combine with ``&``, ``|`` and :meth:`Analysis.then`.
+
 The package does not configure logging on import. Applications decide that for
 themselves; :func:`opengate_gate_tree.logging_setup.configure_logging` is
 available for the ones that want the defaults used by the command line.
@@ -123,6 +136,9 @@ __version__ = "0.8.0"
 
 import logging  # noqa: E402
 
+from opengate_gate_tree.analysis.base import Analysis, Combination  # noqa: E402
+from opengate_gate_tree.analysis.eventtrackhit import EventTrackHitAnalysis  # noqa: E402
+from opengate_gate_tree.analysis.extract import extract_table  # noqa: E402
 from opengate_gate_tree.errors import (  # noqa: E402
     AmbiguousTreeError,
     BranchNotFoundError,
@@ -312,10 +328,12 @@ logging.getLogger(LOGGER_NAME).addHandler(logging.NullHandler())
 __all__ = [
     "ACCESSOR_NAME",
     "AmbiguousTreeError",
+    "Analysis",
     "BranchKind",
     "BranchNotFoundError",
     "BranchSpec",
     "BranchStatistics",
+    "Combination",
     "ConsistencyReport",
     "DECAY_INDEX_BRANCH",
     "DataRepresentation",
@@ -324,6 +342,7 @@ __all__ = [
     "ElementLevel",
     "Event",
     "EventTrackHit",
+    "EventTrackHitAnalysis",
     "EventTrackHitField",
     "EventTrackHitIndex",
     "ExportError",
@@ -388,6 +407,7 @@ __all__ = [
     "dot",
     "ensure_vectors",
     "expected_branches",
+    "extract_table",
     "format_statistics",
     "has_decay_metadata",
     "has_positronium_metadata",

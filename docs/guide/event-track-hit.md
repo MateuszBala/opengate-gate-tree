@@ -22,6 +22,10 @@ The notebook
 goes through everything on this page on a real GATE output, with the answers
 kept in it.
 
+A question about events written once and answered on any data - which events
+to keep, and what to read of them - is an
+[analysis](analysis.md), built on this representation.
+
 ## What The Representation Holds
 
 Building a representation reads four branches - `runID`, `eventID`, `trackID`

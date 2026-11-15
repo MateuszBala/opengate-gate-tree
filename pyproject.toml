@@ -89,6 +89,9 @@ ignore_missing_imports = true
 # docstrings: they are published on the API pages, and nothing else runs them.
 testpaths = ["tests", "src"]
 addopts = "--cov=opengate_gate_tree --cov-report=term-missing --doctest-modules"
+markers = [
+  "consistency: an analysis written with the package against one made outside it",
+]
 
 [tool.coverage.report]
 show_missing = true

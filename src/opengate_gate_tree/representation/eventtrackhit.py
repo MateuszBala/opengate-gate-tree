@@ -347,6 +347,52 @@ class EventTrackHit(DataRepresentation):
             return self.data[_name(resolved)][index.event_rows[event]]
         return self.data[_name(resolved)][index.track_rows[track]]
 
+    def select(
+        self,
+        event_mask: MaskLike | None = None,
+        track_mask: MaskLike | None = None,
+        hit_mask: MaskLike | None = None,
+        keep_empty: bool = False,
+    ) -> "EventTrackHit":
+        """Return the events, tracks and hits the masks keep, all levels at once.
+
+        An element is kept when its own mask and the masks of every level
+        above it keep it. The masks are read as :meth:`select_events`,
+        :meth:`select_tracks` and :meth:`select_hits` read them.
+
+        Parameters
+        ----------
+        event_mask, track_mask, hit_mask : numpy.ndarray | pandas.Series | None
+            Which events, tracks and hits to keep; ``None`` keeps every
+            element of the level.
+        keep_empty : bool
+            Keep a track whose hits this selection left out, and an event
+            whose tracks it left out.
+
+        Returns
+        -------
+        EventTrackHit
+            Representation of the same data, reduced to what was kept.
+
+        Raises
+        ------
+        ValueError
+            If a mask is not one boolean per element of its level.
+        """
+        index = self._index
+        masks = (
+            None
+            if event_mask is None
+            else _as_mask(event_mask, pd.RangeIndex(index.event_count), "event"),
+            None
+            if track_mask is None
+            else _as_mask(track_mask, pd.RangeIndex(index.track_count), "track"),
+            None
+            if hit_mask is None
+            else _as_mask(hit_mask, self.row_labels[index.hit_rows], "hit"),
+        )
+        return self._selected(*masks, keep_empty=keep_empty)
+
     def select_events(self, mask: MaskLike, keep_empty: bool = False) -> "EventTrackHit":
         """Return the events a mask keeps, with their tracks and hits.
 

@@ -25,3 +25,4 @@ Describe tests added or how changes were tested.
 - [ ] Documentation updated
 - [ ] Commit messages are clear
 - [ ] No merge conflicts
+- [ ] Analysis consistency tests pass, if the change touches an analysis they check
